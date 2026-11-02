@@ -1,0 +1,18 @@
+CREATE TABLE public.programs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, description text, weeks integer NOT NULL DEFAULT 4, created_by uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE public.program_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), program_id uuid NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE, week integer NOT NULL, day integer NOT NULL, exercise_id uuid NOT NULL REFERENCES public.exercises(id), target_sets integer NOT NULL DEFAULT 3, target_reps text NOT NULL DEFAULT '8-12', position integer NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE public.program_assignments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), program_id uuid NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE, member_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE, start_date date NOT NULL DEFAULT current_date, active boolean NOT NULL DEFAULT true, assigned_by uuid, created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX ON public.program_items(program_id, week, day);
+CREATE INDEX ON public.program_assignments(member_id);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.programs, public.program_items, public.program_assignments TO authenticated;
+GRANT ALL ON public.programs, public.program_items, public.program_assignments TO service_role;
+ALTER TABLE public.programs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_assignments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "assignments read" ON public.program_assignments FOR SELECT TO authenticated USING (member_id = auth.uid() OR public.is_admin(auth.uid()) OR public.manages_member(auth.uid(), member_id));
+CREATE POLICY "assignments admin write" ON public.program_assignments FOR ALL TO authenticated USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+CREATE POLICY "programs read" ON public.programs FOR SELECT TO authenticated USING (public.is_admin(auth.uid()) OR EXISTS (SELECT 1 FROM public.program_assignments a WHERE a.program_id = programs.id AND (a.member_id = auth.uid() OR public.manages_member(auth.uid(), a.member_id))));
+CREATE POLICY "programs admin write" ON public.programs FOR ALL TO authenticated USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+CREATE POLICY "items read" ON public.program_items FOR SELECT TO authenticated USING (public.is_admin(auth.uid()) OR EXISTS (SELECT 1 FROM public.program_assignments a WHERE a.program_id = program_items.program_id AND (a.member_id = auth.uid() OR public.manages_member(auth.uid(), a.member_id))));
+CREATE POLICY "items admin write" ON public.program_items FOR ALL TO authenticated USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+CREATE TRIGGER programs_updated BEFORE UPDATE ON public.programs FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER program_assignments_audit AFTER INSERT OR UPDATE OR DELETE ON public.program_assignments FOR EACH ROW EXECUTE FUNCTION public.audit_change();

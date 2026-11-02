@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-02",
+  "environment": {
+    "build": "production",
+    "backend": "mocked",
+    "browser": "mobile Chromium",
+    "clock": "real time",
+    "navigation": "client-side tabs"
+  },
+  "privacy": "Operation names and counts only; no URLs, filters, IDs, headers or bodies.",
+  "before": {
+    "version": 1,
+    "phase": "before",
+    "nutritionWindowMs": 64000,
+    "workoutWindowMs": 32000,
+    "nutrition": {
+      "GET xp_events": 4,
+      "GET level_thresholds": 4,
+      "GET member_pv_totals": 4,
+      "GET member_xp_totals": 4,
+      "GET food_logs": 4,
+      "GET water_logs": 4,
+      "GET nutrition_targets": 4,
+      "HEAD notifications": 1,
+      "GET notifications": 1,
+      "GET member_badges": 1
+    },
+    "workout": {
+      "GET workout_sessions": 4,
+      "GET xp_events": 2,
+      "GET level_thresholds": 2,
+      "GET member_pv_totals": 2,
+      "GET member_xp_totals": 2
+    }
+  },
+  "after": {
+    "version": 1,
+    "phase": "after",
+    "nutritionWindowMs": 64000,
+    "workoutWindowMs": 32000,
+    "nutrition": {
+      "HEAD notifications": 1,
+      "GET notifications": 1,
+      "GET member_badges": 1,
+      "GET xp_events": 1,
+      "GET level_thresholds": 1,
+      "GET member_pv_totals": 1,
+      "GET member_xp_totals": 1,
+      "GET food_logs": 1,
+      "GET water_logs": 1,
+      "GET nutrition_targets": 1
+    },
+    "workout": {
+      "GET workout_sessions": 2
+    }
+  },
+  "initial_full_reload_workout_baseline": {
+    "GET workout_sessions": 2,
+    "GET xp_events": 2,
+    "GET level_thresholds": 2,
+    "GET member_pv_totals": 2,
+    "GET member_xp_totals": 2
+  },
+  "comparison": {
+    "nutrition_data_reads": {
+      "before": 12,
+      "after": 3,
+      "reduction_percent": 75.0
+    },
+    "workout_session_reads": {
+      "before": 4,
+      "after": 2,
+      "reduction_percent": 50.0
+    }
+  }
+}

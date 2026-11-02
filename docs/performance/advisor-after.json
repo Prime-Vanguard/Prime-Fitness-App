@@ -1,0 +1,214 @@
+{
+  "lints": [
+    {
+      "name": "unused_index",
+      "title": "Unused Index",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["PERFORMANCE"],
+      "description": "Detects if an index has never been used and may be a candidate for removal.",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index",
+      "count": 22,
+      "findings": [
+        {
+          "detail": "Index \\`invites_email_idx\\` on table \\`public.invites\\` has not been used",
+          "metadata": {
+            "name": "invites",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`program_items_program_id_week_day_idx\\` on table \\`public.program_items\\` has not been used",
+          "metadata": {
+            "name": "program_items",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`saved_meals_member_created_idx\\` on table \\`public.saved_meals\\` has not been used",
+          "metadata": {
+            "name": "saved_meals",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`invites_pod_id_idx\\` on table \\`public.invites\\` has not been used",
+          "metadata": {
+            "name": "invites",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pod_members_member_pod_idx\\` on table \\`public.pod_members\\` has not been used",
+          "metadata": {
+            "name": "pod_members",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`member_badges_badge_code_idx\\` on table \\`public.member_badges\\` has not been used",
+          "metadata": {
+            "name": "member_badges",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pods_leader_id_idx\\` on table \\`public.pods\\` has not been used",
+          "metadata": {
+            "name": "pods",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`program_assignments_program_id_idx\\` on table \\`public.program_assignments\\` has not been used",
+          "metadata": {
+            "name": "program_assignments",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`program_items_exercise_id_idx\\` on table \\`public.program_items\\` has not been used",
+          "metadata": {
+            "name": "program_items",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pv_claims_member_id_idx\\` on table \\`public.pv_claims\\` has not been used",
+          "metadata": {
+            "name": "pv_claims",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pv_claims_task_id_idx\\` on table \\`public.pv_claims\\` has not been used",
+          "metadata": {
+            "name": "pv_claims",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pv_ledger_member_id_idx\\` on table \\`public.pv_ledger\\` has not been used",
+          "metadata": {
+            "name": "pv_ledger",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pod_activity_pod_time_idx\\` on table \\`public.pod_activity\\` has not been used",
+          "metadata": {
+            "name": "pod_activity",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pod_activity_member_idx\\` on table \\`public.pod_activity\\` has not been used",
+          "metadata": {
+            "name": "pod_activity",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pod_activity_event_idx\\` on table \\`public.pod_activity\\` has not been used",
+          "metadata": {
+            "name": "pod_activity",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`pv_ledger_redemption_id_idx\\` on table \\`public.pv_ledger\\` has not been used",
+          "metadata": {
+            "name": "pv_ledger",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`redemptions_reward_id_idx\\` on table \\`public.redemptions\\` has not been used",
+          "metadata": {
+            "name": "redemptions",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`coach_assignments_member_id_idx\\` on table \\`public.coach_assignments\\` has not been used",
+          "metadata": {
+            "name": "coach_assignments",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`exercises_created_by_idx\\` on table \\`public.exercises\\` has not been used",
+          "metadata": {
+            "name": "exercises",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`invites_coach_id_idx\\` on table \\`public.invites\\` has not been used",
+          "metadata": {
+            "name": "invites",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`invites_invited_by_idx\\` on table \\`public.invites\\` has not been used",
+          "metadata": {
+            "name": "invites",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        },
+        {
+          "detail": "Index \\`set_logs_exercise_id_idx\\` on table \\`public.set_logs\\` has not been used",
+          "metadata": {
+            "name": "set_logs",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-23T23:57:21.671Z"
+        }
+      ]
+    }
+  ]
+}

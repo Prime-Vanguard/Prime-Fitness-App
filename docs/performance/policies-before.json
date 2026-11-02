@@ -1,0 +1,902 @@
+[
+  {
+    "schemaname": "public",
+    "tablename": "audit_log",
+    "policyname": "audit admin read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "badges",
+    "policyname": "badges read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "body_measurements",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "body_measurements",
+    "policyname": "body own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "body_measurements",
+    "policyname": "body own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "body_measurements",
+    "policyname": "body own update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "body_measurements",
+    "policyname": "body read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coach_assignments",
+    "policyname": "coach assignments admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "coach_assignments",
+    "policyname": "coach assignments read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.is_admin(auth.uid()) OR (coach_id = auth.uid()) OR (member_id = auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "exercises",
+    "policyname": "Admins delete exercises",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "exercises",
+    "policyname": "Admins insert exercises",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "exercises",
+    "policyname": "Admins update exercises",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "exercises",
+    "policyname": "Members view active exercises",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(active OR private.is_admin(auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "food_logs",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "food_logs",
+    "policyname": "food own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "food_logs",
+    "policyname": "food own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "food_logs",
+    "policyname": "food own update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "food_logs",
+    "policyname": "food read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "foods",
+    "policyname": "foods admin insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "foods",
+    "policyname": "foods admin update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "foods",
+    "policyname": "foods read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(active OR private.is_admin(auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "invites",
+    "policyname": "invites admin create",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(private.is_admin(auth.uid()) AND ((role = ANY (ARRAY['member'::app_role, 'coach'::app_role, 'pod_leader'::app_role])) OR private.has_role(auth.uid(), 'super_admin'::app_role)))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "invites",
+    "policyname": "invites admin read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "invites",
+    "policyname": "invites admin update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "leaderboard_weekly",
+    "policyname": "leaderboard read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(opted_in OR (member_id = auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "level_thresholds",
+    "policyname": "levels admin update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "level_thresholds",
+    "policyname": "levels read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "true",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "member_badges",
+    "policyname": "member badges read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notifications",
+    "policyname": "notifications own mark read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "notifications",
+    "policyname": "notifications own read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "nutrition_targets",
+    "policyname": "targets read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "nutrition_targets",
+    "policyname": "targets write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "(private.is_admin(auth.uid()) OR (EXISTS ( SELECT 1\n   FROM coach_assignments c\n  WHERE ((c.coach_id = auth.uid()) AND (c.member_id = nutrition_targets.member_id) AND c.active))))",
+    "with_check": "(private.is_admin(auth.uid()) OR (EXISTS ( SELECT 1\n   FROM coach_assignments c\n  WHERE ((c.coach_id = auth.uid()) AND (c.member_id = nutrition_targets.member_id) AND c.active))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pod_activity",
+    "policyname": "feed current pod opted in",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.shares_pod(pod_id, member_id) AND private.pod_feed_visible(member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pod_members",
+    "policyname": "pod members admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pod_members",
+    "policyname": "pod members read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.is_admin(( SELECT auth.uid() AS uid)) OR (member_id = ( SELECT auth.uid() AS uid)) OR private.leads_pod(pod_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pods",
+    "policyname": "pods admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pods",
+    "policyname": "pods read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.is_admin(( SELECT auth.uid() AS uid)) OR private.shares_pod(id, ( SELECT auth.uid() AS uid)))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "own profile read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "profiles",
+    "policyname": "own profile update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "((id = auth.uid()) OR private.is_admin(auth.uid()))",
+    "with_check": "((id = auth.uid()) OR private.is_admin(auth.uid()))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "program_assignments",
+    "policyname": "assignments admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "program_assignments",
+    "policyname": "assignments read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "program_items",
+    "policyname": "items admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "program_items",
+    "policyname": "items read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.is_admin(auth.uid()) OR (EXISTS ( SELECT 1\n   FROM program_assignments a\n  WHERE ((a.program_id = program_items.program_id) AND ((a.member_id = auth.uid()) OR private.manages_member(auth.uid(), a.member_id))))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "programs",
+    "policyname": "programs admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "programs",
+    "policyname": "programs read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(private.is_admin(auth.uid()) OR (EXISTS ( SELECT 1\n   FROM program_assignments a\n  WHERE ((a.program_id = programs.id) AND ((a.member_id = auth.uid()) OR private.manages_member(auth.uid(), a.member_id))))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "progress_photos",
+    "policyname": "photos active only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "progress_photos",
+    "policyname": "photos own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "progress_photos",
+    "policyname": "photos own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = auth.uid()) AND (pose = ANY (ARRAY['front'::text, 'side'::text, 'back'::text])) AND (path ~~ ((auth.uid())::text || '/%'::text)))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "progress_photos",
+    "policyname": "photos read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_claims",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_claims",
+    "policyname": "claims admin review",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_claims",
+    "policyname": "claims own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = auth.uid()) AND (status = 'pending'::text) AND (reviewed_by IS NULL) AND (reviewed_at IS NULL) AND (EXISTS ( SELECT 1\n   FROM pv_tasks t\n  WHERE ((t.id = pv_claims.task_id) AND t.active))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_claims",
+    "policyname": "claims read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_ledger",
+    "policyname": "ledger read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_tasks",
+    "policyname": "tasks admin write",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "ALL",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "pv_tasks",
+    "policyname": "tasks read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(active OR private.is_admin(auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "redemptions",
+    "policyname": "redemptions active only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "redemptions",
+    "policyname": "redemptions admin update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "redemptions",
+    "policyname": "redemptions own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = auth.uid()) AND (status = 'pending'::text))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "redemptions",
+    "policyname": "redemptions read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rewards",
+    "policyname": "rewards admin insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rewards",
+    "policyname": "rewards admin update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "private.is_admin(auth.uid())",
+    "with_check": "private.is_admin(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "rewards",
+    "policyname": "rewards read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(active OR private.is_admin(auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "saved_meals",
+    "policyname": "favorites own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = ( SELECT auth.uid() AS uid))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "saved_meals",
+    "policyname": "favorites own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = ( SELECT auth.uid() AS uid)) AND private.is_active(( SELECT auth.uid() AS uid)))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "saved_meals",
+    "policyname": "favorites own read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(member_id = ( SELECT auth.uid() AS uid))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "saved_meals",
+    "policyname": "favorites own update",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = ( SELECT auth.uid() AS uid))",
+    "with_check": "((member_id = ( SELECT auth.uid() AS uid)) AND private.is_active(( SELECT auth.uid() AS uid)))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "set_logs",
+    "policyname": "Delete own sets",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "set_logs",
+    "policyname": "Insert own sets in own open session",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = auth.uid()) AND (EXISTS ( SELECT 1\n   FROM workout_sessions s\n  WHERE ((s.id = set_logs.session_id) AND (s.member_id = auth.uid()) AND (s.finished_at IS NULL)))))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "set_logs",
+    "policyname": "Update own sets",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "set_logs",
+    "policyname": "View own or managed sets",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "set_logs",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "streak_shields",
+    "policyname": "shields own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((member_id = ( SELECT auth.uid() AS uid)) AND private.is_active(( SELECT auth.uid() AS uid)))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "streak_shields",
+    "policyname": "shields own read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "(member_id = ( SELECT auth.uid() AS uid))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "admins grant non-admin roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((private.is_admin(auth.uid()) AND (role = ANY (ARRAY['member'::app_role, 'coach'::app_role, 'pod_leader'::app_role]))) OR private.has_role(auth.uid(), 'super_admin'::app_role))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "admins revoke non-admin roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((private.is_admin(auth.uid()) AND (role = ANY (ARRAY['member'::app_role, 'coach'::app_role, 'pod_leader'::app_role]))) OR (private.has_role(auth.uid(), 'super_admin'::app_role) AND (user_id <> auth.uid())))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "user_roles",
+    "policyname": "read own roles",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((user_id = auth.uid()) OR private.is_admin(auth.uid()))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "water_logs",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "water_logs",
+    "policyname": "water own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "water_logs",
+    "policyname": "water own insert",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "water_logs",
+    "policyname": "water read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "workout_sessions",
+    "policyname": "Delete own unfinished sessions",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((member_id = auth.uid()) AND (finished_at IS NULL))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "workout_sessions",
+    "policyname": "Insert own sessions",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "workout_sessions",
+    "policyname": "Update own sessions",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "UPDATE",
+    "qual": "(member_id = auth.uid())",
+    "with_check": "(member_id = auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "workout_sessions",
+    "policyname": "View own or managed sessions",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "workout_sessions",
+    "policyname": "active members only",
+    "permissive": "RESTRICTIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "private.is_active(auth.uid())"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "xp_events",
+    "policyname": "xp read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((member_id = auth.uid()) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), member_id))",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "progress photos own delete",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "DELETE",
+    "qual": "((bucket_id = 'progress-photos'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text))",
+    "with_check": null
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "progress photos own upload",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "((bucket_id = 'progress-photos'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text) AND private.is_active(auth.uid()))"
+  },
+  {
+    "schemaname": "storage",
+    "tablename": "objects",
+    "policyname": "progress photos read",
+    "permissive": "PERMISSIVE",
+    "roles": "{authenticated}",
+    "cmd": "SELECT",
+    "qual": "((bucket_id = 'progress-photos'::text) AND (((storage.foldername(name))[1] = (auth.uid())::text) OR private.is_admin(auth.uid()) OR private.manages_member(auth.uid(), ((storage.foldername(name))[1])::uuid)))",
+    "with_check": null
+  }
+]

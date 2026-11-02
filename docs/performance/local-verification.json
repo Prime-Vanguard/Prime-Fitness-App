@@ -1,0 +1,106 @@
+{
+  "checkedAt": "2026-11-01T16:36:07.161Z",
+  "migration": "20261023235709_optimize_rls_and_foreign_keys.sql",
+  "roleCount": 9,
+  "tablesAndViews": 36,
+  "writeCases": 44,
+  "accessComparisons": 720,
+  "restrictivePolicyCount": 8,
+  "foreignKeysCovered": true,
+  "multiplePermissivePolicies": 0,
+  "rollbackRestoredPolicies": true,
+  "explainBefore": [
+    {
+      "QUERY PLAN": [
+        {
+          "Plan": {
+            "Node Type": "Seq Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "food_logs",
+            "Alias": "food_logs",
+            "Startup Cost": 0,
+            "Total Cost": 194.45,
+            "Plan Rows": 190,
+            "Plan Width": 16,
+            "Disabled": false,
+            "Filter": "((member_id = (NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text))::uuid) OR private.is_admin((NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text))::uuid) OR private.manages_member((NULLIF(current_setting('request.jwt.claim.sub'::text, true), ''::text))::uuid, member_id))"
+          }
+        }
+      ]
+    }
+  ],
+  "explainAfter": [
+    {
+      "QUERY PLAN": [
+        {
+          "Plan": {
+            "Node Type": "Seq Scan",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Relation Name": "food_logs",
+            "Alias": "food_logs",
+            "Startup Cost": 0.32,
+            "Total Cost": 99.57,
+            "Plan Rows": 227,
+            "Plan Width": 16,
+            "Disabled": false,
+            "Filter": "((member_id = (InitPlan 1).col1) OR (InitPlan 3).col1 OR private.manages_member((InitPlan 4).col1, member_id))",
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 1",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0,
+                "Total Cost": 0.02,
+                "Plan Rows": 1,
+                "Plan Width": 16,
+                "Disabled": false
+              },
+              {
+                "Node Type": "Result",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 3",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.02,
+                "Total Cost": 0.28,
+                "Plan Rows": 1,
+                "Plan Width": 1,
+                "Disabled": false,
+                "Plans": [
+                  {
+                    "Node Type": "Result",
+                    "Parent Relationship": "InitPlan",
+                    "Subplan Name": "InitPlan 2",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Startup Cost": 0,
+                    "Total Cost": 0.02,
+                    "Plan Rows": 1,
+                    "Plan Width": 16,
+                    "Disabled": false
+                  }
+                ]
+              },
+              {
+                "Node Type": "Result",
+                "Parent Relationship": "InitPlan",
+                "Subplan Name": "InitPlan 4",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0,
+                "Total Cost": 0.02,
+                "Plan Rows": 1,
+                "Plan Width": 16,
+                "Disabled": false
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

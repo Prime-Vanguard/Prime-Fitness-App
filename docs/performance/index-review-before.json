@@ -1,0 +1,458 @@
+[
+  {
+    "schemaname": "public",
+    "relname": "audit_log",
+    "indexrelname": "audit_log_pkey",
+    "idx_scan": 0,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX audit_log_pkey ON public.audit_log USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "badges",
+    "indexrelname": "badges_pkey",
+    "idx_scan": 3,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX badges_pkey ON public.badges USING btree (code)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "body_measurements",
+    "indexrelname": "body_measurements_member_id_measured_on_idx",
+    "idx_scan": 164,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX body_measurements_member_id_measured_on_idx ON public.body_measurements USING btree (member_id, measured_on)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "body_measurements",
+    "indexrelname": "body_measurements_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX body_measurements_pkey ON public.body_measurements USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "coach_assignments",
+    "indexrelname": "coach_assignments_coach_id_member_id_key",
+    "idx_scan": 2,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX coach_assignments_coach_id_member_id_key ON public.coach_assignments USING btree (coach_id, member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "coach_assignments",
+    "indexrelname": "coach_assignments_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX coach_assignments_pkey ON public.coach_assignments USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "exercises",
+    "indexrelname": "exercises_pkey",
+    "idx_scan": 1,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX exercises_pkey ON public.exercises USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "food_logs",
+    "indexrelname": "food_logs_member_id_log_date_idx",
+    "idx_scan": 173,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX food_logs_member_id_log_date_idx ON public.food_logs USING btree (member_id, log_date)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "food_logs",
+    "indexrelname": "food_logs_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX food_logs_pkey ON public.food_logs USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "foods",
+    "indexrelname": "foods_pkey",
+    "idx_scan": 0,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX foods_pkey ON public.foods USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "invites",
+    "indexrelname": "invites_email_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX invites_email_idx ON public.invites USING btree (lower(email))"
+  },
+  {
+    "schemaname": "public",
+    "relname": "invites",
+    "indexrelname": "invites_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX invites_pkey ON public.invites USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "leaderboard_weekly",
+    "indexrelname": "leaderboard_weekly_pkey",
+    "idx_scan": 4,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX leaderboard_weekly_pkey ON public.leaderboard_weekly USING btree (member_id, week_start)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "leaderboard_weekly",
+    "indexrelname": "leaderboard_weekly_week_start_xp_idx",
+    "idx_scan": 8,
+    "size": "16 kB",
+    "definition": "CREATE INDEX leaderboard_weekly_week_start_xp_idx ON public.leaderboard_weekly USING btree (week_start, xp DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "level_thresholds",
+    "indexrelname": "level_thresholds_pkey",
+    "idx_scan": 211,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX level_thresholds_pkey ON public.level_thresholds USING btree (level)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "member_badges",
+    "indexrelname": "member_badges_pkey",
+    "idx_scan": 35,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX member_badges_pkey ON public.member_badges USING btree (member_id, badge_code)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "notifications",
+    "indexrelname": "notifications_member_id_created_at_idx",
+    "idx_scan": 171,
+    "size": "16 kB",
+    "definition": "CREATE INDEX notifications_member_id_created_at_idx ON public.notifications USING btree (member_id, created_at DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "notifications",
+    "indexrelname": "notifications_pkey",
+    "idx_scan": 0,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "nutrition_targets",
+    "indexrelname": "nutrition_targets_pkey",
+    "idx_scan": 165,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX nutrition_targets_pkey ON public.nutrition_targets USING btree (member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_activity",
+    "indexrelname": "pod_activity_event_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX pod_activity_event_idx ON public.pod_activity USING btree (event_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_activity",
+    "indexrelname": "pod_activity_member_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX pod_activity_member_idx ON public.pod_activity USING btree (member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_activity",
+    "indexrelname": "pod_activity_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pod_activity_pkey ON public.pod_activity USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_activity",
+    "indexrelname": "pod_activity_pod_id_event_id_key",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pod_activity_pod_id_event_id_key ON public.pod_activity USING btree (pod_id, event_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_activity",
+    "indexrelname": "pod_activity_pod_time_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX pod_activity_pod_time_idx ON public.pod_activity USING btree (pod_id, created_at DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_members",
+    "indexrelname": "pod_members_member_pod_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX pod_members_member_pod_idx ON public.pod_members USING btree (member_id, pod_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pod_members",
+    "indexrelname": "pod_members_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pod_members_pkey ON public.pod_members USING btree (pod_id, member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pods",
+    "indexrelname": "pods_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pods_pkey ON public.pods USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "profiles",
+    "indexrelname": "profiles_pkey",
+    "idx_scan": 278,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "program_assignments",
+    "indexrelname": "program_assignments_member_id_idx",
+    "idx_scan": 14,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX program_assignments_member_id_idx ON public.program_assignments USING btree (member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "program_assignments",
+    "indexrelname": "program_assignments_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX program_assignments_pkey ON public.program_assignments USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "program_items",
+    "indexrelname": "program_items_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX program_items_pkey ON public.program_items USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "program_items",
+    "indexrelname": "program_items_program_id_week_day_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX program_items_program_id_week_day_idx ON public.program_items USING btree (program_id, week, day)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "programs",
+    "indexrelname": "programs_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX programs_pkey ON public.programs USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "progress_photos",
+    "indexrelname": "progress_photos_member_id_taken_on_idx",
+    "idx_scan": 3,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX progress_photos_member_id_taken_on_idx ON public.progress_photos USING btree (member_id, taken_on DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "progress_photos",
+    "indexrelname": "progress_photos_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX progress_photos_pkey ON public.progress_photos USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pv_claims",
+    "indexrelname": "pv_claims_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pv_claims_pkey ON public.pv_claims USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pv_ledger",
+    "indexrelname": "pv_ledger_claim_id_key",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pv_ledger_claim_id_key ON public.pv_ledger USING btree (claim_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pv_ledger",
+    "indexrelname": "pv_ledger_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pv_ledger_pkey ON public.pv_ledger USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "pv_tasks",
+    "indexrelname": "pv_tasks_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX pv_tasks_pkey ON public.pv_tasks USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "redemptions",
+    "indexrelname": "redemptions_member_id_idx",
+    "idx_scan": 9,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX redemptions_member_id_idx ON public.redemptions USING btree (member_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "redemptions",
+    "indexrelname": "redemptions_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX redemptions_pkey ON public.redemptions USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "redemptions",
+    "indexrelname": "redemptions_status_idx",
+    "idx_scan": 9,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX redemptions_status_idx ON public.redemptions USING btree (status)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "rewards",
+    "indexrelname": "rewards_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX rewards_pkey ON public.rewards USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "saved_meals",
+    "indexrelname": "saved_meals_member_created_idx",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX saved_meals_member_created_idx ON public.saved_meals USING btree (member_id, created_at DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "saved_meals",
+    "indexrelname": "saved_meals_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX saved_meals_pkey ON public.saved_meals USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "set_logs",
+    "indexrelname": "set_logs_member_id_exercise_id_created_at_idx",
+    "idx_scan": 9,
+    "size": "16 kB",
+    "definition": "CREATE INDEX set_logs_member_id_exercise_id_created_at_idx ON public.set_logs USING btree (member_id, exercise_id, created_at DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "set_logs",
+    "indexrelname": "set_logs_pkey",
+    "idx_scan": 0,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX set_logs_pkey ON public.set_logs USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "set_logs",
+    "indexrelname": "set_logs_session_id_idx",
+    "idx_scan": 7,
+    "size": "16 kB",
+    "definition": "CREATE INDEX set_logs_session_id_idx ON public.set_logs USING btree (session_id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "streak_shields",
+    "indexrelname": "streak_shields_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX streak_shields_pkey ON public.streak_shields USING btree (member_id, shield_date)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "user_roles",
+    "indexrelname": "user_roles_pkey",
+    "idx_scan": 0,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX user_roles_pkey ON public.user_roles USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "user_roles",
+    "indexrelname": "user_roles_user_id_role_key",
+    "idx_scan": 265,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX user_roles_user_id_role_key ON public.user_roles USING btree (user_id, role)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "water_logs",
+    "indexrelname": "water_logs_member_id_log_date_idx",
+    "idx_scan": 165,
+    "size": "8192 bytes",
+    "definition": "CREATE INDEX water_logs_member_id_log_date_idx ON public.water_logs USING btree (member_id, log_date)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "water_logs",
+    "indexrelname": "water_logs_pkey",
+    "idx_scan": 0,
+    "size": "8192 bytes",
+    "definition": "CREATE UNIQUE INDEX water_logs_pkey ON public.water_logs USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "workout_sessions",
+    "indexrelname": "workout_sessions_member_id_started_at_idx",
+    "idx_scan": 371,
+    "size": "16 kB",
+    "definition": "CREATE INDEX workout_sessions_member_id_started_at_idx ON public.workout_sessions USING btree (member_id, started_at DESC)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "workout_sessions",
+    "indexrelname": "workout_sessions_pkey",
+    "idx_scan": 3,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX workout_sessions_pkey ON public.workout_sessions USING btree (id)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "xp_events",
+    "indexrelname": "xp_events_member_id_source_source_ref_key",
+    "idx_scan": 213,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX xp_events_member_id_source_source_ref_key ON public.xp_events USING btree (member_id, source, source_ref)"
+  },
+  {
+    "schemaname": "public",
+    "relname": "xp_events",
+    "indexrelname": "xp_events_pkey",
+    "idx_scan": 2,
+    "size": "16 kB",
+    "definition": "CREATE UNIQUE INDEX xp_events_pkey ON public.xp_events USING btree (id)"
+  }
+]
