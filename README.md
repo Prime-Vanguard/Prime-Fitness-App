@@ -45,6 +45,9 @@ The [authentication guide](docs/authentication.md) describes bilingual sign-in, 
 
 Edit the source files directly and use your own Git and hosting workflow.
 
+The [CI guide](docs/ci.md) describes automated quality, database/security, production
+browser and weekly performance checks, their synthetic test configuration and release boundaries.
+
 The [member experience guide](docs/member-experience.md) documents training tools, offline sync, nutrition favorites, the Vanguard roadmap, Pod sharing, shields, photo comparison, and PWA installation. Install and offline-refresh checks use the production build (`npm run build`, then `npm start`).
 
 The [redemption and photo-history follow-up](docs/redemption-and-photo-history-fixes.md) covers durable purchase retries, older-photo paging, cross-page comparisons and signed-URL recovery. Run `npm run test:redemptions` for the dedicated database checks. The [training-depth report](docs/training-depth-offline.md) records implementation and remaining release gates.

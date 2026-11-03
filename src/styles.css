@@ -95,8 +95,14 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.869 0.022 252.894);
   --sidebar-ring: oklch(0.6 0.12 88);
-  --gradient-hero: radial-gradient(ellipse at top, oklch(0.929 0.013 255.508), var(--background) 70%);
-  --shadow-gold: 0 0 0 1px color-mix(in oklab, var(--gold) 40%, transparent), 0 10px 40px -12px color-mix(in oklab, var(--gold) 45%, transparent);
+  --gradient-hero: radial-gradient(
+    ellipse at top,
+    oklch(0.929 0.013 255.508),
+    var(--background) 70%
+  );
+  --shadow-gold:
+    0 0 0 1px color-mix(in oklab, var(--gold) 40%, transparent),
+    0 10px 40px -12px color-mix(in oklab, var(--gold) 45%, transparent);
 }
 
 /* Dark mode (default): Navy + Deep Surface, Mist/Slate text */
@@ -137,7 +143,11 @@
   --sidebar-accent-foreground: oklch(0.968 0.007 247.896);
   --sidebar-border: oklch(0.372 0.044 257.287);
   --sidebar-ring: oklch(0.769 0.135 88);
-  --gradient-hero: radial-gradient(ellipse at top, oklch(0.279 0.041 260.031), var(--background) 70%);
+  --gradient-hero: radial-gradient(
+    ellipse at top,
+    oklch(0.279 0.041 260.031),
+    var(--background) 70%
+  );
 }
 
 @utility gold-glow {
@@ -148,12 +158,20 @@
 }
 
 @keyframes water-wave {
-  from { transform: translateX(-10%) rotate(-4deg); }
-  to { transform: translateX(-40%) rotate(4deg); }
+  from {
+    transform: translateX(-10%) rotate(-4deg);
+  }
+  to {
+    transform: translateX(-40%) rotate(4deg);
+  }
 }
-.water-wave { animation: water-wave 0.7s ease-in-out 3 alternate; }
+.water-wave {
+  animation: water-wave 0.7s ease-in-out 3 alternate;
+}
 @media (prefers-reduced-motion: reduce) {
-  .water-wave { animation: none; }
+  .water-wave {
+    animation: none;
+  }
 }
 
 @layer base {
@@ -166,11 +184,17 @@
     font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
   }
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: var(--font-heading);
     letter-spacing: -0.02em;
   }
-  html[lang="ar"] body, html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3 {
+  html[lang="ar"] body,
+  html[lang="ar"] h1,
+  html[lang="ar"] h2,
+  html[lang="ar"] h3 {
     font-family: var(--font-arabic);
     letter-spacing: 0;
   }
@@ -183,8 +207,15 @@
     background-position: right 0.75rem center;
     padding-inline-end: 2.25rem !important;
   }
-  [dir="rtl"] select:not([multiple]):not([size]) { background-position: left 0.75rem center; }
+  [dir="rtl"] select:not([multiple]):not([size]) {
+    background-position: left 0.75rem center;
+  }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

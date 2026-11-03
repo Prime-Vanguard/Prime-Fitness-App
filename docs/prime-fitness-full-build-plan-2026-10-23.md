@@ -39,11 +39,13 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - **Imagery:** moody, high-contrast training photography with a navy overlay, used sparingly on the login screen, program covers and empty states.
 
 ## Step 0 — Connect your own Supabase project (you do this)
+
 - I can't create projects inside your Supabase organization from chat. Create a project named "Prime Fitness" in your Supabase dashboard. For users in Egypt, the closest region is Frankfurt (eu-central-1), which also matches the main Prime Vanguard app.
 - Configure your existing external Supabase project using `.env.example` and `README.md`.
 - Development and deployment use the source code directly and your chosen hosting provider.
 
 ## Phase 1 — Foundation (core backend first)
+
 - On your Supabase project, I'll set up logins (invite-only, email and password, password reset), member profiles, roles (member, coach, Pod Leader, admin, super admin), admin accounts, coach and pod assignments, and the core tables, with access rules on every table.
 - I'll show you each database change and wait for your approval before applying it.
 - Build the design system: colors, fonts, light and dark surfaces, and the shared building blocks (buttons, cards, tables, dialogs, progress bars, rank badge, XP bar, PV balance, empty, loading and error states).
@@ -53,6 +55,7 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - App layout: member navigation (Today, Train, Nutrition, Progress, Rewards, Profile) and a separate admin navigation.
 
 ## Phase 2 — Training
+
 - Exercise library: muscles, equipment, instructions and media. Admins can create and edit exercises.
 - Program builder: phases, weeks, days and exercises with sets, reps, weight, rest time, RPE, tempo and notes. Programs are versioned.
 - Programs can be assigned to one member or a group, with start dates. Assigned programs keep the version they were given.
@@ -60,6 +63,7 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - Personal records and exercise history charts.
 
 ## Phase 3 — Nutrition and body progress
+
 - Nutrition profile and plan builder: calorie and macro targets, meal templates.
 - Food database with sources. Admins verify entries, and members can add their own foods, which stay marked unverified.
 - Daily food log: meals, portions, quick-add, copy a previous day, water intake.
@@ -67,6 +71,7 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - Body progress: weight, measurements, private progress photos and performance tests, with trend charts.
 
 ## Phase 4 — Gamification engine
+
 - XP is awarded only by the server, using editable rules. Duplicate awards are blocked.
 - Level thresholds are editable, and ranks are worked out from the level.
 - Streaks support grace days and freezes. Rules are fixed per day so time zones are handled correctly.
@@ -76,23 +81,27 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - Leaderboards with opt-in privacy and fair grouping.
 
 ## Phase 5 — Member experience loop
+
 - Today dashboard: today's workout, nutrition progress, streak, active quests, XP and rank progress, and pending approvals.
 - Weekly check-in and summary, plus long-term rank milestones.
 - In-app notifications and reminders.
 
 ## Phase 6 — Admin, coach and Pod Leader
+
 - Admin control center: members, invites, membership access, workout and nutrition content, the approval queue, gamification settings with change history, the reward catalog, and the audit log.
 - Analytics: organization overview, workout, nutrition and gamification metrics, member retention, date filters and CSV export.
 - Coach dashboard: assigned members, plan changes, progress review and notes.
 - Pod Leader dashboard: their pod's members and accountability tracking. Pod Leaders can confirm progress but cannot award PV Points.
 
 ## Phase 7 — Hardening and verification
+
 - Security review of data access rules for every table, plus a security scan.
 - Tests for XP, levels, ranks, streaks, PV approval, redemption stock, and role permissions.
 - End-to-end checks of the main flows as a signed-in member and as an admin, in both languages.
 - Page titles and descriptions, and handling for edge cases.
 
 ## Decisions that remain open (temporary handling until you decide)
+
 - Final XP formula: an editable provisional table is used for now.
 - Reward prices and point values: editable placeholders for now.
 - Prime Fitness access and pricing: an admin switch for now, with no payments.
@@ -102,6 +111,7 @@ The app should feel like an elite members' club: calm, disciplined and earned. I
 - A legal and privacy review for health data is recommended before launch.
 
 ## Technical details
+
 - Stack: TanStack Start, React and TypeScript, Tailwind v4 design tokens, shadcn/ui, TanStack Query, React Hook Form with Zod, and Recharts. This project uses TanStack Start.
 - Backend: your own external Supabase project (Postgres, Auth, Storage), with access rules on every table. Trusted work runs in security-definer database functions and in TanStack server functions with auth middleware. These replace Edge Functions, the server pattern this stack recommends; the Supabase project itself remains fully yours. All XP, points and economy writes happen on the server only. Protected pages live behind a sign-in gate.
 - Main table groups:

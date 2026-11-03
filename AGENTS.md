@@ -1,4 +1,5 @@
 ## Prime Fitness architecture
+
 - Backend is the user's external Supabase project; preserve ownership of the existing database.
 - Roles live only in public.user_roles; RLS uses security-definer has_role / is_admin / manages_member to avoid recursion and self-escalation.
 - Signup is invite-only, enforced in the handle_new_user trigger on auth.users. A fresh installation requires trusted SQL approval and an Admin API owner-creation request; ordinary first signup cannot bootstrap super_admin. Preserve existing owners and keep provisioning credentials out of browser code.
