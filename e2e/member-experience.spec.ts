@@ -4713,6 +4713,8 @@ test("reward retries reuse a durable request after a lost response and allow a s
   await page.getByRole("button", { name: "Check / retry request", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("not deduct PV again");
   await page.getByRole("button", { name: "Confirm saved request", exact: true }).click();
+  // Repricing persists asynchronously; a transient rerender is not a server acknowledgement.
+  await expect.poll(() => requests.length).toBe(2);
   await expect(
     page.getByRole("region", { name: "Unconfirmed reward requests", exact: true }),
   ).toHaveCount(0);
