@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "build:pages": "node scripts/pages-env.mjs && vite build --mode pages && node scripts/prepare-pages.mjs && node scripts/check-pages-output.mjs",
+    "build:pages": "node scripts/pages-env.mjs && node scripts/prepare-pages.mjs && node scripts/check-pages-output.mjs",
     "test:pages": "playwright test --config=playwright.pages.config.ts",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
