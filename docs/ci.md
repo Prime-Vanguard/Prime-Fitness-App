@@ -54,6 +54,10 @@ Keep your existing local `.env`; the disposable copy step is for clean CI checko
 Production browser tests start their own server on port 3173. Stop an existing test
 server before rebuilding. Performance scripts can regenerate local report files;
 review changes rather than automatically committing benchmark results.
+On Linux runners, `scripts/run-browser-ci.sh` owns the production server separately
+from Playwright, checks readiness, and always terminates it on exit. Tests have a
+twelve-minute global deadline in addition to per-test and job limits. The synthetic
+server log is uploaded with browser diagnostics.
 
 After successful runs, repository administrators can require the three CI job checks
 in a `main` branch ruleset (subject to the organization's GitHub plan). Workflow files

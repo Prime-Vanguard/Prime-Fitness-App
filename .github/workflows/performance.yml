@@ -33,7 +33,7 @@ jobs:
       - run: npx playwright install --with-deps chrome
       - run: npm run build
       - name: Compare sync request counts with committed baseline
-        run: npm run test:e2e -- --grep "sync request traffic benchmark" --reporter=line,html
+        run: bash scripts/run-browser-ci.sh --grep "sync request traffic benchmark" --reporter=line,html
         env:
           PW_SYNC_TRAFFIC: after
       - name: Upload performance evidence
@@ -46,4 +46,5 @@ jobs:
             artifacts/sync-traffic-after.json
             playwright-report/
             test-results/
+            artifacts/ci-server.log
           retention-days: 14

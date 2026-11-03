@@ -70,7 +70,7 @@ jobs:
         run: cp .env.ci.example .env
       - run: npx playwright install --with-deps chrome
       - run: npm run build
-      - run: npm run test:e2e -- --reporter=line,html
+      - run: bash scripts/run-browser-ci.sh --reporter=line,html
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -79,4 +79,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            artifacts/ci-server.log
           retention-days: 7
