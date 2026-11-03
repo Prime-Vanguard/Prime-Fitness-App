@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { appPath } from "@/lib/app-path";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -27,7 +28,9 @@ export function ExerciseReferencePicker({
     enabled: open,
     staleTime: Infinity,
     queryFn: async () => {
-      const response = await fetch("/data/exercise-reference.json", { credentials: "omit" });
+      const response = await fetch(appPath("data/exercise-reference.json"), {
+        credentials: "omit",
+      });
       if (!response.ok)
         throw new Error(l("Reference library unavailable", "المكتبة المرجعية غير متاحة"));
       return referenceSchema.parse(await response.json());
@@ -110,7 +113,7 @@ export function ExerciseReferencePicker({
             ·{" "}
             <a
               className="underline"
-              href="/legal/exercise-dataset-LICENSE.txt"
+              href={appPath("legal/exercise-dataset-LICENSE.txt")}
               target="_blank"
               rel="noreferrer"
             >

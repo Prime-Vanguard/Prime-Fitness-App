@@ -81,3 +81,33 @@ jobs:
             test-results/
             artifacts/ci-server.log
           retention-days: 7
+
+  pages:
+    name: Static Pages build and browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.23.4
+          cache: npm
+      - run: npm ci
+      - run: cp .env.ci.example .env
+      - run: npx playwright install --with-deps chrome
+      - run: npm run build:pages
+        env:
+          VITE_SUPABASE_URL: https://prime-fitness-ci.supabase.invalid
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      - run: npx playwright test --config=playwright.pages.config.ts --reporter=line,html
+      - name: Upload static-hosting diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pages-browser-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

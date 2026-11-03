@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { appPath } from "@/lib/app-path";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useI18n } from "@/lib/i18n";
@@ -35,7 +36,7 @@ export function ExerciseBrandPreview({ sourceId, name }: { sourceId: string; nam
     enabled: opened,
     staleTime: Infinity,
     queryFn: async () => {
-      const r = await fetch("/data/exercise-media-preview.json", { credentials: "omit" });
+      const r = await fetch(appPath("data/exercise-media-preview.json"), { credentials: "omit" });
       if (!r.ok) throw new Error(l("Preview unavailable", "المعاينة غير متاحة"));
       return mediaSchema.parse(await r.json());
     },

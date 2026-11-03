@@ -1,4 +1,5 @@
 import type { AuthMessage } from "./auth-copy";
+import { appPath, stripAppBase } from "./app-path";
 const unsafe = (text: string) =>
   Array.from(text).some((c) => c === "\\" || c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
 
@@ -6,9 +7,10 @@ const unsafe = (text: string) =>
 export function safeAuthRedirect(input: unknown): string {
   if (typeof input !== "string" || !input.startsWith("/") || unsafe(input)) return "/today";
   try {
-    const decoded = decodeURIComponent(input);
+    const path = stripAppBase(input);
+    const decoded = decodeURIComponent(path);
     if (decoded.startsWith("//") || unsafe(decoded)) return "/today";
-    const url = new URL(input, "https://prime.invalid");
+    const url = new URL(path, "https://prime.invalid");
     if (
       url.origin !== "https://prime.invalid" ||
       /^\/(auth|reset-password)(\/|$)/i.test(decodeURIComponent(url.pathname))
@@ -52,7 +54,7 @@ export function hasAuthLinkError(url: URL) {
   return ["error", "error_code"].some((key) => url.searchParams.has(key) || hash.has(key));
 }
 export const confirmationUrl = (origin: string, redirect: string) =>
-  `${origin}/auth?redirect=${encodeURIComponent(safeAuthRedirect(redirect))}`;
+  `${origin}${appPath("auth")}?redirect=${encodeURIComponent(safeAuthRedirect(redirect))}`;
 export const RECOVERY_KEY = "pf-recovery-ui";
 let memoryRecovery: string | null = null;
 // UI continuity only. The Auth service remains the authority for password updates.

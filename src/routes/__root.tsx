@@ -11,6 +11,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { sessionCacheBoundary } from "@/lib/auth-session-cache";
 import { safeAuthRedirect } from "@/lib/auth-flow";
+import { appPath, stripAppBase } from "@/lib/app-path";
 
 import appCss from "../styles.css?url";
 import { PwaRegistration } from "@/components/pwa-registration";
@@ -66,7 +67,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
             Try again
           </button>
           <a
-            href="/"
+            href={appPath("")}
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Go home
@@ -100,8 +101,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: appPath("manifest.webmanifest") },
+      { rel: "apple-touch-icon", href: appPath("apple-touch-icon.png") },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -112,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "icon", type: "image/png", href: appPath("favicon.png") },
     ],
   }),
   shellComponent: RootShell,
@@ -143,7 +144,7 @@ function RootComponent() {
   useEffect(() => {
     const boundary = sessionCacheBoundary(queryClient, () => setSessionView((value) => value + 1));
     const refresh = (signedOut: boolean) => {
-      if (signedOut && /^\/auth\/?$/.test(router.state.location.pathname)) return;
+      if (signedOut && /^\/auth\/?$/.test(stripAppBase(router.state.location.pathname))) return;
       if (signedOut)
         void router.navigate({
           to: "/auth",

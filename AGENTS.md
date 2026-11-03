@@ -4,6 +4,7 @@
 - Roles live only in public.user_roles; RLS uses security-definer has_role / is_admin / manages_member to avoid recursion and self-escalation.
 - Signup is invite-only, enforced in the handle_new_user trigger on auth.users. A fresh installation requires trusted SQL approval and an Admin API owner-creation request; ordinary first signup cannot bootstrap super_admin. Preserve existing owners and keep provisioning credentials out of browser code.
 - Signed-in pages live under src/routes/_authenticated (client-only gate); server functions get the bearer token via src/lib/auth-attacher.ts.
+- The Pages frontend builds with `npm run build:pages` at `/Prime-Fitness-App/`; use `appPath` for public assets/callback URLs and application-relative router destinations. Training suggestions call the RLS-guarded `get_training_context` RPC directly. Publish only `dist/client`, never `dist/server` or `.output/server`.
 - Permission helpers (has_role, is_admin, manages_member) live in the non-exposed `private` schema; policies call them as private.*. Why: keeps security-definer functions off the public API.
 - Privileged state changes (XP, PV approvals) are enforced by DB triggers, not callable RPCs. Why: no security-definer function is exposed to signed-in users.
 - Paused members (profiles.access_active=false) are blocked from writing by RESTRICTIVE insert policies using private.is_active; the shell shows a paused screen. Why: membership pause must hold server-side.

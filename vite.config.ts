@@ -7,6 +7,7 @@ import { nitro } from "nitro/vite";
 import { pwaAssets } from "./scripts/pwa-plugin";
 
 export default defineConfig(({ command, mode }) => {
+  const pages = mode === "pages";
   // Keep private backend variables in the development server environment.
   // Vite handles public VITE_* values without exposing server credentials.
   if (command === "serve") {
@@ -17,6 +18,7 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    base: pages ? "/Prime-Fitness-App/" : "/",
     server: { port: 3000 },
     resolve: {
       dedupe: ["react", "react-dom", "@tanstack/react-query", "@tanstack/query-core"],
@@ -26,13 +28,14 @@ export default defineConfig(({ command, mode }) => {
       tailwindcss(),
       tsconfigPaths({ projects: ["./tsconfig.json"] }),
       tanstackStart({
+        ...(pages ? { spa: { enabled: true } } : {}),
         server: { entry: "server" },
         importProtection: {
           behavior: "error",
           client: { files: ["**/server/**"], specifiers: ["server-only"] },
         },
       }),
-      ...(command === "build" ? [nitro({ preset: "node-server" })] : []),
+      ...(command === "build" && !pages ? [nitro({ preset: "node-server" })] : []),
       react(),
     ],
   };

@@ -1,5 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { appPath } from "@/lib/app-path";
 import { LoaderCircle, MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandShell } from "@/components/brand-shell";
@@ -142,7 +143,7 @@ function AuthPage() {
         const r =
           mode === "forgot"
             ? await supabase.auth.resetPasswordForEmail(cleanEmail, {
-                redirectTo: window.location.origin + "/reset-password",
+                redirectTo: window.location.origin + appPath("reset-password"),
               })
             : await supabase.auth.resend({
                 type: "signup",

@@ -1,13 +1,15 @@
 # Continuous integration
 
 The private repository runs `.github/workflows/ci.yml` on pushes to `main`,
-pull requests targeting `main`, and manual dispatches. Three independent jobs run:
+pull requests targeting `main`, and manual dispatches. Four independent jobs run:
 
 - **Code quality and unit tests:** TypeScript, ESLint, repository formatting and Vitest.
 - **Database and security:** every existing functional database suite plus the owner
   provisioning operator tests, serially in isolated PGlite databases.
 - **Production build and browser tests:** a production build followed by the mobile
   Chrome Playwright suite, including offline/PWA recovery scenarios.
+- **Static Pages build and browser tests:** the static project-site build, asset
+  and callback paths, direct links and scoped offline caching, using disposable data.
 
 The opt-in request-count benchmark is excluded from normal browser runs. The separate
 `performance.yml` workflow runs it alongside policy/access and latest-schema training
@@ -59,7 +61,7 @@ from Playwright, checks readiness, and always terminates it on exit. Tests have 
 twelve-minute global deadline in addition to per-test and job limits. The synthetic
 server log is uploaded with browser diagnostics.
 
-After successful runs, repository administrators can require the three CI job checks
+After successful runs, repository administrators can require the four CI job checks
 in a `main` branch ruleset (subject to the organization's GitHub plan). Workflow files
 alone do not enforce branch protection. Physical-device checks and a full local Supabase
 stack remain release gates; passing CI is not release approval.

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { appPath } from "@/lib/app-path";
 import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 import {
   catalogueVisual,
@@ -15,7 +16,10 @@ export function useExerciseVisual(exercise: ExerciseGuidance | undefined, enable
     staleTime: Infinity,
     retry: 1,
     queryFn: async ({ signal }) => {
-      const response = await fetch("/data/exercise-visuals.json", { credentials: "omit", signal });
+      const response = await fetch(appPath("data/exercise-visuals.json"), {
+        credentials: "omit",
+        signal,
+      });
       if (!response.ok) throw new Error("Exercise visuals unavailable");
       return indexVisualCatalogue(visualCatalogueSchema.parse(await response.json()));
     },

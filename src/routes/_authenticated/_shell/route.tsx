@@ -26,6 +26,7 @@ import { haptic } from "@/lib/device-feedback";
 import { LevelUpWatcher } from "@/components/level-up-watcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useMe } from "@/hooks/use-me";
+import { stripAppBase } from "@/lib/app-path";
 import { useI18n, type TKey } from "@/lib/i18n";
 import logo from "@/assets/logo.png";
 import { useWorkoutSummary } from "@/hooks/use-workout-summary";
@@ -50,13 +51,14 @@ function Shell() {
   const { data: trainingFeatures } = useTrainingFeatures(user.id);
   const { data, error: permissionError } = useMe(user.id);
   const location = useLocation();
-  const adminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+  const path = stripAppBase(location.pathname).replace(/\/$/, "") || "/";
+  const adminRoute = path === "/admin" || path.startsWith("/admin/");
   const { t, locale, setLocale } = useI18n();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const workout = useWorkoutSummary(user.id);
-  const focused = location.pathname === "/train" && !!workout?.session;
+  const focused = path === "/train" && !!workout?.session;
 
   useEffect(() => {
     if (data?.profile && !data.profile.onboarding_completed)

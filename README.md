@@ -45,6 +45,9 @@ The [authentication guide](docs/authentication.md) describes bilingual sign-in, 
 
 Edit the source files directly and use your own Git and hosting workflow.
 
+The [GitHub Pages testing guide](docs/github-pages.md) covers the static staging frontend,
+project-path routing, Supabase callback setup and deployment workflow.
+
 The [CI guide](docs/ci.md) describes automated quality, database/security, production
 browser and weekly performance checks, their synthetic test configuration and release boundaries.
 

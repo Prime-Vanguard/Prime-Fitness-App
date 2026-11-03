@@ -1,4 +1,5 @@
 import { trainingLabel } from "@/lib/training-labels";
+import { appPath } from "@/lib/app-path";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -247,7 +248,7 @@ export function ExerciseDetail({
             ·{" "}
             <a
               className="underline"
-              href="/legal/exercise-dataset-LICENSE.txt"
+              href={appPath("legal/exercise-dataset-LICENSE.txt")}
               target="_blank"
               rel="noreferrer"
             >
