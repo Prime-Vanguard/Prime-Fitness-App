@@ -26,6 +26,8 @@ migrations. The existing PGlite suites are not a full Supabase/Auth integration 
 Workflow tokens have read-only repository access, checkout does not retain credentials,
 and actions are pinned to immutable commits. npm downloads are cached against the
 lockfile. Superseded runs are cancelled and every job has a timeout.
+The repository `.npmrc` explicitly enables normal peer dependency resolution, overriding
+machine-level legacy settings so local installs and Linux runners use the same graph.
 
 Browser reports/traces are retained for seven days; performance evidence for fourteen.
 Only the explicit synthetic-test output paths are uploaded, never `.env` or the general
