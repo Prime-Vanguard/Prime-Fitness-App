@@ -31,6 +31,8 @@ jobs:
           node-version: 22.23.4
           cache: npm
       - run: npm ci
+      - name: Configure isolated test project
+        run: cp .env.ci.example .env
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
