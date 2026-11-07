@@ -15,6 +15,7 @@ import { readMemberState, changeMemberState, type MemberState } from "./member-s
 import { workoutEditorSchema } from "./workout-editor";
 import { foodUndoEntries, foodEntry, mergeFoodRecovery } from "./nutrition-entries";
 import { waterUndoEntries, waterEntry, mergeWaterRecovery } from "./water-entries";
+import { mergeCardioRecovery } from "@/features/cardio/store";
 
 export const RESTORE_TABLES = [
   "workout_sessions",
@@ -141,6 +142,7 @@ export function validateBackup(input: unknown, owner: string, host: string): Per
     )
       throw new Error("Invalid pending member backup.");
     const ids = new Set<string>();
+    mergeCardioRecovery({}, state.references ?? {}, owner);
     for (const recovery of foodUndoEntries(state.references ?? {}))
       foodEntry(recovery.record, owner);
     for (const recovery of waterUndoEntries(state.references ?? {}))
@@ -471,6 +473,7 @@ export async function restorePersonalBackup(
       owner,
       new Set(current.queue.filter((m) => m.entity === "water_logs").map((m) => m.record_id)),
     );
+    mergeCardioRecovery(current.references, source.references ?? {}, owner);
   }
   await verifyMedia(backup);
   const added: string[] = [];
@@ -601,6 +604,7 @@ export async function restorePersonalBackup(
         owner,
         new Set(current.queue.filter((m) => m.entity === "water_logs").map((m) => m.record_id)),
       );
+      next.references = mergeCardioRecovery(next.references, source.references ?? {}, owner);
       return next;
     });
   }

@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useShields } from "@/hooks/use-shields";
@@ -41,20 +42,16 @@ export function StreakShields({
           "درعان كل شهر. احمِ اليوم أو الأمس للحفاظ على التتابع بتوقيت القاهرة. لا تُمنح نقاط خبرة.",
         )}
       </p>
-      <label className="mt-2 block text-xs">
+      <label className="mt-2 block text-xs min-w-0 max-w-full">
         {l("Protect day", "حماية يوم")}
-        <select
-          className="mt-1 h-10 w-full rounded border bg-background px-2"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-        >
+        <NativeSelect className="mt-2" value={day} onChange={(e) => setDay(e.target.value)}>
           <option value={today}>
             {l("Today", "اليوم")} · {today}
           </option>
           <option value={yesterday.toISOString().slice(0, 10)}>
             {l("Yesterday", "الأمس")} · {yesterday.toISOString().slice(0, 10)}
           </option>
-        </select>
+        </NativeSelect>
       </label>
       <Button
         size="sm"

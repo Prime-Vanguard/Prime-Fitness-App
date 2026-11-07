@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { normalizeExercise } from "@/lib/exercise-guidance";
@@ -34,9 +35,8 @@ export function ImportMappingPicker({
         onChange={(e) => setSearch(e.target.value)}
         placeholder={ar ? "بحث في مكتبة التمارين" : "Search exercise catalogue"}
       />
-      <select
+      <NativeSelect
         aria-label={name}
-        className="block min-h-11 w-full min-w-0 max-w-full rounded border bg-background p-2 text-base"
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -50,7 +50,7 @@ export function ImportMappingPicker({
             {ar ? e.name_ar || e.name_en : e.name_en}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {matches.length > 50 && (
         <p className="text-xs text-muted-foreground">
           {ar

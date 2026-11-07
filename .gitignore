@@ -46,3 +46,4 @@ artifacts/tool-cache/
 artifacts/
 supabase/.temp/
 coverage/
+public/scanner-runtime/

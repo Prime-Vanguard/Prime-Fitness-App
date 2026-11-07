@@ -1,9 +1,11 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { haptic, restSound, primeAudio } from "@/lib/device-feedback";
+import { restSound, primeAudio } from "@/lib/device-feedback";
+import { RestAlertSettings } from "./rest-alert-settings";
 import { toast } from "sonner";
 import { Settings2 } from "lucide-react";
 import { inputNumber } from "@/lib/numeric-input";
@@ -63,7 +65,6 @@ export function RestTimer({
     if (end && now >= end && done.current !== end) {
       done.current = end;
       onChange(0);
-      haptic("set");
       restSound();
       toast.success(t("restDone"));
     }
@@ -77,8 +78,7 @@ export function RestTimer({
             className={`text-xs text-muted-foreground ${remaining > 0 ? "hidden min-[380px]:block" : ""}`}
           >
             <span className="sr-only">{locale === "ar" ? "الراحة" : "Rest"}</span>
-            <select
-              className="min-h-11 rounded-md border bg-background px-2 text-sm"
+            <NativeSelect
               value={seconds}
               disabled={!ready || saving}
               onChange={(e) => {
@@ -99,7 +99,7 @@ export function RestTimer({
                   {s}s
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           <Button
             variant="ghost"
@@ -179,6 +179,7 @@ export function RestTimer({
                 onChange={(e) => setCustom(e.target.value)}
               />
             </label>
+            <RestAlertSettings />
             {preferenceError && (
               <p role="alert" className="text-sm text-destructive">
                 {preferenceError}

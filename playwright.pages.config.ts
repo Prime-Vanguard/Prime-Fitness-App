@@ -8,7 +8,7 @@ export default defineConfig({
   use: {
     ...devices["Pixel 7"],
     channel: "chrome",
-    baseURL: "http://127.0.0.1:3174",
+    baseURL: process.env["PW_PAGES_BASE_URL"] ?? "http://127.0.0.1:3174",
     trace: "retain-on-failure",
   },
   webServer: process.env["PW_EXTERNAL_SERVER"]

@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/lib/i18n";
 import type { ImportOptions } from "@/lib/training-import";
@@ -21,30 +22,30 @@ export function ImportFileStep({
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label>
+        <label className="min-w-0 max-w-full block">
           {l("Provider", "التطبيق")}
-          <select
+          <NativeSelect
             disabled={busy || hasWorkouts}
-            className="block w-full rounded border bg-background p-2"
+            className="mt-2"
             value={options.provider}
             onChange={(e) => configure({ provider: e.target.value as ImportOptions["provider"] })}
           >
             {["strong", "hevy", "fitnotes"].map((p) => (
               <option key={p}>{p}</option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
-        <label>
+        <label className="min-w-0 max-w-full block">
           {l("Source units", "وحدة المصدر")}
-          <select
-            className="block w-full rounded border bg-background p-2"
+          <NativeSelect
+            className="mt-2"
             disabled={busy || hasWorkouts}
             value={options.units}
             onChange={(e) => configure({ units: e.target.value as "kg" | "lb" })}
           >
             <option>kg</option>
             <option>lb</option>
-          </select>
+          </NativeSelect>
         </label>
         <label>
           {l("Source time zone", "المنطقة الزمنية للمصدر")}
@@ -54,11 +55,11 @@ export function ImportFileStep({
             onChange={(e) => configure({ timeZone: e.target.value })}
           />
         </label>
-        <label>
+        <label className="min-w-0 max-w-full block">
           {l("Ambiguous DST time", "وقت التوقيت الصيفي الملتبس")}
-          <select
+          <NativeSelect
             disabled={busy || hasWorkouts}
-            className="block w-full rounded border bg-background p-2"
+            className="mt-2"
             value={options.ambiguity}
             onChange={(e) =>
               configure({
@@ -69,7 +70,7 @@ export function ImportFileStep({
             <option value="reject">{l("Ask / reject ambiguity", "رفض الالتباس")}</option>
             <option value="earlier">{l("Earlier occurrence", "الوقت الأول")}</option>
             <option value="later">{l("Later occurrence", "الوقت الثاني")}</option>
-          </select>
+          </NativeSelect>
         </label>
       </div>
       <Input

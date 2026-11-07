@@ -13,6 +13,8 @@ export function WorkoutReview({
   exerciseName,
   onClose,
   onConfirm,
+  title,
+  onBackup,
 }: {
   open: boolean;
   discard: boolean;
@@ -23,6 +25,8 @@ export function WorkoutReview({
   exerciseName: (id: string) => string;
   onClose: () => void;
   onConfirm: () => void;
+  title: string;
+  onBackup: () => void;
 }) {
   const { t, locale } = useI18n(),
     l = (en: string, ar: string) => (locale === "ar" ? ar : en);
@@ -46,6 +50,22 @@ export function WorkoutReview({
                   "راجع المجموعات قبل الحفظ. الأهداف غير المكتملة لا تُسجل؛ تُعتمد النقاط بعد المزامنة.",
                 )}
           </SheetDescription>
+          {discard && (
+            <>
+              <p className="font-semibold">
+                {title} · {sets.length} {l("logged sets", "مجموعات مسجلة")}
+              </p>
+              <p className="text-sm">
+                {l(
+                  "This removes this session and its logged sets. Export a backup first if you may need them.",
+                  "سيُحذف هذا التمرين ومجموعاته. صدّر نسخة احتياطية أولاً إذا كنت ستحتاجها.",
+                )}
+              </p>
+              <Button variant="outline" onClick={onBackup}>
+                {l("Export backup before discarding", "تصدير نسخة قبل الإلغاء")}
+              </Button>
+            </>
+          )}
           {!discard && (
             <>
               <p>

@@ -3,7 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { readMemberState, changeMemberState } from "@/lib/member-store";
 import type { Json } from "@/integrations/supabase/types";
 export type TrainingFeature =
-  "guidance" | "logging" | "progression" | "scheduling" | "imports" | "offline";
+  | "guidance"
+  | "logging"
+  | "progression"
+  | "scheduling"
+  | "imports"
+  | "offline"
+  | "food_scanning"
+  | "cardio"
+  | "social";
 export function useTrainingFeatures(userId: string) {
   return useQuery({
     queryKey: ["training-features", userId],

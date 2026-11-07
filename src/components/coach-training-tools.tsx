@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -357,11 +358,11 @@ function Editor({
               )}
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="text-sm">
+              <label className="text-sm min-w-0 max-w-full block">
                 {l("Schedule mode", "نمط الجدول")}
-                <select
+                <NativeSelect
                   aria-label={l("Schedule mode", "نمط الجدول")}
-                  className="h-11 w-full rounded border bg-background px-3"
+                  className="mt-2"
                   value={schedule.mode}
                   onChange={(event) => {
                     setSchedule({ ...schedule, mode: event.target.value });
@@ -370,7 +371,7 @@ function Editor({
                 >
                   <option value="calendar">{l("Calendar", "بالتاريخ")}</option>
                   <option value="rotation">{l("Rotation", "بالتتابع")}</option>
-                </select>
+                </NativeSelect>
               </label>
               <label className="text-sm">
                 {l("Program day one", "اليوم الأول للبرنامج")}
@@ -392,11 +393,11 @@ function Editor({
         {progression && (
           <section className="space-y-4 rounded-lg border p-4">
             <h3 className="font-semibold">{l("Progression policy", "قاعدة التدرج")}</h3>
-            <label className="block text-sm">
+            <label className="block text-sm min-w-0 max-w-full">
               {l("Program exercise slot", "التمرين في البرنامج")}
-              <select
+              <NativeSelect
                 aria-label={l("Program exercise slot", "التمرين في البرنامج")}
-                className="mt-1 h-11 w-full rounded border bg-background px-3"
+                className="mt-2"
                 value={slot}
                 onChange={(event) => {
                   setSlot(event.target.value);
@@ -411,7 +412,7 @@ function Editor({
                     {drafts[row.id] ? ` · ${l("Draft", "مسودة")}` : ""}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             {draft && item && (
               <>
@@ -453,11 +454,11 @@ function Editor({
                     </span>
                   </p>
                 )}
-                <label className="block text-sm">
+                <label className="block text-sm min-w-0 max-w-full">
                   {l("Progression rule", "قاعدة التدرج")}
-                  <select
+                  <NativeSelect
                     aria-label={l("Progression rule", "قاعدة التدرج")}
-                    className="mt-1 h-11 w-full rounded border bg-background px-3"
+                    className="mt-2"
                     value={draft.form.rule}
                     onChange={(event) =>
                       change({ rule: event.target.value as PolicyDraft["rule"] })
@@ -473,7 +474,7 @@ function Editor({
                         {l("Double progression", "زيادة التكرارات ثم الوزن")}
                       </option>
                     )}
-                  </select>
+                  </NativeSelect>
                 </label>
                 {draft.form.rule !== "off" ? (
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -513,11 +514,11 @@ function Editor({
                     "لا يمنح السجل المستورد نقاط XP أو مكافآت أخرى.",
                   )}
                 </p>
-                <label className="block text-sm">
+                <label className="block text-sm min-w-0 max-w-full">
                   {l("Override handling", "التعامل مع التجاوز")}
-                  <select
+                  <NativeSelect
                     aria-label={l("Override handling", "التعامل مع التجاوز")}
-                    className="mt-1 h-11 w-full rounded border bg-background px-3"
+                    className="mt-2"
                     value={draft.form.overrideAction}
                     onChange={(event) =>
                       change({
@@ -534,7 +535,7 @@ function Editor({
                     <option value="remove" disabled={!draft.original?.override}>
                       {l("Remove existing override", "إزالة التجاوز الحالي")}
                     </option>
-                  </select>
+                  </NativeSelect>
                 </label>
                 {draft.form.overrideAction === "replace" && (
                   <div className="space-y-3">

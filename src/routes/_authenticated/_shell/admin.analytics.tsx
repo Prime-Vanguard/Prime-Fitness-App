@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -308,10 +309,10 @@ function Page() {
               ],
             ] as const
           ).map(([key, label, options]) => (
-            <label key={key} className="text-sm">
+            <label key={key} className="text-sm min-w-0 max-w-full block">
               {label}
-              <select
-                className="mt-1 block min-h-11 w-full rounded-md border border-input bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={search[key] ?? ""}
                 onChange={(e) =>
                   void navigate({
@@ -328,7 +329,7 @@ function Page() {
                     {title}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           ))}
         </div>

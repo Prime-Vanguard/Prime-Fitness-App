@@ -7,6 +7,7 @@ import {
   nextSupersetSlot,
   slotDraftKey,
   parseSetDraft,
+  convertDraftUnits,
   type SetDraft,
 } from "@/lib/workout-editor";
 import { displayWeight, storedWeight, formatMeasure, type Units } from "@/lib/units";
@@ -76,8 +77,10 @@ export function useWorkoutEditor({
   const timed = selected?.logging_mode === "timed";
 
   function updateDraft(value: Partial<SetDraft>) {
-    const next = { ...draft, units, ...value };
-    setDrafts((all) => ({ ...all, [draftKey]: next }));
+    setDrafts((all) => ({
+      ...all,
+      [draftKey]: { ...convertDraftUnits(all[draftKey] ?? draft, units), ...value, units },
+    }));
     // Each keystroke is durable; the transaction merges other exercise/tab drafts.
     void change((current) => ({
       ...current,
@@ -85,7 +88,14 @@ export function useWorkoutEditor({
         ...current.editor,
         selectedSlot: selection,
         selectedExercise: exerciseId,
-        drafts: { ...current.editor?.drafts, [draftKey]: next },
+        drafts: {
+          ...current.editor?.drafts,
+          [draftKey]: {
+            ...convertDraftUnits(current.editor?.drafts?.[draftKey] ?? draft, units),
+            ...value,
+            units,
+          },
+        },
       },
     })).catch((e: Error) => onError(e.message));
   }

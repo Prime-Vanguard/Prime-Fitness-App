@@ -1,7 +1,9 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { TrainingTools } from "@/components/training-tools";
 import { useI18n } from "@/lib/i18n";
 import { trainingLabel } from "@/lib/training-labels";
-import { storedWeight, type Units } from "@/lib/units";
+import { storedWeight, displayWeight, formatMeasure, type Units } from "@/lib/units";
+import { inputNumber } from "@/lib/numeric-input";
 import type { SetDraft } from "@/lib/workout-editor";
 import type { SetDetails } from "@/lib/training-model";
 import type { WorkoutSet } from "@/lib/workout-store";
@@ -14,6 +16,7 @@ export function WorkoutExerciseOptions({
   logging,
   superset,
   onWarmup,
+  onDraft,
 }: {
   equipment: string | null | undefined;
   units: Units;
@@ -34,24 +37,34 @@ export function WorkoutExerciseOptions({
     onChange: (reference: string) => void;
   };
   onWarmup: (kg: number, reps: number) => void;
+  onDraft: (patch: Partial<SetDraft>) => void;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+  let workingKg = 0;
+  try {
+    workingKg = storedWeight(inputNumber(draft.weight, { label: "Weight", max: 2205 }) ?? 0, units);
+  } catch {
+    /* Keep invalid/incomplete text in the editor for correction. */
+  }
   return (
     <div className="space-y-3 rounded-xl border border-border p-3">
       {equipment?.toLowerCase().includes("barbell") && (
         <TrainingTools
+          onWorkingWeight={(kg) =>
+            onDraft({ weight: String(formatMeasure(displayWeight(kg, units))) })
+          }
           units={units}
-          weight={draft.weight ? storedWeight(Number(draft.weight), units) : 0}
+          weight={workingKg}
           onWarmup={onWarmup}
         />
       )}
       {logging.enabled && (
         <>
-          <label className="block text-sm">
+          <label className="block text-sm min-w-0 max-w-full">
             {l("Set type", "نوع المجموعة")}
-            <select
-              className="mt-1 h-11 w-full rounded-md border bg-background px-2"
+            <NativeSelect
+              className="mt-2"
               value={logging.role}
               onChange={(e) => logging.onRoleChange(e.target.value as SetDetails["set_role"])}
             >
@@ -60,12 +73,12 @@ export function WorkoutExerciseOptions({
                   {trainingLabel(v, locale)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm min-w-0 max-w-full">
             {l("Side", "الجانب")}
-            <select
-              className="mt-1 h-11 w-full rounded-md border bg-background px-2"
+            <NativeSelect
+              className="mt-2"
               value={logging.side}
               onChange={(e) => logging.onSideChange(e.target.value as SetDetails["side"])}
             >
@@ -74,13 +87,13 @@ export function WorkoutExerciseOptions({
                   {trainingLabel(v, locale)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           {logging.role === "drop" && (
-            <label className="block text-sm">
+            <label className="block text-sm min-w-0 max-w-full">
               {l("Root working set", "المجموعة الأساسية")}
-              <select
-                className="mt-1 h-11 w-full rounded-md border bg-background px-2"
+              <NativeSelect
+                className="mt-2"
                 value={logging.root}
                 onChange={(e) => logging.onRootChange(e.target.value)}
               >
@@ -92,16 +105,16 @@ export function WorkoutExerciseOptions({
                       {s.set_number}
                     </option>
                   ))}
-              </select>
+              </NativeSelect>
             </label>
           )}
         </>
       )}
-      <label className="block text-sm">
+      <label className="block text-sm min-w-0 max-w-full">
         {l("Superset partner", "شريك السوبرست")}
-        <select
+        <NativeSelect
           aria-label={l("Superset partner", "شريك السوبرست")}
-          className="mt-1 h-11 w-full rounded-md border bg-background px-2"
+          className="mt-2"
           value={superset.value}
           onChange={(e) => superset.onChange(e.target.value)}
         >
@@ -111,7 +124,7 @@ export function WorkoutExerciseOptions({
               {option.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       <p className="text-xs text-muted-foreground">
         {l(

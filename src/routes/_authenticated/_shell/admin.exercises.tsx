@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -188,10 +189,10 @@ function Exercises() {
             ],
           ] as const
         ).map(([label, value, set, options]) => (
-          <label key={label} className="text-sm">
+          <label key={label} className="text-sm min-w-0 max-w-full block">
             {label}
-            <select
-              className="mt-1 block min-h-11 max-w-full rounded-md border border-input bg-background px-3"
+            <NativeSelect
+              className="mt-2"
               value={value}
               onChange={(e) => {
                 set(e.target.value);
@@ -208,13 +209,13 @@ function Exercises() {
                   {name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
         ))}
-        <label className="text-sm">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Muscle filter", "تصفية العضلة")}
-          <select
-            className="mt-1 block min-h-11 rounded-md border border-input bg-background px-3"
+          <NativeSelect
+            className="mt-2"
             value={muscle}
             onChange={(e) => {
               setMuscle(e.target.value);
@@ -225,7 +226,7 @@ function Exercises() {
             {[...new Set(data.data?.map((e) => e.muscle))].sort().map((m) => (
               <option key={m}>{m}</option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       </div>
       {data.isPending && (

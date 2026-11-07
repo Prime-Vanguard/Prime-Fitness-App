@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,7 +45,6 @@ const ROLE_LABEL_AR: Record<Role, string> = {
   admin: "مسؤول",
   super_admin: "مسؤول رئيسي",
 };
-const sel = "min-h-11 rounded-md border border-input bg-background px-2 text-sm";
 
 function Page() {
   const { user } = Route.useRouteContext();
@@ -197,11 +197,11 @@ function Page() {
           setPage(0);
         }}
       />
-      <div className="mt-3 flex flex-wrap gap-3">
-        <label className="text-sm">
+      <div className="mt-3 grid max-w-xl gap-3 sm:grid-cols-2">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Access filter", "تصفية الوصول")}
-          <select
-            className={sel + " ms-2"}
+          <NativeSelect
+            className="mt-2"
             value={accessFilter}
             onChange={(e) => {
               setAccessFilter(e.target.value);
@@ -211,12 +211,12 @@ function Page() {
             <option value="all">{l("All", "الكل")}</option>
             <option value="active">{t("accessOn")}</option>
             <option value="paused">{t("accessOff")}</option>
-          </select>
+          </NativeSelect>
         </label>
-        <label className="text-sm">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Role filter", "تصفية الدور")}
-          <select
-            className={sel + " ms-2"}
+          <NativeSelect
+            className="mt-2"
             value={roleFilter}
             onChange={(e) => {
               setRoleFilter(e.target.value);
@@ -229,7 +229,7 @@ function Page() {
                 {locale === "ar" ? ROLE_LABEL_AR[role as Role] : label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       </div>
       {!isPending && !error && !list.length && (
@@ -286,10 +286,10 @@ function Page() {
                     </button>
                   );
                 })}
-                <label className="ms-auto flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground sm:w-auto">
+                <label className="ms-auto flex w-full min-w-0 items-center gap-2 text-xs text-muted-foreground sm:w-auto max-w-full">
                   {t("coach")}
-                  <select
-                    className={sel + " min-w-0 flex-1 sm:w-48"}
+                  <NativeSelect
+                    className="min-w-0 flex-1 sm:w-48"
                     value={coachId}
                     disabled={!!review || !me?.profile?.access_active}
                     onChange={(e) => {
@@ -312,7 +312,7 @@ function Page() {
                           {c.display_name || c.email}
                         </option>
                       ))}
-                  </select>
+                  </NativeSelect>
                 </label>
               </div>
             </li>

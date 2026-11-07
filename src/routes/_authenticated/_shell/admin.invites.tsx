@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { adminDate } from "@/lib/admin-format";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
@@ -191,10 +192,10 @@ function Invites() {
             placeholder={l("Email address", "البريد الإلكتروني")}
           />
         </label>
-        <label className="text-sm">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Invitation status", "حالة الدعوة")}
-          <select
-            className="mt-1 block min-h-11 rounded-md border border-input bg-background px-3"
+          <NativeSelect
+            className="mt-2"
             value={search.status ?? "all"}
             onChange={(e) =>
               void navigate({
@@ -212,7 +213,7 @@ function Invites() {
                 {statusName(status)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <Button
           disabled={!allowed || !!invitations.error || invitations.isPending}
@@ -371,10 +372,10 @@ function Invites() {
               }}
             />
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm min-w-0 max-w-full">
             {t("role")}
-            <select
-              className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+            <NativeSelect
+              className="mt-2"
               value={draft.role}
               disabled={!!pending || !!review}
               onChange={(e) => setDraft({ ...draft, role: e.target.value as InviteRole })}
@@ -384,7 +385,7 @@ function Invites() {
                   {roleName(role)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           {pending && (
             <p role="status" className="text-sm">

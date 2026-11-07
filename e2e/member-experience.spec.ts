@@ -45,7 +45,7 @@ function postgrestLogic(row: Row, expression: string): boolean {
       ? String(actual) <= value!
       : String(actual) < value!;
 }
-async function fakeBackend(context: BrowserContext) {
+async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") {
   const tables: Record<string, Row[]> = {
     profiles: [
       {
@@ -53,7 +53,7 @@ async function fakeBackend(context: BrowserContext) {
         display_name: "Test Athlete",
         access_active: true,
         onboarding_completed: true,
-        locale: "en",
+        locale,
         leaderboard_opt_in: true,
         pod_feed_opt_in: false,
         units: "metric",
@@ -177,12 +177,13 @@ async function fakeBackend(context: BrowserContext) {
     }),
   ).toString("base64url");
   await context.addInitScript(
-    ({ key, value }) => {
-      localStorage.setItem("pf-locale", "en");
+    ({ key, value, locale }) => {
+      localStorage.setItem("pf-locale", locale);
       localStorage.setItem(key, value);
     },
     {
       key: `sb-${ref}-auth-token`,
+      locale,
       value: JSON.stringify({
         access_token: `eyJhbGciOiJIUzI1NiJ9.${payload}.test`,
         refresh_token: "test",
@@ -650,6 +651,363 @@ async function chooseFromLibrary(page: Page, name: string) {
     .getByRole("button", { name: "Use", exact: true })
     .click();
 }
+
+async function expectAlignedControls(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const errors: string[] = [],
+          width = document.documentElement.clientWidth;
+        if (document.documentElement.scrollWidth > width + 1) {
+          errors.push(`Page overflows: ${document.documentElement.scrollWidth}/${width}`);
+          for (const el of [...document.querySelectorAll("main *")]
+            .filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && (r.left < -1 || r.right > width + 1);
+            })
+            .slice(0, 8)) {
+            const r = el.getBoundingClientRect();
+            errors.push(`${el.tagName}.${el.className}: ${r.left}/${r.right}`);
+          }
+        }
+        for (const node of document.querySelectorAll<HTMLSelectElement>("select")) {
+          const box = node.getBoundingClientRect(),
+            style = getComputedStyle(node);
+          if (!box.width || !box.height || style.visibility === "hidden") continue;
+          const name =
+            node.getAttribute("aria-label") ||
+            node.closest("label")?.textContent?.trim().slice(0, 50) ||
+            node.id;
+          if (box.left < -1 || box.right > width + 1)
+            errors.push(`${name}: outside viewport ${box.left}/${box.right}`);
+          if (box.height < 43) errors.push(`${name}: target height ${box.height}`);
+          if (parseFloat(style.paddingInlineStart) < 11 || parseFloat(style.paddingInlineEnd) < 35)
+            errors.push(`${name}: missing text/chevron padding`);
+          const label = node.closest("label");
+          if (!label || getComputedStyle(label).display.includes("flex")) continue;
+          const lines = [...label.childNodes]
+            .filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())
+            .flatMap((n) => {
+              const range = document.createRange();
+              range.selectNodeContents(n);
+              return [...range.getClientRects()].filter((r) => r.height > 0);
+            });
+          if (lines.length && box.top < Math.max(...lines.map((r) => r.bottom)) + 5)
+            errors.push(`${name}: label/control gap is too small`);
+        }
+        return errors;
+      }),
+    )
+    .toEqual([]);
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`member controls align across narrow mobile and desktop in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120000);
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { cardio: true, social: true, imports: true });
+    await context.route("**/rest/v1/rpc/get_cardio_history", (r) => r.fulfill({ json: [] }));
+    await context.route("**/rest/v1/rpc/social_action", (r) =>
+      r.fulfill({
+        json: {
+          account: {
+            member_id: userId,
+            code: "PF-1234567890ABCDEF",
+            discoverable: false,
+            sharing: false,
+          },
+          friends: [],
+          blocked: [],
+          challenges: [],
+        },
+      }),
+    );
+    for (const width of [320, 393, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      await page.goto("/train");
+      await page
+        .getByText(locale === "ar" ? "الكارديو وHIIT" : "Cardio & HIIT", { exact: true })
+        .click();
+      const filter = page.getByRole("combobox", {
+        name: locale === "ar" ? "تصفية نشاط السجل" : "History activity filter",
+        exact: true,
+      });
+      await expect(filter).toBeVisible();
+      await expectAlignedControls(page);
+      if (width === 320) {
+        await filter.focus();
+        await page.keyboard.press("End");
+        await page.keyboard.press("Enter");
+        await expect(filter).toHaveValue("hiit");
+        await page.keyboard.press("Escape");
+        await filter
+          .locator("..")
+          .screenshot({ path: `artifacts/alignment-history-filter-${locale}.png` });
+        await page.screenshot({
+          path: `artifacts/alignment-train-${locale}-320.png`,
+          fullPage: true,
+        });
+      }
+      for (const route of [
+        "/progress?section=strength",
+        "/profile?section=preferences",
+        "/profile?section=privacy",
+        "/rewards?section=community",
+        "/nutrition?entry=quick",
+      ]) {
+        await page.goto(route);
+        await expect(page.locator("main")).toBeVisible();
+        await expect(page.locator("select").first()).toBeVisible();
+        await expectAlignedControls(page);
+      }
+    }
+  });
+  test(`admin filter controls align across narrow mobile and desktop in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120000);
+    const backend = await fakeBackend(context, locale);
+    backend.tables.user_roles = [{ user_id: userId, role: "admin" }];
+    for (const width of [320, 393, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      for (const route of [
+        "/admin/members",
+        "/admin/exercises",
+        "/admin/invites",
+        "/admin/pv",
+        "/members",
+      ]) {
+        await page.goto(route);
+        await expect(page.locator("select").first()).toBeVisible();
+        await expectAlignedControls(page);
+      }
+      if (width === 320)
+        await page.screenshot({
+          path: `artifacts/alignment-admin-${locale}-320.png`,
+          fullPage: true,
+        });
+    }
+  });
+}
+
+test("editable decimal actual weight survives offline reload and discard is outside collapsed notes", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  const weight = page.getByLabel("kg", { exact: true });
+  await weight.fill("");
+  await weight.fill("22.5");
+  await page.getByLabel("Reps", { exact: true }).fill("8");
+  const discard = page.getByRole("button", { name: "Discard workout", exact: true });
+  const notes = page
+    .locator("details")
+    .filter({ has: page.getByText("Session notes & recovery", { exact: true }) });
+  await expect(notes).not.toHaveAttribute("open");
+  await expect(discard).toBeVisible();
+  await expect(notes.getByRole("button", { name: "Discard workout", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Rest settings", exact: true }).click();
+  const settings = page.getByRole("dialog");
+  await settings.getByRole("slider", { name: /Alert volume/ }).fill("90");
+  await settings.getByLabel("Mute rest sound", { exact: true }).check();
+  await settings.getByRole("button", { name: "Preview alert", exact: true }).click();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(weight).toHaveValue("22.5");
+  await context.setOffline(false);
+  await expect(notes).not.toHaveAttribute("open");
+  await discard.click();
+  const review = page.getByRole("dialog");
+  await expect(review).toContainText("logged sets");
+  await expect(
+    review.getByRole("button", { name: "Export backup before discarding", exact: true }),
+  ).toBeVisible();
+  await review.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(weight).toHaveValue("22.5");
+});
+
+test("label scan review fills the normal food editor without saving unconfirmed macros", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await trainingFeatures(context, { food_scanning: true });
+  await page.goto("/nutrition");
+  await page.getByRole("button", { name: "Add food", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("button", { name: "Scan barcode or nutrition label", exact: true })
+    .click();
+  const scanner = dialog.locator("section").filter({
+    has: page.getByRole("button", { name: "Scan barcode or nutrition label", exact: true }),
+  });
+  await scanner
+    .getByLabel("Label text (optional manual paste)", { exact: true })
+    .fill("Energy 120 kcal\nProtein 4 g\nCarbs 15 g\nTotal fat 2 g");
+  await scanner.getByRole("button", { name: "Read pasted label", exact: true }).click();
+  await scanner.getByLabel("Food name", { exact: true }).fill("Reviewed label");
+  await scanner
+    .getByLabel("Serving basis, e.g. 100 g or 1 bottle", { exact: true })
+    .fill("1 bottle");
+  await expect(
+    scanner.getByRole("button", { name: "Use reviewed values in food editor", exact: true }),
+  ).toBeDisabled();
+  expect(backend.tables.food_logs).toHaveLength(0);
+  await scanner
+    .getByLabel("I reviewed the serving and all nutrient values", { exact: true })
+    .check();
+  await scanner
+    .getByRole("button", { name: "Use reviewed values in food editor", exact: true })
+    .click();
+  expect(backend.tables.food_logs).toHaveLength(0);
+  await dialog.getByRole("button", { name: "Add food", exact: true }).click();
+  await expect.poll(() => backend.tables.food_logs?.length).toBe(1);
+  expect(backend.tables.food_logs![0]).toMatchObject({
+    name: "Reviewed label",
+    calories: 120,
+    protein_g: 4,
+    carbs_g: 15,
+    fat_g: 2,
+  });
+});
+
+test("cardio logs remain available after an offline reload and sync with one stable identity", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await trainingFeatures(context, { cardio: true });
+  const accepted = new Map<string, Row>();
+  await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+    route.fulfill({ json: [...accepted.values()] }),
+  );
+  await context.route("**/rest/v1/rpc/save_cardio_log", (route) => {
+    const body = route.request().postDataJSON();
+    const row = {
+      ...body._data,
+      id: body._id,
+      member_id: userId,
+      revision: body._expected + 1,
+      deleted_at: null,
+    };
+    accepted.set(body._id, row);
+    return route.fulfill({ json: { status: "applied", record: row, revision: row.revision } });
+  });
+  await page.goto("/train");
+  await page.getByText("Cardio & HIIT", { exact: true }).click();
+  await page.getByLabel("Duration (minutes)", { exact: true }).fill("12.5");
+  await page.getByLabel("Distance (km)", { exact: true }).fill("2");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Save cardio on this device", exact: true }).click();
+  await expect(page.getByText("12.5 min", { exact: false }).first()).toBeVisible();
+  await page.reload();
+  await page.getByText("Cardio & HIIT", { exact: true }).click();
+  await expect(page.getByText("12.5 min", { exact: false }).first()).toBeVisible();
+  expect(accepted.size).toBe(0);
+  await context.setOffline(false);
+  await page.getByRole("button", { name: /Retry cardio sync/ }).click();
+  await expect.poll(() => accepted.size).toBe(1);
+  expect([...accepted.values()][0]).toMatchObject({ duration_seconds: 750, distance_m: 2000 });
+});
+
+test("cardio conflicts show both records and resubmit against the reviewed server revision", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await trainingFeatures(context, { cardio: true });
+  const requests: Row[] = [];
+  await context.route("**/rest/v1/rpc/get_cardio_history", (route) => route.fulfill({ json: [] }));
+  await context.route("**/rest/v1/rpc/save_cardio_log", (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    const row = {
+      ...body._data,
+      id: body._id,
+      member_id: userId,
+      revision: body._expected === 0 ? 3 : 4,
+      deleted_at: null,
+    };
+    return route.fulfill({
+      json:
+        body._expected === 0
+          ? {
+              status: "conflict",
+              record: { ...row, notes: "Server note", duration_seconds: 1800 },
+              revision: 3,
+            }
+          : { status: "applied", record: row, revision: 4 },
+    });
+  });
+  await page.goto("/train");
+  await page.getByText("Cardio & HIIT", { exact: true }).click();
+  await page.getByLabel("Duration (minutes)", { exact: true }).fill("12");
+  await page.getByLabel("Notes", { exact: true }).fill("My cardio note");
+  await page.getByRole("button", { name: "Save cardio on this device", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your device version", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Server version", exact: true })).toBeVisible();
+  await expect(page.getByText("Server note", { exact: true })).toBeVisible();
+  await expect(page.getByText("My cardio note", { exact: true }).first()).toBeVisible();
+  await page
+    .getByRole("button", { name: "Submit local against latest revision", exact: true })
+    .click();
+  await page.getByRole("button", { name: /Retry cardio sync/ }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  expect(requests[1]?._expected).toBe(3);
+  expect(requests[1]?._id).toBe(requests[0]?._id);
+  await expect(page.getByRole("heading", { name: "Server version", exact: true })).toHaveCount(0);
+});
+
+test("member-code discovery is opt-in and a reviewed friend request uses the social operation", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await trainingFeatures(context, { social: true });
+  const friend = crypto.randomUUID();
+  const state = {
+    account: {
+      member_id: userId,
+      code: "PF-1234567890ABCDEF",
+      discoverable: false,
+      sharing: false,
+    },
+    friends: [] as Row[],
+    blocked: [],
+    challenges: [],
+  };
+  await context.route("**/rest/v1/rpc/social_action", (route) => {
+    const body = route.request().postDataJSON();
+    if (body._op === "lookup")
+      return route.fulfill({ json: { member_id: friend, name: "Training Friend" } });
+    if (body._op === "preferences") Object.assign(state.account, body._data);
+    if (body._op === "request")
+      state.friends = [
+        { member_id: friend, name: "Training Friend", status: "pending", incoming: false },
+      ];
+    return route.fulfill({ json: state });
+  });
+  await page.goto("/rewards?section=community");
+  await expect(page.getByText("PF-1234567890ABCDEF", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Find member", exact: true })).toBeDisabled();
+  await page.getByLabel("Allow exact-code discovery and friend requests", { exact: true }).check();
+  await page.getByLabel("Exact member code", { exact: true }).fill("pf-ABCDEF1234567890");
+  await page.getByRole("button", { name: "Find member", exact: true }).click();
+  await expect(page.getByText("Training Friend", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Send friend request", exact: true }).click();
+  await expect(page.getByText("Request sent", { exact: false })).toBeVisible();
+});
 
 test("focused exercise cards retain drafts and edit the original set with delete undo", async ({
   page,
@@ -4935,6 +5293,67 @@ test("MIT guidance keeps provenance and branded media stays in internal preview"
   expect(backend.tables.exercises!.find((e) => e.id === exerciseId)?.media).toBeNull();
 });
 
+test("full exercise catalogue can page, search Arabic and keep cardio out of strength sets", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await trainingFeatures(context, { guidance: true, logging: true });
+  const reference = JSON.parse(readFileSync("public/data/exercise-reference.json", "utf8")) as {
+    exercises: {
+      id: string;
+      name: string;
+      target: string;
+      equipment: string;
+      steps_en: string[];
+    }[];
+  };
+  const arabic = JSON.parse(readFileSync("public/data/exercise-arabic.json", "utf8")) as {
+    exercises: { id: string; name_ar: string; steps_ar: string[] }[];
+  };
+  backend.tables.exercises!.push(
+    ...reference.exercises.map((e, n) => ({
+      id: `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+      name_en: e.name,
+      name_ar: arabic.exercises[n]!.name_ar,
+      muscle: e.target,
+      equipment: e.equipment,
+      equipment_tags: [e.equipment],
+      active: true,
+      logging_mode: "bodyweight_reps",
+      load_convention: "bodyweight",
+      editorial_status: "needs_review",
+      guidance: {
+        steps_en: e.steps_en.join("\n"),
+        steps_ar: arabic.exercises[n]!.steps_ar.join("\n"),
+        translation: { status: "machine_draft" },
+        catalogue_kind: e.target === "cardiovascular system" ? "cardio" : "strength",
+      },
+    })),
+  );
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.getByRole("button", { name: "Add exercise", exact: true }).click();
+  const library = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Exercise library", exact: true }) });
+  await expect(library.locator("li")).toHaveCount(60);
+  await library.getByRole("button", { name: /Show more exercises/ }).click();
+  await expect(library.locator("li")).toHaveCount(120);
+  const last = arabic.exercises.at(-1)!;
+  await library.getByRole("textbox", { name: "Search exercises", exact: true }).fill(last.name_ar);
+  await expect(
+    library.getByRole("button", { name: new RegExp(`^${reference.exercises.at(-1)!.name}`) }),
+  ).toBeVisible();
+  await library
+    .getByRole("textbox", { name: "Search exercises", exact: true })
+    .fill("stationary bike walk");
+  await expect(library.getByRole("button", { name: "Cardio", exact: true })).toBeDisabled();
+  await library.getByRole("button", { name: /^stationary bike walk/ }).click();
+  await expect(page.getByText(/Reference activity: use Train/)).toBeVisible();
+  expect(backend.tables.set_logs).toHaveLength(0);
+});
+
 test("exercise guidance and timed working sets survive reload", async ({ page, context }) => {
   const backend = await fakeBackend(context);
   await trainingFeatures(context, { guidance: true, logging: true });
@@ -5393,6 +5812,24 @@ test("photo comparison has keyboard slider and mobile layouts fit in both langua
   await expect(page.getByLabel("Drag to reveal · Before / After")).toHaveValue("51");
   await page.getByRole("button", { name: "Overview", exact: true }).click();
   await expect(page.getByRole("heading", { name: "This week's muscle volume" })).toBeVisible();
+  const muscleVolume = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "This week's muscle volume", exact: true }) });
+  await expect(muscleVolume.getByText("Front view", { exact: true })).toBeVisible();
+  await expect(muscleVolume.getByText("Back view", { exact: true })).toBeVisible();
+  await muscleVolume.locator('svg path[id="quadriceps"]').first().click();
+  await expect(muscleVolume.getByRole("button", { name: /^Quads/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await muscleVolume.getByRole("button", { name: /^Chest/ }).focus();
+  await page.keyboard.press("Enter");
+  await expect(muscleVolume.getByRole("button", { name: /^Chest/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "artifacts/muscle-diagram-en.png", fullPage: true });
   await page.getByRole("button", { name: "Photos", exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/progress-mobile.png", fullPage: true });
@@ -5401,7 +5838,14 @@ test("photo comparison has keyboard slider and mobile layouts fit in both langua
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("button", { name: "العربية", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await page.getByRole("button", { name: "نظرة عامة", exact: true }).click();
+  const front = page.getByText("الواجهة الأمامية", { exact: true });
+  const back = page.getByText("الواجهة الخلفية", { exact: true });
+  await expect(front).toBeVisible();
+  await expect(back).toBeVisible();
+  expect((await front.boundingBox())!.x).toBeLessThan((await back.boundingBox())!.x);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "artifacts/muscle-diagram-ar.png", fullPage: true });
 });
 
 test("imperial logger stores kg and shows lb plate tools", async ({ page, context }) => {

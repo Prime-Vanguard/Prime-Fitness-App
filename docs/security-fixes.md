@@ -83,3 +83,11 @@ The database tests run in isolated Postgres/WASM, not with live member data. The
 ## Remaining work
 
 The subsequent [photo and session batch](photo-and-session-fixes.md) resolves R7, R10 and R14; the [analytics and validation batch](analytics-and-validation-fixes.md) resolves R6, R8 and R9. Remaining review work is R5 archived exercise history, R11 redemption retry identity, R12 date consistency and R13 older-photo selection. Hosted password/MFA and real email/mobile acceptance work also remain separate.
+
+## Development dependency audit — 7 November 2026
+
+Resolved [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) by overriding only `@typescript-eslint/typescript-estree`'s `minimatch` dependency to the patched `11.0.1`. The installed `typescript-eslint` remains at `8.72.1`; no forced downgrade was applied. ESLint's separate, unaffected minimatch 3 dependency remains unchanged.
+
+The patched package supports the project's Node 22 runtime. A direct compatibility check exercised the parser's project-service `allowDefaultProject` matching path using the installed dependency. Relative to the pre-fix lockfile, only the scoped minimatch entry and its new `@isaacs/nonrecursive-glob-match` helper changed. Remove the override when an upstream TypeScript ESLint release accepts the patched minimatch range, then regenerate the lockfile and repeat these checks.
+
+Verification: `npm audit` reports zero vulnerabilities; lint reports zero errors and seven existing Fast Refresh warnings; TypeScript, the production build, the GitHub Pages build/output scan, and an offline `npm ci --dry-run --ignore-scripts --no-audit` lockfile check passed. This dependency-only fix does not change application behavior or database migrations.

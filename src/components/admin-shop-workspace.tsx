@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/use-me";
@@ -241,10 +242,10 @@ export function AdminShopWorkspace({
         )}
       </div>
       {section === "queue" && (
-        <label className="mt-4 block text-sm">
+        <label className="mt-4 block text-sm min-w-0 max-w-full">
           {l("Fulfillment status", "حالة التسليم")}
-          <select
-            className="mt-1 block min-h-11 w-full max-w-sm rounded-md border border-input bg-background px-3"
+          <NativeSelect
+            className="mt-2 max-w-sm"
             value={status}
             onChange={(e) =>
               onSearch({
@@ -259,7 +260,7 @@ export function AdminShopWorkspace({
                 {s === "all" ? l("All statuses", "كل الحالات") : stateLabel(s)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
       )}
       {(rewards.isPending || (section === "queue" && (orders.isPending || people.isPending))) && (

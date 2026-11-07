@@ -1,5 +1,9 @@
 # Exercise dataset integration — 28 October 2026
 
+## Full catalogue update — 7 November 2026
+
+All 1,324 source references now have a prepared database catalogue entry with English instructions, Arabic machine-translation drafts and external image/GIF URLs. Existing identities and measurement conventions are preserved; uncertain starter equivalents remain separate. See [full catalogue implementation and verification](full-exercise-catalogue.md) for the import, review status, storage measurements and deployment boundary. Media files remain externally hosted.
+
 ## Current status — 30 October 2026
 
 The user subsequently confirmed licensing for the full Gym Visual catalogue and instructed use of the available image/GIF references. Member workout, program, discovery and history thumbnails now resolve the 1,324-entry pinned media catalogue, under the Exercise Guidance rollout flag. Unique exact name/equipment matches and explicit reference IDs are supported; uncertain matches keep an icon. Navy/silver/gold rendering uses a display filter without regenerating anatomy. GIF playback is on demand.

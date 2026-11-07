@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { adminDate } from "@/lib/admin-format";
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
@@ -158,10 +159,10 @@ export function PvTaskManager({
             }}
           />
         </label>
-        <label className="text-sm">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Task visibility", "ظهور المهام")}
-          <select
-            className="mt-1 block min-h-11 rounded-md border border-input bg-background px-3"
+          <NativeSelect
+            className="mt-2"
             value={filter}
             onChange={(e) => {
               setFilter(e.target.value);
@@ -171,7 +172,7 @@ export function PvTaskManager({
             <option value="all">{l("All", "الكل")}</option>
             <option value="active">{t("active")}</option>
             <option value="hidden">{t("hidden")}</option>
-          </select>
+          </NativeSelect>
         </label>
         <Button disabled={!ready} onClick={() => setOpen(true)}>
           {l("Create PV task", "إنشاء مهمة PV")}
@@ -585,10 +586,10 @@ export function PvClaimEditor({
             )}
             {(!decided || !!pending) && !self && (
               <form onSubmit={prepare} className="space-y-4">
-                <label className="block text-sm">
+                <label className="block text-sm min-w-0 max-w-full">
                   {l("Decision", "القرار")}
-                  <select
-                    className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+                  <NativeSelect
+                    className="mt-2"
                     value={status}
                     disabled={!ready || !!pending || !!review}
                     onChange={(e) => setStatus(e.target.value as Decision)}
@@ -596,7 +597,7 @@ export function PvClaimEditor({
                     <option value="approved">{decisionName("approved")}</option>
                     <option value="needs_info">{decisionName("needs_info")}</option>
                     <option value="rejected">{decisionName("rejected")}</option>
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="block text-sm">
                   {l("Decision reason", "سبب القرار")}

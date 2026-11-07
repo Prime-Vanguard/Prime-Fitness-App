@@ -434,6 +434,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                     )}
                     {tools && (
                       <WorkoutExerciseOptions
+                        onDraft={updateDraft}
                         equipment={selected?.equipment}
                         units={units}
                         draft={draft}
@@ -495,13 +496,20 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
             <Download />
             {l("Export backup", "تصدير نسخة")}
           </Button>
-          {!locked && (
-            <Button variant="ghost" onClick={() => setDiscard(true)}>
-              {t("discardWorkout")}
-            </Button>
-          )}
         </div>
       </details>
+      {!locked && (
+        <div className="flex justify-end border-t border-border pt-4">
+          <Button
+            variant="outline"
+            className="min-h-11 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={busy}
+            onClick={() => setDiscard(true)}
+          >
+            {t("discardWorkout")}
+          </Button>
+        </div>
+      )}
       <RestTimer
         end={w.restEnd}
         seconds={restSeconds}
@@ -585,6 +593,8 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
         />
       )}
       <WorkoutReview
+        title={w.session?.title ?? l("Workout", "تمرين")}
+        onBackup={exportWorkout}
         open={review || discard}
         discard={discard}
         busy={busy}

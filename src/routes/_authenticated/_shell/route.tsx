@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { supabase } from "@/integrations/supabase/client";
 import { WorkoutSync } from "@/components/workout-sync";
 import { MemberSync } from "@/components/member-sync";
+import { CardioSync } from "@/features/cardio/cardio-sync";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { haptic } from "@/lib/device-feedback";
 import { LevelUpWatcher } from "@/components/level-up-watcher";
@@ -160,6 +161,7 @@ function Shell() {
 
   return (
     <div className="bg-hero min-h-screen md:flex">
+      {trainingFeatures?.cardio && <CardioSync userId={user.id} />}
       <aside
         className={
           focused
@@ -210,7 +212,7 @@ function Shell() {
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a[data-pf-tab]")) haptic("tab");
         }}
-        className={`min-w-0 flex-1 px-4 ${focused ? "pb-32 md:mx-auto md:max-w-4xl md:px-8" : workout?.session ? "pb-44 md:px-10 md:py-8" : "pb-24 md:px-10 md:py-8"}`}
+        className={`min-w-0 flex-1 px-4 ${focused ? "pb-[calc(8rem+env(safe-area-inset-bottom))] md:mx-auto md:max-w-4xl md:px-8" : workout?.session ? "pb-[calc(11rem+env(safe-area-inset-bottom))] md:px-10 md:py-8" : "pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-10 md:py-8"}`}
       >
         {adminRoute && (permissionError || !data || !data.isAdmin) ? (
           <p
@@ -268,7 +270,7 @@ function Shell() {
                 key={to}
                 to={to}
                 onClick={() => haptic("tab")}
-                className="flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-gold"
+                className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-tight text-muted-foreground focus-visible:ring-2 focus-visible:ring-gold"
                 activeProps={{ className: "text-gold" }}
               >
                 <Icon className="h-5 w-5" />

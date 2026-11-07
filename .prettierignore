@@ -10,8 +10,10 @@ artifacts/
 test-results/
 playwright-report/
 coverage/
+public/scanner-runtime/
 supabase/.temp/
 # Generated catalogue files retain their compact distribution format.
 public/data/exercise-media-preview.json
 public/data/exercise-reference.json
 public/data/exercise-visuals.json
+public/data/exercise-arabic.json

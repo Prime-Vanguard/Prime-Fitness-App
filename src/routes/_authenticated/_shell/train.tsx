@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { useWorkout } from "@/hooks/use-workout";
 import { MyProgram } from "@/components/my-program";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
+import { CardioPanel } from "@/features/cardio/cardio-panel";
 import { TrainingSchedule } from "@/components/training-schedule";
 import { WorkoutSession } from "@/components/workout-session";
 import { WorkoutHistoryDetail } from "@/components/workout-history-detail";
@@ -94,6 +95,7 @@ function Train() {
   return (
     <>
       <PageHeader title={t("train")} />
+      <CardioPanel userId={user.id} />
       <LegacyWorkoutRecovery key={user.id} userId={user.id} />
       {!ready && <p role="status">{l("Opening your workout…", "جارٍ فتح التمرين…")}</p>}
       {error && (

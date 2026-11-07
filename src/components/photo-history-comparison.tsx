@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,12 +94,12 @@ export function PhotoHistoryComparison({
         )}
       </p>
       <div className="grid gap-2 sm:grid-cols-3">
-        <label className="text-xs">
+        <label className="text-xs min-w-0 max-w-full block">
           {l("Pose", "الوضعية")}
-          <select
+          <NativeSelect
             aria-label={l("Comparison pose", "وضعية المقارنة")}
             value={pose}
-            className="mt-1 h-11 w-full rounded border bg-background px-2"
+            className="mt-2"
             onChange={(e) => {
               setPose(e.target.value);
               setPage(0);
@@ -115,7 +116,7 @@ export function PhotoHistoryComparison({
                     : l("Back", "خلف")}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <label className="text-xs">
           {l("Photos from", "الصور من")}
@@ -161,13 +162,13 @@ export function PhotoHistoryComparison({
       )}
       <div className="grid gap-2 sm:grid-cols-2">
         {(["before", "after"] as const).map((side) => (
-          <label className="text-xs" key={side}>
+          <label className="text-xs min-w-0 max-w-full block" key={side}>
             {side === "before" ? l("Before", "قبل") : l("After", "بعد")}
-            <select
+            <NativeSelect
               aria-label={
                 side === "before" ? l("Before photo", "صورة قبل") : l("After photo", "صورة بعد")
               }
-              className="mt-1 h-11 w-full rounded border bg-background px-2"
+              className="mt-2"
               value={(side === "before" ? before : after)?.id ?? ""}
               onChange={(e) => {
                 setUnavailable(false);
@@ -186,7 +187,7 @@ export function PhotoHistoryComparison({
                     {p.taken_on}
                   </option>
                 ))}
-            </select>
+            </NativeSelect>
           </label>
         ))}
       </div>

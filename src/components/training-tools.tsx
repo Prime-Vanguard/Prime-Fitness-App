@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { displayWeight, storedWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
 import { useState } from "react";
 import { Calculator } from "lucide-react";
@@ -12,21 +13,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { plateLoad, warmupSets } from "@/lib/training-tools";
 import { useI18n } from "@/lib/i18n";
+import { inputNumber } from "@/lib/numeric-input";
 
 export function TrainingTools({
   weight,
   units = "metric",
   onWarmup,
+  onWorkingWeight,
 }: {
   weight: number;
   units?: Units;
   onWarmup: (weight: number, reps: number) => void;
+  onWorkingWeight?: (weight: number) => void;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const wu = weightUnit(units);
   const [bar, setBar] = useState(units === "imperial" ? 45 : 20);
-  const [total, setTotal] = useState(formatMeasure(displayWeight(weight || 100, units)));
+  const [text, setText] = useState(String(formatMeasure(displayWeight(weight, units))));
+  let total = NaN;
+  try {
+    total = inputNumber(text, { label: "Weight", max: units === "imperial" ? 2205 : 1000 }) ?? NaN;
+  } catch {
+    /* Keep incomplete numeric drafts editable. */
+  }
   const [warmups, setWarmups] = useState<ReturnType<typeof warmupSets>>([]);
   const load = plateLoad(total, bar, units === "imperial" ? [45, 35, 25, 10, 5, 2.5] : undefined);
   return (
@@ -35,7 +45,7 @@ export function TrainingTools({
         <Button
           variant="outline"
           onClick={() => {
-            setTotal(formatMeasure(displayWeight(weight || 100, units)));
+            setText(String(formatMeasure(displayWeight(weight, units))));
             setBar(units === "imperial" ? 45 : 20);
             setWarmups([]);
           }}
@@ -57,21 +67,19 @@ export function TrainingTools({
             <label className="space-y-2 text-sm">
               {l("Working weight", "وزن العمل")} ({wu})
               <Input
-                type="number"
-                min={bar}
-                max={1000}
-                step="0.5"
-                value={total}
+                inputMode="decimal"
+                dir="ltr"
+                value={text}
                 onChange={(e) => {
-                  setTotal(Number(e.target.value));
+                  setText(e.target.value);
                   setWarmups([]);
                 }}
               />
             </label>
-            <label className="space-y-2 text-sm">
+            <label className="space-y-2 text-sm min-w-0 max-w-full block">
               {l("Bar", "البار")} ({wu})
-              <select
-                className="h-10 w-full rounded border bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={bar}
                 onChange={(e) => {
                   setBar(Number(e.target.value));
@@ -81,9 +89,18 @@ export function TrainingTools({
                 {(units === "imperial" ? [15, 35, 45] : [10, 15, 20]).map((n) => (
                   <option key={n}>{n}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           </div>
+          {onWorkingWeight && (
+            <Button
+              variant="outline"
+              disabled={!Number.isFinite(total)}
+              onClick={() => onWorkingWeight(storedWeight(total, units))}
+            >
+              {l("Use as actual working weight", "استخدامه كوزن العمل الفعلي")}
+            </Button>
+          )}
           {load ? (
             <>
               <div

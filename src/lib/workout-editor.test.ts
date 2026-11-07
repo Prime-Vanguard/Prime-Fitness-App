@@ -34,6 +34,24 @@ function fixture() {
   return appendSet(w, { exercise_id: "bench", reps: 5, weight_kg: 50, rpe: 7, slot_key: "first" });
 }
 describe("workout editor", () => {
+  it("merges independently edited fields without replacing a newer weight draft", () => {
+    let w = fixture();
+    w.plan = [{ id: "bench", slot_key: "first", sets: 2, reps: "8-12" }];
+    w = initializePlannedRows(w, "bench", "first", {
+      reps: "8",
+      weight: "50",
+      rpe: "",
+      units: "metric",
+    });
+    const key = slotDraftKey("bench", "first"),
+      row = w.editor!.plannedRows![key]![0]!;
+    w = updatePlannedRow(w, key, row.id, { weight: "22.5", units: "metric" });
+    w = updatePlannedRow(w, key, row.id, { reps: "10", units: "metric" });
+    expect(w.editor!.plannedRows![key]![0]!.draft).toMatchObject({ weight: "22.5", reps: "10" });
+    w = updatePlannedRow(w, key, row.id, { weight: "" });
+    expect(w.editor!.plannedRows![key]![0]!.draft.weight).toBe("");
+    expect(w.plan[0]!.reps).toBe("8-12");
+  });
   it("resumes a planned hold from a persisted timestamp and captures only its own row", () => {
     let w = fixture();
     w.plan = [{ id: "bench", slot_key: "first", sets: 3, reps: "30" }];

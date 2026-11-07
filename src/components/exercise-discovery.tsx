@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { trainingLabel } from "@/lib/training-labels";
 import { appPath } from "@/lib/app-path";
 import { useState } from "react";
@@ -26,6 +27,7 @@ export function ExerciseDiscovery({
   const [equipment, setEquipment] = useState("");
   const [muscle, setMuscle] = useState("");
   const [mode, setMode] = useState("");
+  const [visibleCount, setVisibleCount] = useState(60);
   const [detail, setDetail] = useState<{ exercise: ExerciseGuidance; play: boolean } | null>(null);
   const results = discoverExercises(exercises, q, { equipment, muscle, mode, preferred });
   return (
@@ -57,10 +59,10 @@ export function ExerciseDiscovery({
             ["weighted_reps", "bodyweight_reps", "timed"],
           ],
         ].map(([value, setter, label, options]) => (
-          <label key={String(label)} className="text-xs">
+          <label key={String(label)} className="text-xs min-w-0 max-w-full block">
             {String(label)}
-            <select
-              className="mt-1 h-11 w-full rounded border bg-background"
+            <NativeSelect
+              className="mt-2"
               value={String(value)}
               onChange={(e) => (setter as (s: string) => void)(e.target.value)}
             >
@@ -70,7 +72,7 @@ export function ExerciseDiscovery({
                   {v}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
         ))}
       </div>
@@ -82,7 +84,7 @@ export function ExerciseDiscovery({
         )}
       </p>
       <ul className="max-h-72 overflow-auto divide-y">
-        {results.slice(0, 60).map((e) => (
+        {results.slice(0, visibleCount).map((e) => (
           <li key={e.id} className="flex items-center justify-between gap-2 py-2">
             <ExerciseThumbnail
               exercise={e}
@@ -98,22 +100,37 @@ export function ExerciseDiscovery({
                 {e.muscle} · {(e.equipment_tags ?? [e.equipment]).join(", ")}
               </span>
             </button>
-            <Button size="sm" variant="outline" onClick={() => onChoose(e.id)}>
-              {l("Use", "استخدم")}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={e.guidance?.catalogue_kind === "cardio"}
+              onClick={() => onChoose(e.id)}
+            >
+              {e.guidance?.catalogue_kind === "cardio" ? l("Cardio", "كارديو") : l("Use", "استخدم")}
             </Button>
           </li>
         ))}
       </ul>
+      {results.length > visibleCount && (
+        <Button variant="outline" onClick={() => setVisibleCount((n) => n + 60)}>
+          {l("Show more exercises", "عرض المزيد من التمارين")} (
+          {Math.min(visibleCount, results.length)} / {results.length})
+        </Button>
+      )}
       {detail && (
         <ExerciseDetail
           key={detail.exercise.id}
           exercise={detail.exercise}
           startMedia={detail.play}
           onClose={() => setDetail(null)}
-          onChoose={(id) => {
-            onChoose(id);
-            setDetail(null);
-          }}
+          onChoose={
+            detail.exercise.guidance?.catalogue_kind === "cardio"
+              ? undefined
+              : (id) => {
+                  onChoose(id);
+                  setDetail(null);
+                }
+          }
         />
       )}
     </section>
@@ -127,7 +144,7 @@ export function ExerciseDetail({
 }: {
   exercise: ExerciseGuidance;
   onClose: () => void;
-  onChoose?: (id: string) => void;
+  onChoose?: ((id: string) => void) | undefined;
   startMedia?: boolean;
 }) {
   const { locale } = useI18n();
@@ -215,6 +232,32 @@ export function ExerciseDetail({
               "المراجعة التدريبية قيد الانتظار. اسأل مدربك عن طريقة الأداء.",
             )}
           </p>
+        )}
+        {e.guidance?.catalogue_kind === "cardio" && (
+          <p className="my-3 text-sm">
+            {l(
+              "Reference activity: use Train → Cardio & HIIT to log cardio metrics, separately from strength sets.",
+              "نشاط مرجعي: استخدم التدريب ← الكارديو والتمارين المتقطعة لتسجيل الكارديو بشكل منفصل عن مجموعات القوة.",
+            )}
+          </p>
+        )}
+        {locale === "ar" &&
+          e.editorial_status !== "reviewed" &&
+          guidance.translation?.status === "machine_draft" && (
+            <p className="my-3 text-sm text-amber-400">
+              {l(
+                "Machine-translated draft; compare the English original and ask your coach if anything is unclear.",
+                "ترجمة آلية أولية؛ راجع النص الإنجليزي واسأل مدربك إذا كانت أي خطوة غير واضحة.",
+              )}
+            </p>
+          )}
+        {locale === "ar" && guidance.translation?.status === "machine_draft" && (
+          <details className="my-3 text-sm">
+            <summary>{l("English original", "النص الإنجليزي الأصلي")}</summary>
+            <p dir="ltr" className="whitespace-pre-line text-start">
+              {guidance.steps_en}
+            </p>
+          </details>
         )}
         <ol className="my-4 list-inside list-decimal space-y-2">
           {(

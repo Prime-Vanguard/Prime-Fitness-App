@@ -1,0 +1,18 @@
+{
+  "source_rows": 1324,
+  "exact_instruction_matches": 1324,
+  "instruction_mismatches": [],
+  "preserved_custom_arabic_names": [
+    "0025",
+    "0027",
+    "0032",
+    "0043",
+    "0085",
+    "0198",
+    "0294",
+    "0314",
+    "0652"
+  ],
+  "encoding_transport": "ASCII JSON escapes",
+  "verified_on": "2026-11-07"
+}

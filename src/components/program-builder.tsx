@@ -1,3 +1,5 @@
+import { NativeSelect } from "@/components/ui/native-select";
+import { isCardioReference } from "@/lib/exercise-guidance";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
@@ -251,10 +253,10 @@ export function ProgramBuilder({
               [t("day"), day, 7, (n: number) => onSession(week, n)],
             ] as const
           ).map(([label, value, max, set]) => (
-            <label key={label} className="text-sm">
+            <label key={label} className="text-sm min-w-0 max-w-full block">
               {label}
-              <select
-                className="mt-1 block min-h-11 rounded-md border border-input bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={value}
                 onChange={(e) => set(Number(e.target.value))}
               >
@@ -263,7 +265,7 @@ export function ProgramBuilder({
                     {label} {i + 1}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           ))}
         </div>
@@ -535,7 +537,7 @@ function ProgramRowEditor({
           label={l("Exercise", "التمرين")}
           emptyLabel={l("Choose an exercise", "اختر تمريناً")}
           people={exercises
-            .filter((e) => e.active || e.id === original?.exercise_id)
+            .filter((e) => (e.active && !isCardioReference(e)) || e.id === original?.exercise_id)
             .map((e) => ({
               id: e.id,
               display_name:

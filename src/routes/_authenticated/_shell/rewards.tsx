@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { VanguardRoadmap } from "@/components/vanguard-roadmap";
 import { XpGuide } from "@/components/xp-guide";
 import { PodCommunity } from "@/components/pod-community";
+import { SocialPanel } from "@/features/social/social-panel";
 import { ShareAchievement } from "@/components/share-achievement";
 import { Trophy, Award, Gift, Lock, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -485,6 +486,7 @@ function Page() {
           )}
         </>
       )}
+      {section === "community" && <SocialPanel userId={user.id} />}
       {section === "community" && (
         <>
           <PodCommunity userId={user.id} />

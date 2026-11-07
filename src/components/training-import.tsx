@@ -1,4 +1,5 @@
 import { useI18n } from "@/lib/i18n";
+import { useEffect, useRef } from "react";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { Button } from "./ui/button";
 import { ImportMappingPicker } from "./import-mapping-picker";
@@ -14,6 +15,8 @@ function TrainingImportAccount({ userId }: { userId: string }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const wizard = useImportWorkflow(userId, features?.imports === true);
+  const steps = useRef<HTMLElement>(null);
+  const failure = useRef<HTMLParagraphElement>(null);
   const {
     options,
     workouts,
@@ -44,6 +47,14 @@ function TrainingImportAccount({ userId }: { userId: string }) {
     excludedWorkouts,
     canImport,
   } = wizard;
+  useEffect(() => {
+    if (busy || !fileName) return;
+    const target = error
+      ? failure.current
+      : steps.current?.querySelector<HTMLElement>('[aria-current="step"]');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "nearest" });
+  }, [step, busy, fileName, error]);
   if (!features?.imports) return null;
   return (
     <section className="mt-6 space-y-3 rounded-xl border border-border p-4">
@@ -55,6 +66,7 @@ function TrainingImportAccount({ userId }: { userId: string }) {
         )}
       </p>
       <nav
+        ref={steps}
         aria-label={l("Import steps", "خطوات الاستيراد")}
         className="grid grid-cols-2 gap-2 sm:grid-cols-5"
       >
@@ -86,6 +98,24 @@ function TrainingImportAccount({ userId }: { userId: string }) {
       {fileName && (
         <p className="break-words text-xs text-muted-foreground">
           {l("Selected file", "الملف المختار")}: {fileName}
+        </p>
+      )}
+      {error && (
+        <p
+          ref={failure}
+          tabIndex={-1}
+          role="alert"
+          className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
+      {fileName && !busy && !error && step === 2 && (
+        <p role="status" className="rounded-lg border border-gold/30 p-3 text-sm">
+          {l(
+            "File read successfully. Step 2: confirm an exercise match for each name below, then choose Review import.",
+            "تمت قراءة الملف بنجاح. الخطوة ٢: أكد مطابقة كل تمرين أدناه ثم اختر مراجعة الاستيراد.",
+          )}
         </p>
       )}
       {exercisesError && (
@@ -123,7 +153,6 @@ function TrainingImportAccount({ userId }: { userId: string }) {
           </Button>
         </>
       )}
-      {error && <p role="alert">{error}</p>}
       {report && <p role="status">{report}</p>}
       {!!workouts.length && (
         <>
@@ -136,6 +165,22 @@ function TrainingImportAccount({ userId }: { userId: string }) {
                 {unresolved} {l("unresolved mappings", "تعيينات غير محسومة")} · {excludedSets}{" "}
                 {l("sets explicitly excluded", "مجموعات مستبعدة صراحة")}
               </p>
+              {unresolved > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {l(
+                    "Choose a matching catalogue exercise—or explicitly exclude its sets—for every imported name below. Review import unlocks when all names are resolved.",
+                    "اختر تمريناً مطابقاً من المكتبة أو استبعد مجموعاته صراحةً لكل اسم مستورد أدناه. تُتاح مراجعة الاستيراد بعد إكمال جميع المطابقات.",
+                  )}
+                </p>
+              )}
+              {!unresolved && excludedWorkouts === workouts.length && (
+                <p role="status" className="text-sm text-destructive">
+                  {l(
+                    "All source workouts are excluded. Keep at least one supported exercise to continue, or reset the preview and choose another file.",
+                    "تم استبعاد جميع جلسات المصدر. احتفظ بتمرين مدعوم واحد على الأقل للمتابعة، أو أعد المعاينة واختر ملفاً آخر.",
+                  )}
+                </p>
+              )}
               <Button
                 disabled={busy || !!unresolved || excludedWorkouts === workouts.length}
                 onClick={wizard.reviewMapping}

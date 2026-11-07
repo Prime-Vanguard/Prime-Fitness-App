@@ -14,6 +14,9 @@ const types = {
   ".webp": "image/webp",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".wasm": "application/wasm",
+  ".gz": "application/gzip",
+  ".txt": "text/plain",
 };
 
 // Emulates project-site directory redirects and GitHub's 404 document, without SPA rewrites.

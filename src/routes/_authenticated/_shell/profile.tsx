@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { MemberSections } from "@/components/member-sections";
 import { pageSection } from "@/lib/member-sections";
 import { BackupRestore } from "@/components/backup-restore";
@@ -262,7 +263,7 @@ function Profile() {
         month: "long",
       })
     : "";
-  const sel = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
+
   const card = "rounded-xl border border-border bg-card p-6";
   return (
     <>
@@ -417,34 +418,31 @@ function Profile() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="profile-language">{t("language")}</Label>
-                  <select
-                    className={sel}
+                  <NativeSelect
                     id="profile-language"
                     value={locale}
                     onChange={(e) => setLoc(e.target.value as Locale)}
                   >
                     <option value="ar">العربية</option>
                     <option value="en">English</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="profile-units">{t("units")}</Label>
-                  <select
+                  <NativeSelect
                     id="profile-units"
-                    className={sel}
                     value={units}
                     onChange={(e) => setUnits(e.target.value)}
                   >
                     <option value="metric">{t("metric")}</option>
                     <option value="imperial">{t("imperial")}</option>
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="profile-rest">
                     {ar ? "مدة الراحة الافتراضية" : "Default rest timer"}
                   </Label>
-                  <select
-                    className={sel}
+                  <NativeSelect
                     id="profile-rest"
                     value={rest}
                     onChange={(e) => setRest(Number(e.target.value))}
@@ -454,7 +452,7 @@ function Profile() {
                         {s >= 60 ? `${s / 60} ${t("min")}` : `${s}s`}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
               <label className="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-3 text-sm">

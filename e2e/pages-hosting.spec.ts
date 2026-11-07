@@ -1,7 +1,185 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type BrowserContext } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 const base = "/Prime-Fitness-App/";
+test("Strong file advances through every import step under the Pages prefix", async ({
+  page,
+  context,
+}) => {
+  const { id, user } = await signInPagesMember(context);
+  if (!process.env["PW_PAGES_BASE_URL"])
+    await context.addInitScript(() => {
+      const BrowserWorker = window.Worker;
+      let rejectFirst = true;
+      window.Worker = class extends BrowserWorker {
+        constructor(url: string | URL, options?: WorkerOptions) {
+          if (rejectFirst && String(url).includes("training-import.worker")) {
+            rejectFirst = false;
+            throw new Error("Simulated worker startup failure");
+          }
+          super(url, options);
+        }
+      };
+    });
+  let submitted = 0;
+  await context.route("**/rest/v1/**", async (route) => {
+    const request = route.request(),
+      table = new URL(request.url()).pathname.split("/").pop();
+    if (table === "get_training_features") return route.fulfill({ json: { imports: true } });
+    if (table === "commit_training_import") {
+      submitted++;
+      expect(request.postDataJSON()._provider).toBe("strong");
+      return route.fulfill({ json: { accepted: 1, skipped: 0 } });
+    }
+    if (table === "get_import_batch_outcome")
+      return route.fulfill({ json: { accepted: 1, skipped: 0, chunks: 1 } });
+    const rows =
+      table === "profiles"
+        ? [
+            {
+              ...user,
+              display_name: "Import tester",
+              access_active: true,
+              onboarding_completed: true,
+              locale: "en",
+              units: "metric",
+            },
+          ]
+        : table === "user_roles"
+          ? [{ role: "member" }]
+          : table === "exercises" && !Number(new URL(request.url()).searchParams.get("offset"))
+            ? [
+                {
+                  id: "00000000-0000-4000-8000-000000000072",
+                  name_en: "Barbell Bench Press",
+                  name_ar: null,
+                  muscle: "chest",
+                  equipment: "barbell",
+                  active: true,
+                  logging_mode: "weighted_reps",
+                  load_convention: "external_total",
+                },
+              ]
+            : [];
+    return route.fulfill({
+      headers: { "content-range": `0-${Math.max(0, rows.length - 1)}/${rows.length}` },
+      json: request.headers()["accept"]?.includes("vnd.pgrst.object") ? (rows[0] ?? null) : rows,
+    });
+  });
+  await page.goto(base + "profile?section=privacy");
+  if (!process.env["PW_PAGES_BASE_URL"]) {
+    await page
+      .getByLabel("Workout CSV file", { exact: true })
+      .setInputFiles("e2e/fixtures/strong-workout.csv");
+    const failure = page.getByRole("alert").filter({ hasText: "Simulated worker startup failure" });
+    await expect(failure).toBeVisible();
+    await expect(failure).toBeFocused();
+    await expect(page.getByLabel("Workout CSV file", { exact: true })).toBeEnabled();
+    expect(submitted).toBe(0);
+  }
+  await page
+    .getByLabel("Workout CSV file", { exact: true })
+    .setInputFiles("e2e/fixtures/strong-workout.csv");
+  await expect(page.getByRole("button", { name: "2. Mapping", exact: true })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  if (!process.env["PW_PAGES_BASE_URL"]) {
+    await expect(page.getByRole("button", { name: "2. Mapping", exact: true })).toBeFocused();
+    await expect(page.getByText("File read successfully.", { exact: false })).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Review import", exact: true })).toBeDisabled();
+  if (!process.env["PW_PAGES_BASE_URL"])
+    await expect(
+      page.getByText("Review import unlocks when all names are resolved.", { exact: false }),
+    ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Bench Press", exact: true })
+    .selectOption("00000000-0000-4000-8000-000000000072");
+  await page.getByRole("button", { name: "Review import", exact: true }).click();
+  await expect(page.getByRole("button", { name: "3. Review", exact: true })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await page
+    .getByRole("checkbox", {
+      name: "I reviewed mapping and existing history for overlapping workouts. Similar workouts are not automatically merged.",
+      exact: true,
+    })
+    .check();
+  await page.getByRole("button", { name: "Continue to import", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Confirm import / retry", exact: true }),
+  ).toBeEnabled();
+  expect(submitted).toBe(0);
+  await page.getByRole("button", { name: "Confirm import / retry", exact: true }).click();
+  await expect(page.getByRole("button", { name: "5. Receipt", exact: true })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await expect(page.getByText("1 accepted workouts", { exact: true })).toBeVisible();
+  expect(submitted).toBe(1);
+});
+async function signInPagesMember(context: BrowserContext) {
+  const id = "00000000-0000-4000-8000-000000000071";
+  const user = {
+    id,
+    aud: "authenticated",
+    role: "authenticated",
+    email: "member@test.invalid",
+    app_metadata: {},
+    user_metadata: {},
+    created_at: "2026-01-01T00:00:00Z",
+  };
+  const url = readFileSync(".env", "utf8").match(/^VITE_SUPABASE_URL=["']?([^\r\n"']+)/m)?.[1];
+  if (!url) throw new Error("Public test project configuration missing");
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: id,
+      role: "authenticated",
+      aud: "authenticated",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    }),
+  ).toString("base64url");
+  await context.addInitScript(
+    ({ key, user, token }) => {
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          user,
+          access_token: token,
+          refresh_token: "fixture",
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }),
+      );
+    },
+    {
+      key: `sb-${new URL(url).hostname.split(".")[0]}-auth-token`,
+      user,
+      token: `eyJhbGciOiJIUzI1NiJ9.${payload}.fixture`,
+    },
+  );
+  await context.route("**/auth/v1/**", (route) => route.fulfill({ json: user }));
+  return { id, user };
+}
+
+test("optional scanner runtime is served under the project path without core precaching", async ({
+  request,
+}) => {
+  const worker = await request.get(base + "scanner-runtime/worker.min.js");
+  expect(worker.ok()).toBe(true);
+  expect(worker.headers()["content-type"]).toContain("javascript");
+  const core = await request.get(base + "scanner-runtime/core/tesseract-core-lstm.wasm");
+  expect(core.ok()).toBe(true);
+  expect(core.headers()["content-type"]).toBe("application/wasm");
+  const license = await request.get(base + "scanner-runtime/LICENSE-core.txt");
+  expect(license.ok()).toBe(true);
+  expect(await license.text()).toContain("Apache License");
+  const sw = await request.get(base + "sw.js");
+  expect(await sw.text()).not.toContain("scanner-runtime/core");
+});
 test.beforeEach(async ({ context }) => {
   await context.addInitScript(() => localStorage.setItem("pf-locale", "en"));
 });
@@ -68,47 +246,7 @@ test("a signed-in member logs water, refreshes offline and keeps admin routes pr
   page,
   context,
 }) => {
-  const id = "00000000-0000-4000-8000-000000000071";
-  const user = {
-    id,
-    aud: "authenticated",
-    role: "authenticated",
-    email: "member@test.invalid",
-    app_metadata: {},
-    user_metadata: {},
-    created_at: "2026-01-01T00:00:00Z",
-  };
-  const url = readFileSync(".env", "utf8").match(/^VITE_SUPABASE_URL=["']?([^\r\n"']+)/m)?.[1];
-  if (!url) throw new Error("Public test project configuration missing");
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: id,
-      role: "authenticated",
-      aud: "authenticated",
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }),
-  ).toString("base64url");
-  await context.addInitScript(
-    ({ key, user, token }) => {
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          user,
-          access_token: token,
-          refresh_token: "fixture",
-          token_type: "bearer",
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-        }),
-      );
-    },
-    {
-      key: `sb-${new URL(url).hostname.split(".")[0]}-auth-token`,
-      user,
-      token: `eyJhbGciOiJIUzI1NiJ9.${payload}.fixture`,
-    },
-  );
-  await context.route("**/auth/v1/**", (route) => route.fulfill({ json: user }));
+  const { id, user } = await signInPagesMember(context);
   const water: Record<string, unknown>[] = [];
   await context.route("**/rest/v1/**", async (route) => {
     const request = route.request();

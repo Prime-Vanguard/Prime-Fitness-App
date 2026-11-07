@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -111,18 +112,18 @@ function Page() {
             {l("Apply member search", "تطبيق البحث")}
           </Button>
         </form>
-        <label className="text-sm">
+        <label className="text-sm min-w-0 max-w-full block">
           {l("Relationship", "العلاقة")}
-          <select
+          <NativeSelect
             aria-label={l("Relationship", "العلاقة")}
             value={search.scope}
             onChange={(event) => update({ scope: event.target.value, page: 1 })}
-            className="h-11 w-full rounded-md border bg-background px-3"
+            className="mt-2"
           >
             <option value="all">{l("All assigned members", "كل الأعضاء المرتبطين")}</option>
             <option value="coached">{l("Coached by me", "أتولى تدريبهم")}</option>
             <option value="pod">{l("My Pods", "مجموعاتي")}</option>
-          </select>
+          </NativeSelect>
         </label>
         <Button
           variant="outline"

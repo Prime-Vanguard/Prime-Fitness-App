@@ -58,6 +58,7 @@
 
 /* Light mode: Mist backgrounds, navy text, gold accent */
 :root {
+  color-scheme: light;
   --radius: 0.75rem;
   --background: oklch(0.984 0.003 247.858);
   --foreground: oklch(0.208 0.042 265.755);
@@ -107,6 +108,7 @@
 
 /* Dark mode (default): Navy + Deep Surface, Mist/Slate text */
 .dark {
+  color-scheme: dark;
   --background: oklch(0.208 0.042 265.755);
   --foreground: oklch(0.968 0.007 247.896);
   --card: oklch(0.279 0.041 260.031);
@@ -178,6 +180,24 @@
   * {
     border-color: var(--color-border);
   }
+  /* Form cards and fields must be able to shrink within responsive grid tracks. */
+  .grid > * {
+    min-inline-size: 0;
+  }
+  .grid > label:has(> input:not([type="checkbox"]):not([type="radio"]), > select, > textarea) {
+    align-self: end;
+  }
+  label:not(.flex):not(.inline-flex)
+    > :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+      select,
+      textarea
+    ) {
+    margin-block-start: 0.5rem;
+  }
+  label:has(> .sr-only) > :is(input, select, textarea) {
+    margin-block-start: 0;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -209,6 +229,18 @@
   }
   [dir="rtl"] select:not([multiple]):not([size]) {
     background-position: left 0.75rem center;
+  }
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+  @media (forced-colors: active) {
+    select:not([multiple]):not([size]) {
+      appearance: auto;
+      background-image: none;
+      padding-inline-end: 0.75rem !important;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     *,

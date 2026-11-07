@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
@@ -237,10 +238,10 @@ export function ExerciseEditor({
               ],
             ] as const
           ).map(([key, label, options]) => (
-            <label key={key} className="block text-sm">
+            <label key={key} className="block text-sm min-w-0 max-w-full">
               {label}
-              <select
-                className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={f[key]}
                 disabled={locked}
                 onChange={(e) => patch(key, e.target.value)}
@@ -250,7 +251,7 @@ export function ExerciseEditor({
                     {trainingLabel(value, locale)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           ))}
         </div>
@@ -304,10 +305,10 @@ export function ExerciseEditor({
           {field("permission", l("Permission evidence / reference", "إثبات أو مرجع الإذن"))}
           {field("attribution", l("Attribution shown to members", "الإسناد الظاهر للأعضاء"))}
           {field("poster", l("Optional static poster URL", "رابط صورة الغلاف الثابتة الاختيارية"))}
-          <label className="block text-sm">
+          <label className="block text-sm min-w-0 max-w-full">
             {l("Media license", "ترخيص الوسائط")}
-            <select
-              className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+            <NativeSelect
+              className="mt-2"
               value={f.license}
               disabled={locked}
               onChange={(e) => patch("license", e.target.value)}
@@ -317,12 +318,12 @@ export function ExerciseEditor({
                   {trainingLabel(v, locale)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm min-w-0 max-w-full">
             {l("Media type", "نوع الوسائط")}
-            <select
-              className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+            <NativeSelect
+              className="mt-2"
               value={f.kind}
               disabled={locked}
               onChange={(e) => patch("kind", e.target.value)}
@@ -333,7 +334,7 @@ export function ExerciseEditor({
                   {v}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
         </div>
         <div hidden={section !== "alternatives"}>

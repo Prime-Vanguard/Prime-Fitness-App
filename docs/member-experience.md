@@ -66,3 +66,13 @@ Migration `20261023233043_member_experience.sql` was applied to the connected Pr
 If a restricted Windows session prevents Playwright from stopping its own server, start the production server separately on port 3173 and run with `PW_EXTERNAL_SERVER=1`; the suite will use that server. The completed verification used this mode and exited successfully.
 
 Subsequent RLS/index optimization and its live verification are documented in the [database performance report](performance/README.md).
+
+## Training import wizard check — 7 November 2026
+
+Profile → Data & privacy imports proceed through File, Mapping, Review, Import and Receipt. A valid CSV advances automatically to Mapping. Exact exercise names/approved aliases can be mapped automatically; other names require an explicit catalogue match or exclusion before Review unlocks. At least one supported workout must remain. Unknown headers, invalid dates and unsupported-only files do not proceed silently.
+
+The wizard now focuses and brings the active step/error into view, announces successful parsing and explains disabled review controls. Worker startup/message errors and two minutes without parsing progress release the busy state with a retry message. Cancellation invalidates late results; choosing the same file again is supported. No import requests are sent before explicit confirmation.
+
+The original [Strong test CSV](../e2e/fixtures/strong-workout.csv) is synthetic preview data. Hosted GitHub Pages passed all five steps with mocked account/catalogue/import responses and zero real history writes. The dedicated real QA account still redirects to onboarding, so that account could not complete a stable authenticated preview; its consent state was not changed. The user's original file was not inspected, and a file-specific parser failure has not been established.
+
+Verification: 15 parser/workflow unit tests, three native import browser scenarios and all five Pages browser scenarios passed. The Pages import case checks startup-error recovery, same-file reselection, unmatched names, explicit mapping, review and receipt. TypeScript, changed-file ESLint and both production builds passed. UI/recovery improvements remain local until publication.

@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useId, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
@@ -49,12 +50,11 @@ export function AdminPersonPicker({
           locale === "ar" ? "بحث بالاسم أو البريد الإلكتروني" : "Search by name or email"
         }
       />
-      <select
+      <NativeSelect
         id={id}
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
       >
         <option value="">
           {emptyLabel ?? (locale === "ar" ? "اختر عضواً" : "Choose a member")}
@@ -64,7 +64,7 @@ export function AdminPersonPicker({
             {p.display_name || p.email || p.id}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       <p role="status" className="text-xs text-muted-foreground">
         {matches.length > 50
           ? locale === "ar"

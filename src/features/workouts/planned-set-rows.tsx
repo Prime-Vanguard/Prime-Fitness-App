@@ -126,7 +126,7 @@ function PlannedRowInputs({
   units: Units;
   timed: boolean;
   disabled: boolean;
-  onUpdate: (value: SetDraft) => Promise<void>;
+  onUpdate: (value: Partial<SetDraft>) => Promise<void>;
   onComplete: (id: string, draft: SetDraft) => Promise<void>;
   holdStartedAt: number | null;
   otherHold: boolean;
@@ -189,7 +189,9 @@ function PlannedRowInputs({
                 const next = { ...draft, units, [key]: e.target.value };
                 setDraft(next);
                 setError("");
-                void onUpdate(next).catch((e: Error) => setError(e.message));
+                void onUpdate({ units, [key]: e.target.value }).catch((e: Error) =>
+                  setError(e.message),
+                );
               }}
             />
           </label>

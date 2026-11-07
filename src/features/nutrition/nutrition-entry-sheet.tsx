@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { Copy, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { useI18n, type TKey } from "@/lib/i18n";
 import type { MealItem } from "@/lib/nutrition-tools";
 import { MEALS, type NutritionEntryModel, type FoodPick, type FoodEntryMode } from "./contracts";
 import { useFoodLibrary } from "./use-food-library";
+import { FoodScanner } from "@/features/food-scanning/food-scanner";
 
 /** Entry presentation uses explicit data/actions, with no route or mutation controller. */
 export function NutritionEntrySheet({
@@ -104,6 +106,7 @@ export function NutritionEntrySheet({
               </Button>
             ))}
         </nav>
+        {!editing && <FoodScanner userId={userId} onReviewed={choose} />}
         {(mode === "search" || mode === "recent") && (
           <>
             {libraryPending && (
@@ -235,11 +238,11 @@ export function NutritionEntrySheet({
                     {portionTotals.carbs_g} g {t("carbs")} · {portionTotals.fat_g} g {t("fat")}
                   </p>
                 )}
-                <label className="col-span-2 text-sm">
+                <label className="col-span-2 text-sm min-w-0 max-w-full block">
                   {locale === "ar" ? "الوجبة" : "Meal"}
-                  <select
+                  <NativeSelect
                     aria-label={locale === "ar" ? "الوجبة" : "Meal"}
-                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    className="mt-2"
                     value={selectedMeal}
                     onChange={(e) => changeMeal(e.target.value)}
                   >
@@ -248,7 +251,7 @@ export function NutritionEntrySheet({
                         {t(m as TKey)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="col-span-2 text-sm">
                   {t("foodName")}

@@ -188,7 +188,12 @@ export function initializePlannedRows(
     },
   };
 }
-export function updatePlannedRow(w: Workout, key: string, id: string, draft: SetDraft): Workout {
+export function updatePlannedRow(
+  w: Workout,
+  key: string,
+  id: string,
+  draft: Partial<SetDraft>,
+): Workout {
   if (w.phase !== "active" || !w.session) throw new Error("This workout is no longer editable.");
   const rows = w.editor?.plannedRows?.[key];
   if (!rows?.some((r) => r.id === id))
@@ -199,7 +204,18 @@ export function updatePlannedRow(w: Workout, key: string, id: string, draft: Set
       ...w.editor!,
       plannedRows: {
         ...w.editor!.plannedRows,
-        [key]: rows.map((r) => (r.id === id ? { ...r, draft, revision: r.revision + 1 } : r)),
+        [key]: rows.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                draft: {
+                  ...convertDraftUnits(r.draft, draft.units ?? r.draft.units ?? "metric"),
+                  ...draft,
+                },
+                revision: r.revision + 1,
+              }
+            : r,
+        ),
       },
     },
   };

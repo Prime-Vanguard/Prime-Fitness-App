@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useId, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { PrivatePhoto } from "./private-photo";
@@ -42,10 +43,10 @@ export function PhotoComparison({
       <h3 className="font-semibold">{l("Compare your progress", "قارن تقدمك")}</h3>
       {!hideControls && (
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <label className="text-xs">
+          <label className="text-xs min-w-0 max-w-full block">
             {l("Pose", "الوضعية")}
-            <select
-              className="mt-1 h-11 w-full rounded border bg-background px-2"
+            <NativeSelect
+              className="mt-2"
               value={pose}
               onChange={(e) => {
                 setPose(e.target.value);
@@ -62,29 +63,29 @@ export function PhotoComparison({
                   {label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
           {available.length >= 2 && (
             <>
-              <label className="text-xs">
+              <label className="text-xs min-w-0 max-w-full block">
                 {l("Before", "قبل")}
-                <select
-                  className="mt-1 h-11 w-full rounded border bg-background px-2"
+                <NativeSelect
+                  className="mt-2"
                   value={before?.id ?? ""}
                   onChange={(e) => setBefore(e.target.value)}
                 >
                   {options(undefined)}
-                </select>
+                </NativeSelect>
               </label>
-              <label className="text-xs">
+              <label className="text-xs min-w-0 max-w-full block">
                 {l("After", "بعد")}
-                <select
-                  className="mt-1 h-11 w-full rounded border bg-background px-2"
+                <NativeSelect
+                  className="mt-2"
                   value={after?.id ?? ""}
                   onChange={(e) => setAfter(e.target.value)}
                 >
                   {options(before?.id)}
-                </select>
+                </NativeSelect>
               </label>
             </>
           )}

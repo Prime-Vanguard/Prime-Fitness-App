@@ -109,6 +109,101 @@ export type Database = {
           },
         ];
       };
+      cardio_logs: {
+        Row: {
+          activity: string;
+          created_at: string;
+          deleted_at: string | null;
+          distance_m: number | null;
+          duration_seconds: number;
+          heart_rate: number | null;
+          id: string;
+          incline_pct: number | null;
+          intervals: Json | null;
+          log_date: string;
+          member_id: string;
+          notes: string;
+          resistance: string | null;
+          revision: number;
+          updated_at: string;
+        };
+        Insert: {
+          activity: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          distance_m?: number | null;
+          duration_seconds: number;
+          heart_rate?: number | null;
+          id: string;
+          incline_pct?: number | null;
+          intervals?: Json | null;
+          log_date: string;
+          member_id: string;
+          notes?: string;
+          resistance?: string | null;
+          revision?: number;
+          updated_at?: string;
+        };
+        Update: {
+          activity?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          distance_m?: number | null;
+          duration_seconds?: number;
+          heart_rate?: number | null;
+          id?: string;
+          incline_pct?: number | null;
+          intervals?: Json | null;
+          log_date?: string;
+          member_id?: string;
+          notes?: string;
+          resistance?: string | null;
+          revision?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cardio_logs_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      challenge_members: {
+        Row: {
+          challenge_id: string;
+          member_id: string;
+          status: string;
+        };
+        Insert: {
+          challenge_id: string;
+          member_id: string;
+          status: string;
+        };
+        Update: {
+          challenge_id?: string;
+          member_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "challenge_members_challenge_id_fkey";
+            columns: ["challenge_id"];
+            isOneToOne: false;
+            referencedRelation: "friend_challenges";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "challenge_members_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       coach_assignments: {
         Row: {
           active: boolean;
@@ -339,6 +434,99 @@ export type Database = {
         };
         Relationships: [];
       };
+      friend_challenges: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          ends_on: string;
+          goal: number;
+          id: string;
+          metric: string;
+          owner_id: string;
+          starts_on: string;
+          status: string;
+          title: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          ends_on: string;
+          goal: number;
+          id: string;
+          metric: string;
+          owner_id: string;
+          starts_on: string;
+          status?: string;
+          title: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          ends_on?: string;
+          goal?: number;
+          id?: string;
+          metric?: string;
+          owner_id?: string;
+          starts_on?: string;
+          status?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "friend_challenges_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      friendships: {
+        Row: {
+          a: string;
+          b: string;
+          created_at: string;
+          requested_by: string;
+          status: string;
+        };
+        Insert: {
+          a: string;
+          b: string;
+          created_at?: string;
+          requested_by: string;
+          status: string;
+        };
+        Update: {
+          a?: string;
+          b?: string;
+          created_at?: string;
+          requested_by?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "friendships_a_fkey";
+            columns: ["a"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "friendships_b_fkey";
+            columns: ["b"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "friendships_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       import_batches: {
         Row: {
           created_at: string;
@@ -564,6 +752,36 @@ export type Database = {
           },
           {
             foreignKeyName: "member_badges_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_blocks: {
+        Row: {
+          blocked_id: string;
+          member_id: string;
+        };
+        Insert: {
+          blocked_id: string;
+          member_id: string;
+        };
+        Update: {
+          blocked_id?: string;
+          member_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_blocks_blocked_id_fkey";
+            columns: ["blocked_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_blocks_member_id_fkey";
             columns: ["member_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -1555,6 +1773,35 @@ export type Database = {
           },
         ];
       };
+      social_accounts: {
+        Row: {
+          code: string;
+          discoverable: boolean;
+          member_id: string;
+          sharing: boolean;
+        };
+        Insert: {
+          code?: string;
+          discoverable?: boolean;
+          member_id: string;
+          sharing?: boolean;
+        };
+        Update: {
+          code?: string;
+          discoverable?: boolean;
+          member_id?: string;
+          sharing?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_accounts_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       streak_shields: {
         Row: {
           created_at: string;
@@ -2037,14 +2284,6 @@ export type Database = {
       };
     };
     Functions: {
-      review_program_draft: {
-        Args: { _program: string; _action: string; _expected: Json };
-        Returns: Json;
-      };
-      review_program_assignment: {
-        Args: { _member: string; _version: string; _expected: string | null };
-        Returns: string;
-      };
       apply_member_mutations: { Args: { _mutations: Json }; Returns: Json };
       assign_program_version: {
         Args: { _member: string; _version: string };
@@ -2064,12 +2303,22 @@ export type Database = {
         Returns: Json;
       };
       configure_program_schedule: {
-        Args: { _assignment: string; _mode: string; _start: string; _expected: Json };
+        Args: {
+          _assignment: string;
+          _expected: Json;
+          _mode: string;
+          _start: string;
+        };
         Returns: undefined;
       };
       copy_program_week_one: { Args: { _program: string }; Returns: undefined };
       export_personal_data: { Args: never; Returns: Json };
+      food_scan_allowance: { Args: never; Returns: undefined };
       get_admin_analytics: { Args: never; Returns: Json };
+      get_cardio_history: {
+        Args: { _from: string; _to: string };
+        Returns: Json;
+      };
       get_import_batch_outcome: { Args: { _batch: string }; Returns: Json };
       get_training_context: {
         Args: { _member: string; _slot: string };
@@ -2108,10 +2357,24 @@ export type Database = {
         Args: { _data: Json; _preferences?: boolean };
         Returns: Json;
       };
+      review_program_assignment: {
+        // SQL accepts NULL for a member's first assignment; RPC codegen cannot infer it.
+        Args: { _expected: string | null; _member: string; _version: string };
+        Returns: string;
+      };
+      review_program_draft: {
+        Args: { _action: string; _expected: Json; _program: string };
+        Returns: Json;
+      };
+      save_cardio_log: {
+        Args: { _data: Json; _expected: number; _id: string; _mutation: string };
+        Returns: Json;
+      };
       set_member_coach: {
         Args: { _coach?: string; _member: string };
         Returns: undefined;
       };
+      social_action: { Args: { _data?: Json; _op: string }; Returns: Json };
       start_session_occurrence: {
         Args: { _occurrence: string; _session: string; _started: string };
         Returns: Json;

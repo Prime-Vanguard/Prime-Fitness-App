@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,10 +157,10 @@ export function ProgramAssignments({
           </div>
         ) : null,
       )}
-      <label className="block text-sm">
+      <label className="block text-sm min-w-0 max-w-full">
         {l("Published version", "النسخة المنشورة")}
-        <select
-          className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-3"
+        <NativeSelect
+          className="mt-2"
           value={chosen?.id ?? ""}
           disabled={!enabled || preparing || !!review}
           onChange={(e) => setVersion(e.target.value)}
@@ -172,7 +173,7 @@ export function ProgramAssignments({
               v{v.version} · {adminDate(v.created_at, locale)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       {chosen && (
         <details className="rounded-xl border border-border p-4">

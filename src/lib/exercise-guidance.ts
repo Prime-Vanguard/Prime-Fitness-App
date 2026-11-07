@@ -9,6 +9,8 @@ export type ExerciseGuidance = Exercise & {
   logging_mode?: "weighted_reps" | "bodyweight_reps" | "timed";
   load_convention?: "external_total" | "per_hand" | "bodyweight";
   guidance?: {
+    catalogue_kind?: "strength" | "cardio";
+    translation?: { status?: string; provider?: string };
     steps_en?: string;
     steps_ar?: string;
     cues_en?: string;
@@ -37,6 +39,15 @@ export const normalizeExercise = (text: string) =>
     .replace(/[أإآ]/g, "ا")
     .replace(/ى/g, "ي")
     .trim();
+export function isCardioReference(exercise: { guidance?: unknown }) {
+  const guidance = exercise.guidance;
+  return (
+    !!guidance &&
+    typeof guidance === "object" &&
+    "catalogue_kind" in guidance &&
+    guidance.catalogue_kind === "cardio"
+  );
+}
 /** Frozen identity/measurement metadata wins; current reviewed guidance/media stays current. */
 export function exerciseWithSnapshot(
   id: string,

@@ -1,0 +1,17 @@
+{
+  "bytes": 3080192,
+  "total": 1327,
+  "cardio": 29,
+  "set_logs": 1,
+  "needs_review": 1324,
+  "source_count": 1324,
+  "arabic_guidance": 1324,
+  "public_definers": 0,
+  "media_references": 1324,
+  "program_versions": 0,
+  "baseline_bytes": 49152,
+  "added_bytes": 3031040,
+  "original_exercises_preserved": true,
+  "frozen_version_count_unchanged": true,
+  "set_log_count_unchanged": true
+}

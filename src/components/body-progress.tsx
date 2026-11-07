@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,18 +187,18 @@ export function BodyProgress({ userId }: { userId: string }) {
           )}
         </p>
       )}
-      <label className="mt-4 block text-sm">
+      <label className="mt-4 block text-sm min-w-0 max-w-full">
         {l("Measurement trend", "اتجاه القياسات")}
-        <select
+        <NativeSelect
           value={metric}
           aria-label={l("Measurement trend", "اتجاه القياسات")}
           onChange={(event) => setMetric(event.target.value as typeof metric)}
-          className="mt-1 h-11 w-full rounded-md border bg-background px-3"
+          className="mt-2"
         >
           <option value="weight_kg">{t("weight")}</option>
           <option value="waist_cm">{t("waist")}</option>
           <option value="body_fat_pct">{t("bodyFat")}</option>
-        </select>
+        </NativeSelect>
       </label>
       {series.length > 1 && <DeferredProgressChart series={series} label={label} unit={unit} />}
       {!ordered.length && !query.isPending && !query.error && (

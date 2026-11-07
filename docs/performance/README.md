@@ -1,5 +1,7 @@
 # Database performance fixes
 
+The [7 November experience benchmark](experience-expansion-local.json) covers 10,000 cardio records and 20 shared challenges on the latest schema. Run `npm run test:experience:performance`; these isolated warm-query timings are not hosted latency or concurrency guarantees. The historical comparison below is preserved.
+
 The [28 October training-depth report](../training-depth-offline.md#latest-schema-query-diagnostics) adds latest-schema diagnostics on 20,000 sessions, 60,000 sets and 100,000-entry food/XP fixtures. Run `npm run test:training:performance`; the historical comparison below remains unchanged.
 
 The [25 October reliability follow-up](../reliability-fixes.md) adds indexed program versions and caller-permission history/backup operations. Its live post-migration advisor check still shows zero performance warnings/errors.

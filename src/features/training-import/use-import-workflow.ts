@@ -17,6 +17,11 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const qc = useQueryClient();
   const worker = useRef<Worker | null>(null);
+  const parseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function clearParseTimer() {
+    if (parseTimer.current != null) clearTimeout(parseTimer.current);
+    parseTimer.current = null;
+  }
   const [options, setOptions] = useState<ImportOptions>({
     provider: "strong",
     units: "kg",
@@ -48,6 +53,7 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
   useEffect(
     () => () => {
       parseEpoch.current++;
+      clearParseTimer();
       worker.current?.terminate();
       worker.current = null;
     },
@@ -91,6 +97,30 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
     completed.current.clear();
     batch.current = crypto.randomUUID();
     worker.current?.terminate();
+    clearParseTimer();
+    const fail = (message: string) => {
+      if (epoch !== parseEpoch.current) return;
+      parseEpoch.current++;
+      clearParseTimer();
+      worker.current?.terminate();
+      worker.current = null;
+      setError(message);
+      setBusy(false);
+    };
+    const armTimeout = () => {
+      clearParseTimer();
+      parseTimer.current = setTimeout(
+        () =>
+          fail(
+            l(
+              "Reading the CSV stopped responding. No workouts were imported. Choose the file again, or refresh and retry.",
+              "توقفت قراءة CSV عن الاستجابة. لم تُستورد أي جلسات. اختر الملف مجدداً أو حدّث الصفحة وأعد المحاولة.",
+            ),
+          ),
+        120000,
+      );
+    };
+    armTimeout();
     try {
       if (file.size > 20 * 1024 * 1024) throw new Error("CSV exceeds 20 MiB.");
       const text = await file.text();
@@ -102,17 +132,21 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
       w.onmessage = (e) => {
         if (epoch !== parseEpoch.current || worker.current !== w) return;
         if (e.data.error) {
-          setError(e.data.error);
-          setBusy(false);
-          w.terminate();
+          fail(
+            `${l("Could not read the selected CSV", "تعذرت قراءة ملف CSV المختار")}: ${String(e.data.error)}`,
+          );
         } else if (e.data.workouts) {
           const rows = e.data.workouts as ImportWorkout[];
-          if (!rows.length) {
-            setError(l("No supported workouts were found.", "لم يتم العثور على جلسات مدعومة."));
-            setBusy(false);
-            w.terminate();
+          if (!Array.isArray(rows) || !rows.length || !rows.some((row) => row.sets.length)) {
+            fail(
+              l(
+                "No supported strength or timed sets were found. Check the Strong/Hevy/FitNotes CSV export; distance-only cardio cannot be imported here.",
+                "لم تُوجد مجموعات قوة أو ثبات مدعومة. تحقق من ملف CSV المصدّر من Strong أو Hevy أو FitNotes؛ لا يدعم هذا الاستيراد سجلات الكارديو المعتمدة على المسافة فقط.",
+              ),
+            );
             return;
           }
+          clearParseTimer();
           setWorkouts(rows);
           setStep(2);
           setFurthest(2);
@@ -146,19 +180,30 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
             .catch(() => {});
           setBusy(false);
           w.terminate();
-        } else setProgress(e.data.progress);
+        } else {
+          setProgress(e.data.progress);
+          armTimeout();
+        }
       };
       w.onerror = () => {
-        if (epoch !== parseEpoch.current) return;
-        setError("CSV parser failed; no data imported.");
-        setBusy(false);
-        w.terminate();
+        if (worker.current !== w) return;
+        fail(
+          l(
+            "CSV parser failed to start or read the file. No workouts were imported. Refresh the page and choose the file again.",
+            "تعذر تشغيل قارئ CSV أو قراءة الملف. لم تُستورد أي جلسات. حدّث الصفحة واختر الملف مجدداً.",
+          ),
+        );
       };
+      w.onmessageerror = () =>
+        fail(
+          l(
+            "The CSV parser returned an unreadable result. No workouts were imported; choose the file again.",
+            "أعاد قارئ CSV نتيجة غير قابلة للقراءة. لم تُستورد أي جلسات؛ اختر الملف مجدداً.",
+          ),
+        );
       w.postMessage({ text, options });
     } catch (e) {
-      if (epoch !== parseEpoch.current) return;
-      setError((e as Error).message);
-      setBusy(false);
+      fail((e as Error).message);
     }
   }
   async function commit() {
@@ -267,6 +312,7 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
   }
   function cancelParsing() {
     parseEpoch.current++;
+    clearParseTimer();
     worker.current?.terminate();
     worker.current = null;
     setBusy(false);
@@ -274,6 +320,9 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
     setStep(1);
   }
   function reset() {
+    cancelParsing();
+    setFileName("");
+    setMapping({});
     setStep(1);
     setFurthest(1);
     setAttempted(false);

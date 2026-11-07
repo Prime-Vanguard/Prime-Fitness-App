@@ -1,3 +1,4 @@
+import { readRestPreferences } from "./rest-preferences";
 export function haptic(kind: "set" | "badge" | "tab" = "set") {
   try {
     if (
@@ -12,10 +13,10 @@ export function haptic(kind: "set" | "badge" | "tab" = "set") {
 }
 
 let audio: AudioContext | undefined;
-export function primeAudio() {
+export async function primeAudio() {
   try {
     audio ??= new AudioContext();
-    void audio.resume().catch(() => {});
+    await audio.resume();
   } catch {
     /* Audio may be blocked or unavailable. */
   }
@@ -47,18 +48,22 @@ export function waterSound() {
 }
 
 export function restSound() {
+  const preferences = readRestPreferences();
+  if (preferences.vibration) haptic("badge");
+  if (preferences.muted || preferences.volume === 0) return;
   if (!audio || audio.state !== "running") return;
   try {
-    for (const delay of [0, 0.25]) {
+    for (const delay of [0, 0.28, 0.56]) {
       const tone = audio.createOscillator(),
         gain = audio.createGain();
       tone.frequency.value = 880;
-      gain.gain.setValueAtTime(0.08, audio.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + delay + 0.18);
+      tone.type = "triangle";
+      gain.gain.setValueAtTime(0.35 * preferences.volume, audio.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + delay + 0.24);
       tone.connect(gain);
       gain.connect(audio.destination);
       tone.start(audio.currentTime + delay);
-      tone.stop(audio.currentTime + delay + 0.2);
+      tone.stop(audio.currentTime + delay + 0.26);
       tone.onended = () => {
         tone.disconnect();
         gain.disconnect();

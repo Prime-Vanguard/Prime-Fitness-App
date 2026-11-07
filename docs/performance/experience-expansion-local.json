@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-07",
+  "engine": "Isolated PGlite warm-query diagnostics, not hosted latency or concurrent-load guarantees",
+  "fixtures": {
+    "members": 31,
+    "cardio_logs": 10000,
+    "challenges": 20,
+    "participants_per_challenge": 10
+  },
+  "timings": [
+    {
+      "query": "member indexed cardio date page",
+      "execution_ms": 1.93,
+      "rows": 100
+    },
+    {
+      "query": "member ninety-day history JSON",
+      "execution_ms": 4.8,
+      "rows": 1
+    },
+    {
+      "query": "twenty shared challenge states",
+      "execution_ms": 23.04,
+      "rows": 1
+    }
+  ]
+}

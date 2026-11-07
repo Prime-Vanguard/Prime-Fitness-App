@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { fetchAll } from "@/lib/pagination";
 import { useUnits } from "@/hooks/use-units";
 import { displayWeight, formatMeasure, weightUnit } from "@/lib/units";
@@ -20,6 +21,7 @@ import { trainingLabel } from "@/lib/training-labels";
 import { MuscleHeatmap } from "@/components/muscle-heatmap";
 import { ShareAchievement } from "@/components/share-achievement";
 import { useMe } from "@/hooks/use-me";
+import { CardioPanel } from "@/features/cardio/cardio-panel";
 import { Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -185,6 +187,7 @@ function Page() {
   return (
     <>
       <PageHeader title={t("progress")} />
+      <CardioPanel userId={user.id} progressOnly />
       {error && (
         <p role="alert" className="text-destructive">
           {error.message}
@@ -251,10 +254,10 @@ function Page() {
       {section === "strength" && (
         <>
           {conventions.length > 0 && (
-            <label className="mt-4 block text-sm">
+            <label className="mt-4 block text-sm min-w-0 max-w-full">
               {locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"}
-              <select
-                className="mt-1 h-11 w-full rounded-md border bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={recordConvention}
                 aria-label={
                   locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"
@@ -266,7 +269,7 @@ function Page() {
                     {trainingLabel(value, locale)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           )}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -278,17 +281,17 @@ function Page() {
                 onChange={(e) => setExerciseQuery(e.target.value)}
               />
             </label>
-            <label className="text-sm">
+            <label className="text-sm min-w-0 max-w-full block">
               {locale === "ar" ? "فترة الرسم" : "Trend period"}
-              <select
-                className="mt-1 h-11 w-full rounded border bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
               >
                 <option value="30">30 {locale === "ar" ? "يوماً" : "days"}</option>
                 <option value="90">90 {locale === "ar" ? "يوماً" : "days"}</option>
                 <option value="all">{locale === "ar" ? "كل الوقت" : "All time"}</option>
-              </select>
+              </NativeSelect>
             </label>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -340,9 +343,9 @@ function Page() {
                 <section className="mt-6 rounded-xl border border-border bg-card p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-display text-lg font-bold">{t("strengthTrend")}</h2>
-                    <select
+                    <NativeSelect
                       aria-label={t("exercise")}
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      className="sm:w-auto sm:max-w-sm"
                       value={current}
                       onChange={(e) => setPicked(e.target.value)}
                     >
@@ -351,7 +354,7 @@ function Page() {
                           {name(id)}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                   {series.length > 1 && (
                     <DeferredProgressChart

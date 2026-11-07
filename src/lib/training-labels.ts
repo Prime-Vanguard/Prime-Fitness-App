@@ -1,4 +1,7 @@
 const labels: Record<string, [string, string]> = {
+  food_scanning: ["Food scanning", "مسح الطعام"],
+  cardio: ["Cardio and HIIT", "الكارديو وHIIT"],
+  social: ["Friends and challenges", "الأصدقاء والتحديات"],
   weighted_reps: ["Weighted repetitions", "تكرارات بأوزان"],
   bodyweight_reps: ["Bodyweight repetitions", "تكرارات بوزن الجسم"],
   timed: ["Timed hold", "ثبات بالوقت"],

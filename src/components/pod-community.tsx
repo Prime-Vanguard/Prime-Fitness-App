@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UsersRound } from "lucide-react";
@@ -62,20 +63,16 @@ export function PodCommunity({ userId }: { userId: string }) {
         <UsersRound size={20} className="text-gold" />
         {l("Your Pod", "مجموعتك")}
       </h2>
-      <label className="mt-3 block text-sm">
+      <label className="mt-3 block text-sm min-w-0 max-w-full">
         {l("Leaderboard & activity by Pod", "الصدارة والنشاط حسب المجموعة")}
-        <select
-          className="mt-2 h-12 w-full rounded border bg-background px-3"
-          value={pod}
-          onChange={(e) => setPod(e.target.value)}
-        >
+        <NativeSelect className="mt-2" value={pod} onChange={(e) => setPod(e.target.value)}>
           <option value="">{l("Choose your Pod", "اختر مجموعتك")}</option>
           {pods?.map((p) => (
             <option value={p.id} key={p.id}>
               {p.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       {!pods?.length && !podError && (
         <p className="mt-2 text-sm text-muted-foreground">

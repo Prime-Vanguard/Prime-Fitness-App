@@ -1,3 +1,4 @@
+import { NativeSelect } from "@/components/ui/native-select";
 import { adminDate } from "@/lib/admin-format";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -87,10 +88,10 @@ function Page() {
       {section === "queue" && (
         <section aria-label={l("Claim queue", "قائمة الطلبات")} className="mt-6 space-y-5">
           <div className="flex flex-wrap items-end gap-4">
-            <label className="text-sm">
+            <label className="text-sm min-w-0 max-w-full block">
               {l("Claim status", "حالة الطلب")}
-              <select
-                className="mt-1 block min-h-11 rounded-md border border-input bg-background px-3"
+              <NativeSelect
+                className="mt-2"
                 value={status}
                 onChange={(e) =>
                   void navigate({
@@ -108,7 +109,7 @@ function Page() {
                 <option value="pending">{t("pending")}</option>
                 <option value="needs_info">{l("Needs information", "يحتاج معلومات")}</option>
                 <option value="reviewed">{l("Reviewed", "تمت مراجعته")}</option>
-              </select>
+              </NativeSelect>
             </label>
             <label className="w-full max-w-sm text-sm">
               {l("Search claims", "بحث الطلبات")}

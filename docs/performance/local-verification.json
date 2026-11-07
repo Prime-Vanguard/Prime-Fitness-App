@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-01T16:36:07.161Z",
+  "checkedAt": "2026-11-07T21:23:12.503Z",
   "migration": "20261023235709_optimize_rls_and_foreign_keys.sql",
   "roleCount": 9,
   "tablesAndViews": 36,
