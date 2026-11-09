@@ -99,7 +99,7 @@ export function useWorkoutEditor({
       },
     })).catch((e: Error) => onError(e.message));
   }
-  function pick(id: string, slot = "") {
+  function pick(id: string, slot = "", persist = true) {
     if (w.holdStartedAt && (slot !== selection || id !== exerciseId)) {
       onError(
         l("Stop the current hold before switching exercises.", "أوقف الثبات قبل تغيير التمرين."),
@@ -113,6 +113,7 @@ export function useWorkoutEditor({
     setSide(saved?.side ?? "bilateral");
     setRoot(saved?.root_set_id ?? "");
     setPair(saved?.pair_id ?? crypto.randomUUID());
+    if (!persist) return;
     void change((current) => ({
       ...current,
       editor: {

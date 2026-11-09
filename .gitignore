@@ -47,3 +47,6 @@ artifacts/
 supabase/.temp/
 coverage/
 public/scanner-runtime/
+design/stitch_prime_fitness_tracker_app
+docs/noor-first-use-feedback.md
+docs/noor-pwa-fixes.md

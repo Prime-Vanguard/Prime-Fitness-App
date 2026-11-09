@@ -1,5 +1,5 @@
 import { NativeSelect } from "@/components/ui/native-select";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { appPath } from "@/lib/app-path";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +25,14 @@ export function FoodScanner({
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
-  const { data: features } = useTrainingFeatures(userId);
+  const {
+    data: features,
+    isPending: featuresPending,
+    isError: featuresError,
+    isFetching: featuresFetching,
+    refetch: retryFeatures,
+    offlineCacheUnavailable,
+  } = useTrainingFeatures(userId);
   const [open, setOpen] = useState(false),
     [barcode, setBarcode] = useState(""),
     [mode, setMode] = useState<"label" | "barcode">("label"),
@@ -40,7 +47,7 @@ export function FoodScanner({
     generation = useRef(0),
     controls = useRef<{ stop: () => void } | null>(null),
     worker = useRef<{ terminate: () => Promise<unknown> } | null>(null);
-  function stop() {
+  const stop = useCallback(() => {
     generation.current++;
     controls.current?.stop();
     controls.current = null;
@@ -50,7 +57,10 @@ export function FoodScanner({
     void worker.current?.terminate();
     worker.current = null;
     setBusy(false);
-  }
+  }, []);
+  useEffect(() => {
+    if (featuresError || features?.food_scanning !== true) stop();
+  }, [featuresError, features?.food_scanning, stop]);
   useEffect(
     () => () => {
       generation.current++;
@@ -191,9 +201,52 @@ export function FoodScanner({
       );
     }
   }
-  if (!features?.food_scanning) return null;
+  if (featuresError || featuresPending || features?.food_scanning !== true)
+    return (
+      <section
+        className="my-4 rounded-xl border border-border p-3"
+        aria-label={l("Food scanning availability", "إتاحة مسح الطعام")}
+      >
+        <p role={featuresError ? "alert" : "status"} className="text-sm">
+          {featuresError
+            ? l(
+                "Could not check food scanning availability. Your food draft is kept. Retry, or use search and Quick macros.",
+                "تعذر التحقق من إتاحة مسح الطعام. احتُفظ بمسودة الطعام. أعد المحاولة أو استخدم البحث والإضافة السريعة.",
+              )
+            : featuresPending
+              ? l("Checking food scanning availability…", "جارٍ التحقق من إتاحة مسح الطعام…")
+              : features?.food_scanning === false
+                ? l(
+                    "Food scanning is not enabled for this account. You can use search or Quick macros.",
+                    "مسح الطعام غير مفعّل لهذا الحساب. يمكنك استخدام البحث أو الإضافة السريعة.",
+                  )
+                : l(
+                    "Connect to check food scanning availability on this device.",
+                    "اتصل بالإنترنت للتحقق من إتاحة مسح الطعام على هذا الجهاز.",
+                  )}
+        </p>
+        {!featuresPending && (featuresError || features?.food_scanning === undefined) && (
+          <Button
+            variant="outline"
+            className="mt-2"
+            disabled={featuresFetching}
+            onClick={() => void retryFeatures()}
+          >
+            {l("Retry scanner availability", "إعادة التحقق من إتاحة المسح")}
+          </Button>
+        )}
+      </section>
+    );
   return (
     <section className="my-4 rounded-xl border border-gold/30 p-3">
+      {offlineCacheUnavailable && (
+        <p role="status" className="mb-2 text-sm">
+          {l(
+            "Scanning is available online, but its availability could not be saved on this device. Offline access may be unavailable.",
+            "المسح متاح عند الاتصال، لكن تعذر حفظ إتاحته على الجهاز. قد لا يتاح دون اتصال.",
+          )}
+        </p>
+      )}
       <Button
         variant="outline"
         onClick={() => {

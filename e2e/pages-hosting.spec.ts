@@ -2,6 +2,105 @@ import { test, expect, type BrowserContext } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 const base = "/Prime-Fitness-App/";
+test("standalone Pages adds an exercise offline and exposes scanner lookup without camera access", async ({
+  page,
+  context,
+}) => {
+  const { user } = await signInPagesMember(context);
+  const exercise = "00000000-0000-4000-8000-000000000072";
+  await context.addInitScript(() => {
+    const match = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const result = match(query);
+      if (query === "(display-mode: standalone)")
+        Object.defineProperty(result, "matches", { value: true });
+      return result;
+    };
+  });
+  await context.route("**/rest/v1/**", async (route) => {
+    const request = route.request(),
+      table = new URL(request.url()).pathname.split("/").pop();
+    if (table === "get_training_features")
+      return route.fulfill({ json: { food_scanning: true, guidance: true } });
+    const rows =
+      table === "profiles"
+        ? [
+            {
+              ...user,
+              display_name: "PWA tester",
+              access_active: true,
+              onboarding_completed: true,
+              locale: "en",
+              units: "metric",
+            },
+          ]
+        : table === "user_roles"
+          ? [{ role: "admin" }, { role: "coach" }, { role: "pod_leader" }, { role: "member" }]
+          : table === "exercises" && !Number(new URL(request.url()).searchParams.get("offset"))
+            ? [
+                {
+                  id: exercise,
+                  name_en: "Bench Press",
+                  name_ar: null,
+                  muscle: "chest",
+                  equipment: "barbell",
+                  active: true,
+                  logging_mode: "weighted_reps",
+                  load_convention: "external_total",
+                },
+              ]
+            : [];
+    await route.fulfill({
+      headers: { "content-range": `0-${Math.max(0, rows.length - 1)}/${rows.length}` },
+      json: request.headers()["accept"]?.includes("vnd.pgrst.object") ? (rows[0] ?? null) : rows,
+    });
+  });
+  await page.goto(base + "train");
+  expect(await page.evaluate(() => matchMedia("(display-mode: standalone)").matches)).toBe(true);
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Add exercise", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Use", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(`[data-exercise-id="${exercise}"]`)).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator(`[data-exercise-id="${exercise}"]`)).toHaveCount(1);
+  await page.goto(base + "nutrition");
+  await page.getByRole("button", { name: "Add food", exact: true }).first().click();
+  await page.getByRole("button", { name: "Scan barcode or nutrition label", exact: true }).click();
+  await page.getByLabel("Barcode number", { exact: true }).fill("3017620422003");
+  await page.getByRole("button", { name: "Look up product", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "Barcode lookup needs a connection",
+  );
+  await context.setOffline(false);
+  await context.route("**/functions/v1/food-barcode", (route) =>
+    route.fulfill({
+      json: {
+        status: 1,
+        product: {
+          product_name: "Barcode fixture",
+          nutriments: {
+            "energy-kcal_100g": 120,
+            proteins_100g: 4,
+            carbohydrates_100g: 15,
+            fat_100g: 2,
+          },
+        },
+      },
+    }),
+  );
+  // No camera permission is needed to enter the code; no nutrition record is saved.
+  await page.getByRole("button", { name: "Look up product", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByLabel("Food name", { exact: true }).last(),
+  ).toHaveValue("Barcode fixture");
+  await expect(
+    page.getByRole("button", { name: "Use reviewed values in food editor", exact: true }),
+  ).toBeDisabled();
+});
 test("Strong file advances through every import step under the Pages prefix", async ({
   page,
   context,

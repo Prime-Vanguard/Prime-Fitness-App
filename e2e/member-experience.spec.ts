@@ -233,6 +233,20 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") 
     const request = route.request(),
       url = new URL(request.url());
     const table = url.pathname.split("/").pop()!;
+    if (table === "get_training_features")
+      return route.fulfill({
+        json: {
+          guidance: false,
+          logging: false,
+          progression: false,
+          scheduling: false,
+          imports: false,
+          offline: false,
+          food_scanning: false,
+          cardio: false,
+          social: false,
+        },
+      });
     if (table === "export_personal_data") {
       const own = Object.fromEntries(
         [
@@ -832,6 +846,68 @@ test("editable decimal actual weight survives offline reload and discard is outs
   ).toBeVisible();
   await review.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(weight).toHaveValue("22.5");
+});
+
+test("exercise picker exposes failed local saves and retries without losing the choice", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.getByRole("button", { name: "Add exercise", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Add exercise", exact: true });
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    let failures = 2;
+    IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+      if (this.name === "workouts" && (args[0] as { plan?: unknown[] }).plan?.length) {
+        if (--failures === 0) IDBObjectStore.prototype.put = original;
+        if (failures >= 0) throw new DOMException("Device storage is full", "QuotaExceededError");
+      }
+      return original.apply(this, args);
+    };
+  });
+  await chooseFromLibrary(page, "Barbell Row");
+  await expect(picker.getByRole("alert")).toContainText("Device storage is full");
+  await expect(picker).toBeVisible();
+  await picker.getByRole("button", { name: /^Barbell Row/ }).click();
+  const detail = page.getByRole("dialog", { name: "Barbell Row", exact: true });
+  await detail.getByRole("button", { name: "Use exercise", exact: true }).click();
+  await expect(detail.getByRole("alert")).toContainText("Device storage is full");
+  await detail.getByRole("button", { name: "Use exercise", exact: true }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
+});
+
+test("scanner availability failures have an explicit retry instead of disappearing", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  let unavailable = true;
+  await context.route("**/rest/v1/rpc/get_training_features", (route) =>
+    unavailable
+      ? route.fulfill({ status: 503, json: { message: "Feature check unavailable" } })
+      : route.fulfill({ json: { food_scanning: true } }),
+  );
+  await page.goto("/nutrition");
+  await page.getByRole("button", { name: "Add food", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Could not check food scanning availability",
+  );
+  unavailable = false;
+  await dialog.getByRole("button", { name: "Retry scanner availability", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Scan barcode or nutrition label", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Barcode number", { exact: true })).toBeVisible();
 });
 
 test("label scan review fills the normal food editor without saving unconfirmed macros", async ({

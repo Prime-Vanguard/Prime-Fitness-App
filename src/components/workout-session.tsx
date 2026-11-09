@@ -531,7 +531,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
       <Sheet
         open={!!library}
         onOpenChange={(o) => {
-          if (!o) setLibrary(null);
+          if (!o && !busy) setLibrary(null);
         }}
       >
         <SheetContent side="bottom" className="max-h-[90dvh] overflow-auto rounded-t-2xl p-4">
@@ -550,35 +550,71 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
             <ExerciseDiscovery
               exercises={w.exercises as ExerciseGuidance[]}
               preferred={w.plan.map((p) => p.id)}
+              disabled={busy || locked}
               onChoose={(id) =>
-                void run(async () => {
+                run(async () => {
                   const slot = `local:${crypto.randomUUID()}`;
                   const swapping = library === "swap" && !!activePlan;
                   const key = swapping ? selection : slot;
-                  await change((c) => ({
-                    ...c,
-                    plan: swapping
-                      ? c.plan.map((p) =>
-                          p.slot_key === selection && p.id === exerciseId
-                            ? { ...p, id, exercise: c.exercises.find((e) => e.id === id) }
-                            : p,
-                        )
-                      : [
-                          ...c.plan,
-                          {
-                            id,
-                            slot_key: slot,
-                            sets: 0,
-                            reps: "",
-                            exercise: c.exercises.find((e) => e.id === id),
-                          },
-                        ],
-                    superset: library === "swap" ? [] : c.superset,
-                    ...(library === "swap" ? { supersetSlots: [] } : {}),
-                  }));
-                  pick(id, key);
+                  await change((c) => {
+                    if (c.phase !== "active")
+                      throw new Error(
+                        l(
+                          "This workout is no longer editable.",
+                          "لم تعد هذه الجلسة قابلة للتعديل.",
+                        ),
+                      );
+                    if (c.holdStartedAt)
+                      throw new Error(
+                        l(
+                          "Stop the current hold before switching exercises.",
+                          "أوقف الثبات قبل تغيير التمرين.",
+                        ),
+                      );
+                    const exercise = c.exercises.find((e) => e.id === id) as
+                      ExerciseGuidance | undefined;
+                    if (
+                      !exercise ||
+                      exercise.active === false ||
+                      exercise.guidance?.catalogue_kind === "cardio"
+                    )
+                      throw new Error(
+                        l(
+                          "This exercise is unavailable for strength logging.",
+                          "هذا التمرين غير متاح لتسجيل القوة.",
+                        ),
+                      );
+                    return {
+                      ...c,
+                      plan: swapping
+                        ? c.plan.map((p) =>
+                            p.slot_key === selection && p.id === exerciseId
+                              ? { ...p, id, exercise: c.exercises.find((e) => e.id === id) }
+                              : p,
+                          )
+                        : [
+                            ...c.plan,
+                            {
+                              id,
+                              slot_key: slot,
+                              sets: 0,
+                              reps: "",
+                              exercise: c.exercises.find((e) => e.id === id),
+                            },
+                          ],
+                      superset: library === "swap" ? [] : c.superset,
+                      ...(library === "swap" ? { supersetSlots: [] } : {}),
+                      editor: {
+                        ...c.editor,
+                        drafts: c.editor?.drafts ?? {},
+                        selectedSlot: key,
+                        selectedExercise: id,
+                      },
+                    };
+                  });
+                  pick(id, key, false);
                   setLibrary(null);
-                })
+                }, true)
               }
             />
           </div>

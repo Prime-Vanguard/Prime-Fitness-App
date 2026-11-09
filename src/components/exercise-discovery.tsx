@@ -1,7 +1,7 @@
 import { NativeSelect } from "@/components/ui/native-select";
 import { trainingLabel } from "@/lib/training-labels";
 import { appPath } from "@/lib/app-path";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { discoverExercises, type ExerciseGuidance } from "@/lib/exercise-guidance";
@@ -16,10 +16,12 @@ export function ExerciseDiscovery({
   exercises,
   onChoose,
   preferred = [],
+  disabled = false,
 }: {
   exercises: ExerciseGuidance[];
-  onChoose: (id: string) => void;
+  onChoose: (id: string) => void | Promise<void>;
   preferred?: string[];
+  disabled?: boolean;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
@@ -29,10 +31,38 @@ export function ExerciseDiscovery({
   const [mode, setMode] = useState("");
   const [visibleCount, setVisibleCount] = useState(60);
   const [detail, setDetail] = useState<{ exercise: ExerciseGuidance; play: boolean } | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [selectionError, setSelectionError] = useState("");
+  const selectionLock = useRef(false);
+  async function choose(id: string) {
+    if (disabled || selectionLock.current) return;
+    selectionLock.current = true;
+    setChoosing(true);
+    setSelectionError("");
+    try {
+      await onChoose(id);
+      setDetail(null);
+    } catch (error) {
+      setSelectionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      selectionLock.current = false;
+      setChoosing(false);
+    }
+  }
   const results = discoverExercises(exercises, q, { equipment, muscle, mode, preferred });
   return (
     <section className="mt-4 space-y-3 rounded-xl border border-border p-4">
       <h3 className="font-semibold">{l("Exercise library", "مكتبة التمارين")}</h3>
+      {selectionError && (
+        <p role="alert" className="text-sm text-destructive">
+          {selectionError}
+        </p>
+      )}
+      {choosing && (
+        <p role="status" className="text-sm">
+          {l("Saving exercise on this device…", "جارٍ حفظ التمرين على الجهاز…")}
+        </p>
+      )}
       <Input
         aria-label={l("Search exercises", "ابحث عن تمرين")}
         placeholder={l("Name or alias", "الاسم أو الاسم البديل")}
@@ -103,8 +133,8 @@ export function ExerciseDiscovery({
             <Button
               size="sm"
               variant="outline"
-              disabled={e.guidance?.catalogue_kind === "cardio"}
-              onClick={() => onChoose(e.id)}
+              disabled={disabled || choosing || e.guidance?.catalogue_kind === "cardio"}
+              onClick={() => void choose(e.id)}
             >
               {e.guidance?.catalogue_kind === "cardio" ? l("Cardio", "كارديو") : l("Use", "استخدم")}
             </Button>
@@ -122,14 +152,15 @@ export function ExerciseDiscovery({
           key={detail.exercise.id}
           exercise={detail.exercise}
           startMedia={detail.play}
-          onClose={() => setDetail(null)}
+          onClose={() => {
+            if (!choosing) setDetail(null);
+          }}
+          choosing={choosing || disabled}
+          selectionError={selectionError}
           onChoose={
             detail.exercise.guidance?.catalogue_kind === "cardio"
               ? undefined
-              : (id) => {
-                  onChoose(id);
-                  setDetail(null);
-                }
+              : (id) => void choose(id)
           }
         />
       )}
@@ -141,11 +172,15 @@ export function ExerciseDetail({
   onClose,
   onChoose,
   startMedia = false,
+  choosing = false,
+  selectionError = "",
 }: {
   exercise: ExerciseGuidance;
   onClose: () => void;
   onChoose?: ((id: string) => void) | undefined;
   startMedia?: boolean;
+  choosing?: boolean;
+  selectionError?: string;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
@@ -225,6 +260,23 @@ export function ExerciseDetail({
             {trainingLabel(e.load_convention ?? "external_total", locale)}
           </SheetDescription>
         </SheetHeader>
+        {onChoose && (
+          <div className="my-3 space-y-2">
+            <Button disabled={choosing} onClick={() => onChoose(e.id)}>
+              {l("Use exercise", "استخدام التمرين")}
+            </Button>
+            {choosing && (
+              <p role="status">
+                {l("Saving exercise on this device…", "جارٍ حفظ التمرين على الجهاز…")}
+              </p>
+            )}
+            {selectionError && (
+              <p role="alert" className="text-sm text-destructive">
+                {selectionError}
+              </p>
+            )}
+          </div>
+        )}
         {e.editorial_status !== "reviewed" && (
           <p className="my-3 text-sm text-amber-400">
             {l(
@@ -323,7 +375,11 @@ export function ExerciseDetail({
               <p>{(locale === "ar" && a.exercises?.name_ar) || a.exercises?.name_en}</p>
               <p className="text-xs">{locale === "ar" ? a.reason_ar : a.reason_en}</p>
               {onChoose && (
-                <Button variant="outline" onClick={() => onChoose(a.alternative_id)}>
+                <Button
+                  disabled={choosing}
+                  variant="outline"
+                  onClick={() => onChoose(a.alternative_id)}
+                >
                   {l("Use alternative", "استخدام البديل")}
                 </Button>
               )}
