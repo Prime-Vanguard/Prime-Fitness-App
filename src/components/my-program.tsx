@@ -1,4 +1,6 @@
+import { SelectionIndicator } from "./selection-indicator";
 import { useState } from "react";
+import { LockKeyhole, CalendarDays, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,65 +111,151 @@ export function MyProgram({
     }
   }
   return (
-    <section className="mt-6 rounded-xl border border-gold/30 bg-card p-5">
-      <p className="text-xs font-semibold uppercase tracking-widest text-gold">{t("myProgram")}</p>
-      <h2 className="mt-1 font-display text-xl font-bold">
-        {data.name} <span className="text-sm text-muted-foreground">v{data.version}</span>
-      </h2>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {Array.from({ length: data.weeks }, (_, i) => i + 1).map((w) => (
-          <button
-            key={w}
-            onClick={() => setWeek(w)}
-            className={`rounded-full px-3 py-1 text-xs ${w === week ? "bg-gold text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-          >
-            {t("week")} {w}
-          </button>
-        ))}
+    <section className="mt-5 space-y-4" data-stitch-program>
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+        <LockKeyhole aria-hidden className="size-5 shrink-0 text-gold" />
+        <div className="min-w-0">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gold">
+            {locale === "ar" ? "خطة معتمدة من مدربك" : "Coach assignment · Frozen program"}
+          </h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            {locale === "ar"
+              ? "الأهداف من نسخة برنامجك المعتمدة. تغيير موعد جلسة لا يغيّر البرنامج أو سجلك السابق."
+              : "Targets come from your assigned program version. Moving a session preserves the program and its history."}
+          </p>
+        </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {days.map((d) => (
-          <div key={d} className="rounded-lg border border-border p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">
-                {t("day")} {d}
-              </p>
-              {canStart && (
-                <Button size="sm" onClick={() => startDay(d)}>
-                  {t("startDay")}
-                </Button>
-              )}
-            </div>
-            <ul className="mt-2 space-y-1 text-sm">
-              {items
-                .filter((i) => i.day === d)
-                .map((i) => (
-                  <li key={i.id} className="flex items-center gap-2 py-1">
-                    <ExerciseThumbnail
-                      exercise={exerciseWithSnapshot(
-                        i.exercise_id,
-                        i,
-                        catalogue.get(i.exercise_id),
-                      )}
-                      name={(locale === "ar" && i.name_ar) || i.name_en}
-                      enabled={guidanceEnabled}
-                      onOpen={() =>
-                        setDetail(
-                          exerciseWithSnapshot(i.exercise_id, i, catalogue.get(i.exercise_id)),
-                        )
-                      }
-                    />
-                    <span className="min-w-0 flex-1 break-words">
-                      {(locale === "ar" && i.exercises?.name_ar) || i.exercises?.name_en}
-                    </span>
-                    <span className="max-w-[35%] shrink-0 break-words text-end tabular-nums text-muted-foreground">
-                      {i.target_sets} × {i.target_reps}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ))}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span>{locale === "ar" ? "البرنامج التدريبي" : "Assigned training block"}</span>
+          <span className="text-gold">
+            {t("week")} {week}/{data.weeks}
+          </span>
+        </div>
+        <h2 className="mt-2 font-heading text-xl font-bold">{data.name}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {locale === "ar" ? "نسخة البرنامج" : "Program version"} {data.version}
+        </p>
+        <nav
+          aria-label={locale === "ar" ? "أسابيع البرنامج" : "Program weeks"}
+          className="sliding-selection mt-4 flex gap-1 overflow-x-auto pb-1"
+        >
+          {/* Week navigation does not modify the frozen prescription or selected session. */}
+          <SelectionIndicator />
+          {Array.from({ length: data.weeks }, (_, i) => i + 1).map((value) => (
+            <button
+              type="button"
+              key={value}
+              aria-pressed={week === value}
+              aria-label={t("week") + " " + value}
+              onClick={() => setWeek(value)}
+              className="flex min-h-11 min-w-11 flex-1 flex-col justify-center gap-2 rounded-md px-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span
+                aria-hidden
+                className={
+                  "h-1.5 w-full rounded-full " + (week === value ? "bg-gold" : "bg-raised")
+                }
+              />
+              <span
+                className={week === value ? "font-bold text-foreground" : "text-muted-foreground"}
+              >
+                {locale === "ar" ? `${t("week")} ${value}` : `W${value}`}
+              </span>
+            </button>
+          ))}
+        </nav>
+      </div>
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <h3 className="font-heading text-sm font-bold">
+          {locale === "ar" ? "جدول الأسبوع التدريبي" : "Weekly training schedule"}
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {days.length} {locale === "ar" ? "جلسات مخططة" : "planned sessions"}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {days.map((day, index) => {
+          const sessionItems = items.filter((item) => item.day === day);
+          const plannedSets = sessionItems.reduce((total, item) => total + item.target_sets, 0);
+          return (
+            <details
+              key={week + ":" + day}
+              open={index === 0}
+              className="group rounded-xl border border-border bg-card open:border-gold"
+              data-program-day
+            >
+              <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 p-4 [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+                  <CalendarDays aria-hidden className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs uppercase text-muted-foreground">
+                    {t("week")} {week}
+                  </span>
+                  <span className="mt-1 block font-heading font-bold">
+                    {t("day")} {day}
+                  </span>
+                </span>
+                <span className="text-end text-xs text-muted-foreground">
+                  <span className="block text-foreground">
+                    {plannedSets} {t("sets")}
+                  </span>
+                  <span className="mt-1 block">
+                    {sessionItems.length} {locale === "ar" ? "تمارين" : "exercises"}
+                  </span>
+                </span>
+                <ChevronDown
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground group-open:rotate-180"
+                />
+              </summary>
+              <div className="space-y-3 px-4 pb-4">
+                <ul className="space-y-2 rounded-lg bg-background p-3 text-sm">
+                  {sessionItems.map((item) => (
+                    <li key={item.id} className="flex items-center gap-3">
+                      <ExerciseThumbnail
+                        exercise={exerciseWithSnapshot(
+                          item.exercise_id,
+                          item,
+                          catalogue.get(item.exercise_id),
+                        )}
+                        name={(locale === "ar" && item.name_ar) || item.name_en}
+                        enabled={guidanceEnabled}
+                        onOpen={() =>
+                          setDetail(
+                            exerciseWithSnapshot(
+                              item.exercise_id,
+                              item,
+                              catalogue.get(item.exercise_id),
+                            ),
+                          )
+                        }
+                      />
+                      <span className="min-w-0 flex-1 break-words">
+                        <span className="block">
+                          {(locale === "ar" && item.name_ar) || item.name_en}
+                        </span>
+                        {/* Keep targets below the frozen name so narrow cards do not squeeze it into a third column. */}
+                        <bdi
+                          dir="ltr"
+                          className="mt-1 block text-xs tabular-nums text-muted-foreground"
+                        >
+                          {item.target_sets} × {item.target_reps}
+                        </bdi>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {canStart && (
+                  <Button className="h-12 w-full" onClick={() => void startDay(day)}>
+                    {t("startDay")}
+                  </Button>
+                )}
+              </div>
+            </details>
+          );
+        })}
       </div>
       {detail && guidanceEnabled && (
         <ExerciseDetail

@@ -190,7 +190,9 @@ export function ExerciseEditor({
         title={l("Edit exercise", "تعديل التمرين")}
         description={exercise.name_en}
       >
+        {/* Sections switch presentation while the existing draft remains mounted. */}
         <MemberSections
+          appearance="segmented"
           label={l("Exercise editor sections", "أقسام تعديل التمرين")}
           value={section}
           items={[

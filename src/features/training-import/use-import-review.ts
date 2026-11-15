@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/pagination";
 import { activityDay, addDays } from "@/lib/dates";
 import type { ImportWorkout } from "@/lib/training-import";
+// Load active exercise mappings and possible overlapping history for member review.
 export function useImportReview(userId: string, workouts: ImportWorkout[], enabled: boolean) {
   const {
     data: exercises,

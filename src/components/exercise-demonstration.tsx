@@ -67,8 +67,8 @@ export function ExerciseDemonstration({
               key={source}
               src={source}
               alt={l(
-                `Demonstration of ${name}; written instructions above`,
-                `شرح ${name}؛ التعليمات مكتوبة أعلاه`,
+                `Demonstration of ${name}; written instructions in the guidance sheet`,
+                `شرح ${name}؛ التعليمات مكتوبة في لوحة الشرح`,
               )}
               className="max-h-[55dvh] w-full object-contain"
               referrerPolicy="no-referrer"

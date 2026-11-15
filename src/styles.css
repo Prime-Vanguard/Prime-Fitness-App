@@ -1,14 +1,16 @@
 @import "tailwindcss" source(none);
+@import "./assets/fonts/fonts.css";
 @source "../src";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
-/* Prime Vanguard design system. All colors in oklch.
+/* Prime Vanguard Exercise Studio design system.
  * Navy #0F172A, Deep Surface #1E293B, Gunmetal #334155, Slate #94A3B8,
  * Mist #F1F5F9, Gold #D4AF37 (accent only), Emerald #10B981 (success). */
 
 @theme inline {
+  --font-display: "Manrope", "Tajawal", sans-serif;
   --font-heading: "Manrope", "Tajawal", sans-serif;
   --font-sans: "Inter", "Tajawal", sans-serif;
   --font-arabic: "Tajawal", sans-serif;
@@ -20,6 +22,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-row: #151f33;
+  --color-raised: #223047;
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
@@ -34,6 +38,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-info: var(--info);
+  --color-pending: var(--pending);
   --color-success-foreground: var(--success-foreground);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
@@ -56,107 +62,65 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Light mode: Mist backgrounds, navy text, gold accent */
-:root {
-  color-scheme: light;
-  --radius: 0.75rem;
-  --background: oklch(0.984 0.003 247.858);
-  --foreground: oklch(0.208 0.042 265.755);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.208 0.042 265.755);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.208 0.042 265.755);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.929 0.013 255.508);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.929 0.013 255.508);
-  --muted-foreground: oklch(0.372 0.044 257.287);
-  --accent: oklch(0.929 0.013 255.508);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --gold: oklch(0.6 0.12 88);
-  --gold-foreground: oklch(0.208 0.042 265.755);
-  --success: oklch(0.596 0.145 163.225);
-  --success-foreground: oklch(1 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.869 0.022 252.894);
-  --input: oklch(0.869 0.022 252.894);
-  --ring: oklch(0.6 0.12 88);
-  --chart-1: oklch(0.6 0.12 88);
-  --chart-2: oklch(0.596 0.145 163.225);
-  --chart-3: oklch(0.372 0.044 257.287);
-  --chart-4: oklch(0.704 0.04 256.788);
-  --chart-5: oklch(0.208 0.042 265.755);
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.929 0.013 255.508);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.869 0.022 252.894);
-  --sidebar-ring: oklch(0.6 0.12 88);
-  --gradient-hero: radial-gradient(
-    ellipse at top,
-    oklch(0.929 0.013 255.508),
-    var(--background) 70%
-  );
-  --shadow-gold:
-    0 0 0 1px color-mix(in oklab, var(--gold) 40%, transparent),
-    0 10px 40px -12px color-mix(in oklab, var(--gold) 45%, transparent);
-}
-
-/* Dark mode (default): Navy + Deep Surface, Mist/Slate text */
+/* Exercise Studio: one dark theme. Control borders are distinct from decoration. */
+:root,
 .dark {
+  --layout-section-gap: 1.5rem;
+  --layout-group-gap: 1rem;
+  --layout-control-gap: 0.75rem;
+  --motion-control: 120ms;
+  --motion-content: 140ms;
+  --motion-overlay: 200ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
-  --background: oklch(0.208 0.042 265.755);
-  --foreground: oklch(0.968 0.007 247.896);
-  --card: oklch(0.279 0.041 260.031);
-  --card-foreground: oklch(0.968 0.007 247.896);
-  --popover: oklch(0.279 0.041 260.031);
-  --popover-foreground: oklch(0.968 0.007 247.896);
-  --primary: oklch(0.769 0.135 88);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.372 0.044 257.287);
-  --secondary-foreground: oklch(0.968 0.007 247.896);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.372 0.044 257.287);
-  --accent-foreground: oklch(0.968 0.007 247.896);
-  --gold: oklch(0.769 0.135 88);
-  --gold-foreground: oklch(0.208 0.042 265.755);
-  --success: oklch(0.696 0.15 163.225);
-  --success-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.372 0.044 257.287);
-  --input: oklch(0.372 0.044 257.287);
-  --ring: oklch(0.769 0.135 88);
-  --chart-1: oklch(0.769 0.135 88);
-  --chart-2: oklch(0.696 0.15 163.225);
-  --chart-3: oklch(0.704 0.04 256.788);
-  --chart-4: oklch(0.554 0.046 257.417);
-  --chart-5: oklch(0.968 0.007 247.896);
-  --sidebar: oklch(0.279 0.041 260.031);
-  --sidebar-foreground: oklch(0.968 0.007 247.896);
-  --sidebar-primary: oklch(0.769 0.135 88);
-  --sidebar-primary-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-accent: oklch(0.372 0.044 257.287);
-  --sidebar-accent-foreground: oklch(0.968 0.007 247.896);
-  --sidebar-border: oklch(0.372 0.044 257.287);
-  --sidebar-ring: oklch(0.769 0.135 88);
-  --gradient-hero: radial-gradient(
-    ellipse at top,
-    oklch(0.279 0.041 260.031),
-    var(--background) 70%
-  );
+  --radius: 0.5rem;
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #d4af37;
+  --primary-foreground: #0f172a;
+  --secondary: #223047;
+  --secondary-foreground: #f1f5f9;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #223047;
+  --accent-foreground: #f1f5f9;
+  --gold: #d4af37;
+  --gold-foreground: #0f172a;
+  --success: #34d399;
+  --info: #7dd3fc;
+  --pending: #fbbf24;
+  --success-foreground: #0f172a;
+  --destructive: #f87171;
+  --destructive-foreground: #0f172a;
+  --border: #334155;
+  --input: #64748b;
+  --ring: #d4af37;
+  --chart-1: #d4af37;
+  --chart-2: #34d399;
+  --chart-3: #cbd5e1;
+  --chart-4: #94a3b8;
+  --chart-5: #f1f5f9;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #d4af37;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #223047;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #334155;
+  --sidebar-ring: #d4af37;
 }
 
+/* Compatibility utilities while individual pages migrate to Studio surfaces. */
 @utility gold-glow {
-  box-shadow: var(--shadow-gold);
+  box-shadow: none;
 }
 @utility bg-hero {
-  background-image: var(--gradient-hero);
+  background-color: var(--background);
+  background-image: none;
 }
 
 @keyframes water-wave {
@@ -170,7 +134,258 @@
 .water-wave {
   animation: water-wave 0.7s ease-in-out 3 alternate;
 }
+/* One measured surface follows selection without shifting labels or focus.
+   Physical coordinates already include RTL and horizontal-scroll positioning. */
+.sliding-selection {
+  position: relative;
+  isolation: isolate;
+}
+.sliding-selection > button,
+.sliding-selection > label {
+  position: relative;
+  z-index: 1;
+}
+.sliding-selection > button:is([aria-pressed], [role="tab"], [role="radio"]) {
+  background-color: transparent;
+}
+.sliding-selection > label:has(input[type="radio"]) {
+  background-color: transparent;
+}
+.selection-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  background: var(--color-raised);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    0 2px 8px rgb(0 0 0 / 0.1);
+  opacity: 0;
+}
+.selection-indicator[data-ready] {
+  opacity: 1;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.selection-indicator-line {
+  background: var(--color-gold);
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+/* State changes never move fields, rows or focus. Progress values render at their
+   real width immediately on mount; only subsequent width changes interpolate. */
+/* Staff exports use a compact 24/32 title and 16px canvas gutters. Member and
+   focused-workout typography keep their separate reference dimensions. */
+[data-staff-layout] [data-page-header] {
+  padding-bottom: 0;
+}
+@media (min-width: 768px) {
+  [data-staff-layout] {
+    background-color: #0b1326;
+  }
+  [data-staff-layout] [data-page-header] h1 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+}
+.fuel-fill {
+  transition:
+    width var(--motion-overlay) var(--motion-ease),
+    background-color var(--motion-control);
+}
+.save-state {
+  transition: color var(--motion-control);
+}
+.muscle-diagram path {
+  transition:
+    fill var(--motion-control),
+    stroke var(--motion-control);
+}
+@keyframes crest-reveal {
+  from {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.crest-reveal {
+  animation: crest-reveal 280ms var(--motion-ease) both;
+}
+
+/* Static, size-relative rank auras. All decoration stays behind the approved
+   artwork, inside its footprint, with no loops, extra assets or pointer targets. */
+.rank-crest {
+  --crest-core: 148 163 184;
+  --crest-edge: 100 116 139;
+  --crest-bloom: 0.2;
+  --crest-ring: 0;
+  --crest-sparks: 0;
+  --crest-shadow: 0.24;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  isolation: isolate;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.rank-crest::before,
+.rank-crest::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+.rank-crest::before {
+  opacity: var(--crest-bloom);
+  background:
+    radial-gradient(ellipse at 50% 60%, rgb(var(--crest-core) / 0.8), transparent 65%),
+    radial-gradient(ellipse at 50% 40%, rgb(var(--crest-edge) / 0.65), transparent 71%);
+}
+.rank-crest::after {
+  background:
+    radial-gradient(
+      circle at 50% 7%,
+      rgb(var(--crest-core) / var(--crest-sparks)) 0 0.7%,
+      transparent 1.7%
+    ),
+    radial-gradient(
+      circle at 7% 50%,
+      rgb(var(--crest-edge) / var(--crest-sparks)) 0 0.6%,
+      transparent 1.5%
+    ),
+    radial-gradient(
+      circle at 93% 50%,
+      rgb(var(--crest-edge) / var(--crest-sparks)) 0 0.6%,
+      transparent 1.5%
+    ),
+    radial-gradient(
+      circle at 50% 93%,
+      rgb(var(--crest-core) / var(--crest-sparks)) 0 0.7%,
+      transparent 1.7%
+    ),
+    radial-gradient(
+      circle,
+      transparent 56%,
+      rgb(var(--crest-core) / var(--crest-ring)) 57%,
+      transparent 58.5%
+    ),
+    radial-gradient(
+      circle,
+      transparent 65%,
+      rgb(var(--crest-edge) / var(--crest-ring)) 66%,
+      transparent 67%
+    );
+}
+.rank-crest-art {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(
+    0 0 calc(var(--crest-size) * 0.025) rgb(var(--crest-core) / var(--crest-shadow))
+  );
+}
+.rank-crest[data-rank="Seeker"] {
+  --crest-core: 226 232 240;
+  --crest-edge: 125 211 252;
+  --crest-bloom: 0.32;
+  --crest-shadow: 0.4;
+}
+.rank-crest[data-rank="Forged"] {
+  --crest-core: 251 191 36;
+  --crest-edge: 249 115 22;
+  --crest-bloom: 0.46;
+  --crest-ring: 0.16;
+  --crest-shadow: 0.55;
+}
+.rank-crest[data-rank="Guardian"] {
+  --crest-core: 52 211 153;
+  --crest-edge: 212 175 55;
+  --crest-bloom: 0.58;
+  --crest-ring: 0.3;
+  --crest-shadow: 0.66;
+}
+.rank-crest[data-rank="Vanguard"] {
+  --crest-core: 96 165 250;
+  --crest-edge: 212 175 55;
+  --crest-bloom: 0.74;
+  --crest-ring: 0.5;
+  --crest-sparks: 0.6;
+  --crest-shadow: 0.8;
+}
+.rank-crest[data-rank="Prime Legend"] {
+  --crest-core: 255 215 105;
+  --crest-edge: 103 232 249;
+  --crest-bloom: 0.95;
+  --crest-ring: 0.75;
+  --crest-sparks: 1;
+  --crest-shadow: 0.95;
+}
+@media (forced-colors: active) {
+  .rank-crest::before,
+  .rank-crest::after {
+    display: none;
+  }
+  .rank-crest-art {
+    filter: none;
+  }
+}
+@keyframes disclosure-reveal {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+details[open] > :not(summary) {
+  animation: disclosure-reveal var(--motion-content) ease-out;
+}
+details > summary::marker {
+  color: var(--muted-foreground);
+}
+.disclosure-trigger {
+  list-style: none;
+}
+.disclosure-trigger::-webkit-details-marker {
+  display: none;
+}
+.disclosure-chevron {
+  transition: transform var(--motion-control) var(--motion-ease);
+}
+details[open] > summary .disclosure-chevron {
+  transform: rotate(180deg);
+}
+@layer base {
+  :where(button, a, summary, [role="tab"]) {
+    transition:
+      background-color var(--motion-control),
+      color var(--motion-control),
+      border-color var(--motion-control);
+  }
+  :where(summary) {
+    border-radius: var(--radius);
+  }
+  :where(summary:hover) {
+    background-color: var(--accent);
+  }
+  :where(summary:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .selection-indicator[data-ready] {
+    transition: none;
+  }
   .water-wave {
     animation: none;
   }
@@ -179,6 +394,31 @@
 @layer base {
   * {
     border-color: var(--color-border);
+  }
+  /* Flow defaults fill missing spacing; explicit component utilities retain priority.
+     Keep grids, inline action rows and fixed/sticky controls under their own layout. */
+  :where(.app-page-flow, .app-sheet-flow)
+    > :where(:not([hidden]):not(.sr-only):not(.absolute):not(script):not(style))
+    ~ :where(:not([hidden]):not(.sr-only):not(.absolute):not(script):not(style)) {
+    margin-block-start: var(--layout-group-gap);
+  }
+  .app-page-flow > :where(section, article, form) ~ :where(section, article, form) {
+    margin-block-start: var(--layout-section-gap);
+  }
+  :where([data-app-content], .app-sheet-flow)
+    :where(section:not(.grid):not(.flex))
+    > details
+    + :where(div, section, form, nav, p) {
+    margin-block-start: var(--layout-group-gap);
+  }
+  :where([data-app-content], .app-sheet-flow, .app-auth-flow) :where(details[open]) > summary + * {
+    margin-block-start: var(--layout-control-gap);
+  }
+  :where([data-app-content], .app-sheet-flow, .app-auth-flow)
+    :where(form, fieldset):not(.grid):not(.flex):not(.contents):not([class*="space-y-"])
+    > :where(:not([hidden]):not(.sr-only))
+    + :where(:not([hidden]):not(.sr-only)) {
+    margin-block-start: var(--layout-group-gap);
   }
   /* Form cards and fields must be able to shrink within responsive grid tracks. */
   .grid > * {
@@ -198,11 +438,15 @@
   label:has(> .sr-only) > :is(input, select, textarea) {
     margin-block-start: 0;
   }
+  html {
+    scroll-padding-block: 6rem 10rem;
+  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
+    line-height: 1.5;
   }
   h1,
   h2,
@@ -214,9 +458,16 @@
   html[lang="ar"] body,
   html[lang="ar"] h1,
   html[lang="ar"] h2,
-  html[lang="ar"] h3 {
+  html[lang="ar"] h3,
+  html[lang="ar"] h4,
+  html[lang="ar"] button,
+  html[lang="ar"] input,
+  html[lang="ar"] select,
+  html[lang="ar"] textarea {
     font-family: var(--font-arabic);
     letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.6;
   }
   /* Native drop-downs: one consistent chevron that sits on the reading-end side in both directions. */
   select:not([multiple]):not([size]) {

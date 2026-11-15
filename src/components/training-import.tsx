@@ -7,6 +7,7 @@ import { useImportWorkflow } from "@/features/training-import/use-import-workflo
 import { ImportFileStep } from "@/features/training-import/import-file-step";
 import { ImportReviewPanel } from "@/features/training-import/import-review-panel";
 import { ImportReceipts } from "@/features/training-import/import-receipts";
+// Keep the existing durable operations; this surface groups their review and recovery states.
 export function TrainingImport({ userId }: { userId: string }) {
   return <TrainingImportAccount key={userId} userId={userId} />;
 }
@@ -57,8 +58,17 @@ function TrainingImportAccount({ userId }: { userId: string }) {
   }, [step, busy, fileName, error]);
   if (!features?.imports) return null;
   return (
-    <section className="mt-6 space-y-3 rounded-xl border border-border p-4">
+    <section className="mt-0 space-y-4 rounded-xl bg-card p-4 sm:p-5">
       <h2 className="font-semibold">{l("Import training history", "استيراد سجل التدريب")}</h2>
+      {/* Progress describes the actual wizard position, not accepted import totals. */}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="shrink-0">
+          {l("Step", "الخطوة")} {step} / 5
+        </span>
+        <div aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-background">
+          <div className="h-full rounded-full bg-gold" style={{ width: `${step * 20}%` }} />
+        </div>
+      </div>
       <p className="text-xs text-muted-foreground">
         {l(
           "Strong, Hevy or FitNotes Android workout CSV. History and PRs only; no XP, streaks or schedule changes. 20 MiB / 100,000 rows.",

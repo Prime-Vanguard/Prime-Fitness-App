@@ -182,7 +182,16 @@ function Page() {
 
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("analytics")} />
+      <PageHeader
+        eyebrow={locale === "ar" ? "مساحة العمليات" : "Operations workspace"}
+        eyebrowTone="accent"
+        title={t("analytics")}
+      />
+      <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+        {locale === "ar"
+          ? "راجع نشاط الأعضاء ونقاط PV وسجلات التدقيق. تعتمد المؤشرات على السجلات المحفوظة والفترات الموضحة أدناه."
+          : "Review member activity, PV Points and audit events. Metrics use saved records and the periods defined below."}
+      </p>
       {error && (
         <div role="alert" className="mt-4 text-sm text-destructive">
           {locale === "ar"
@@ -208,14 +217,18 @@ function Page() {
           })}
         </p>
       )}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Complete snapshots own these totals; filters below only change the member list. */}
+      <dl
+        aria-label={locale === "ar" ? "مؤشرات العمليات" : "Operations metrics"}
+        className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
         {cards.map(([label, v]) => (
-          <div key={label} className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{t(label)}</p>
-            <p className="mt-1 font-display text-3xl font-bold tabular-nums">{v ?? "—"}</p>
+          <div key={label} className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+            <dt className="text-xs text-muted-foreground">{t(label)}</dt>
+            <dd className="mt-3 font-heading text-3xl font-bold tabular-nums">{v ?? "—"}</dd>
           </div>
         ))}
-      </div>
+      </dl>
       {data && (
         <details className="mt-4 rounded-xl border border-border p-4">
           <summary>
@@ -269,7 +282,7 @@ function Page() {
             ? "يشمل التصدير جميع الأعضاء. تُسبق النصوص الشبيهة بصيغ الجداول بعلامة text: للحماية."
             : "Export includes every member. Formula-like text receives a visible text: safety prefix."}
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-4 rounded-xl border border-border bg-background p-4 sm:grid-cols-3">
           <label className="text-sm">
             {locale === "ar" ? "بحث الأعضاء" : "Search analytics members"}
             <Input
@@ -353,7 +366,7 @@ function Page() {
           className="mt-4 grid gap-3 md:hidden"
         >
           {ordered.slice(currentPage * 50, (currentPage + 1) * 50).map((r) => (
-            <li key={r.id} className="min-w-0 rounded-xl border border-border p-4">
+            <li key={r.id} className="min-w-0 rounded-xl border border-border bg-background p-4">
               <p className="break-words font-medium">{r.display_name || r.email}</p>
               <p className="break-words text-xs text-muted-foreground" dir="ltr">
                 {r.email}
@@ -371,8 +384,8 @@ function Page() {
                 {[
                   ["XP", r.xp],
                   ["PV", r.pv],
-                  ["7d", r.w7],
-                  ["30d", r.w30],
+                  [locale === "ar" ? "تمارين ٧ أيام" : "7-day workouts", r.w7],
+                  [locale === "ar" ? "تمارين ٣٠ يوماً" : "30-day workouts", r.w30],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-muted-foreground">{label}</dt>
@@ -383,18 +396,20 @@ function Page() {
             </li>
           ))}
         </ul>
-        <div className="mt-3 hidden overflow-x-auto md:block">
+        <div className="mt-5 hidden overflow-x-auto rounded-xl border border-border md:block">
           <table className="w-full text-sm">
-            <thead className="text-start text-xs text-muted-foreground">
+            <thead className="bg-background text-start text-xs text-muted-foreground [&_th]:px-4 [&_th]:py-3">
               <tr>
                 <th className="py-2 text-start">{t("displayName")}</th>
                 <th className="text-end">{t("xp")}</th>
                 <th className="text-end">PV</th>
-                <th className="text-end">7d</th>
-                <th className="text-end">30d</th>
+                <th className="text-end">{locale === "ar" ? "تمارين ٧ أيام" : "7-day workouts"}</th>
+                <th className="text-end">
+                  {locale === "ar" ? "تمارين ٣٠ يوماً" : "30-day workouts"}
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border [&_td]:px-4 [&_td]:py-4">
               {ordered.slice(currentPage * 50, (currentPage + 1) * 50).map((r) => (
                 <tr key={r.id} className={r.access_active ? "" : "text-muted-foreground"}>
                   <td className="py-2">{r.display_name || r.email}</td>
@@ -475,9 +490,13 @@ function Page() {
               {locale === "ar" ? "لا توجد أحداث مطابقة." : "No audit events match this search."}
             </p>
           )}
-          <ul className="mt-3 divide-y divide-border text-sm">
+          {/* Audit remains opt-in and bounded to the existing latest-200 read. */}
+          <ul className="mt-5 space-y-3 text-sm">
             {(!auditError ? rowsA : []).map((a) => (
-              <li key={a.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+              <li
+                key={a.id}
+                className="flex min-w-0 flex-wrap items-baseline justify-between gap-3 rounded-xl border border-border bg-background p-4"
+              >
                 <span>
                   <span className="font-medium">{who(a.actor_id)}</span> ·{" "}
                   <span className="text-gold">{a.action}</span>

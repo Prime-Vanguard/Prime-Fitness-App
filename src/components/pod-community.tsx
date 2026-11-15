@@ -8,27 +8,40 @@ import { Switch } from "@/components/ui/switch";
 import { useMe } from "@/hooks/use-me";
 import { useI18n } from "@/lib/i18n";
 import { weekStart } from "@/lib/streaks";
+import { useActivityDay } from "@/hooks/use-activity-day";
 
-export function PodCommunity({ userId }: { userId: string }) {
+export function PodCommunity({ userId, active = true }: { userId: string; active?: boolean }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [pod, setPod] = useState("");
   const [saving, setSaving] = useState(false);
   const { data: me } = useMe(userId);
   const qc = useQueryClient();
-  const ws = weekStart(new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" }));
-  const { data: pods, error: podError } = useQuery({
+  const today = useActivityDay();
+  const ws = weekStart(today);
+  const {
+    data: pods,
+    error: podError,
+    isPending: podsPending,
+    refetch: retryPods,
+  } = useQuery({
     queryKey: ["my-pods", userId],
+    enabled: active,
     queryFn: async () => {
       const r = await supabase.from("pods").select("id,name").order("name");
       if (r.error) throw r.error;
       return r.data;
     },
   });
-  const { data: board, error: boardError } = useQuery({
+  const {
+    data: board,
+    error: boardError,
+    isPending: boardPending,
+    refetch: retryBoard,
+  } = useQuery({
     queryKey: ["pod-leaderboard", userId, pod, ws],
-    enabled: !!pod,
-    refetchInterval: 60000,
+    enabled: active && !!pod,
+    refetchInterval: active ? 60000 : false,
     queryFn: async () => {
       const r = await supabase
         .from("pod_leaderboard")
@@ -42,10 +55,15 @@ export function PodCommunity({ userId }: { userId: string }) {
       return r.data;
     },
   });
-  const { data: feed, error: feedError } = useQuery({
+  const {
+    data: feed,
+    error: feedError,
+    isPending: feedPending,
+    refetch: retryFeed,
+  } = useQuery({
     queryKey: ["pod-feed", userId, pod],
-    enabled: !!pod,
-    refetchInterval: 30000,
+    enabled: active && !!pod,
+    refetchInterval: active ? 30000 : false,
     queryFn: async () => {
       const r = await supabase
         .from("pod_activity")
@@ -58,11 +76,21 @@ export function PodCommunity({ userId }: { userId: string }) {
     },
   });
   return (
-    <section className="mt-6 rounded-xl border border-border bg-card p-5">
+    <section
+      id="community-pods"
+      className="mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5"
+      data-stitch-pod
+    >
       <h2 className="flex items-center gap-2 font-display text-lg font-bold">
         <UsersRound size={20} className="text-gold" />
         {l("Your Pod", "مجموعتك")}
       </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {l(
+          "Your weekly leaderboard and shared workout activity. Only members who choose to share appear here.",
+          "الصدارة الأسبوعية ونشاط التمارين المشترك. يظهر فقط الأعضاء الذين يختارون المشاركة.",
+        )}
+      </p>
       <label className="mt-3 block text-sm min-w-0 max-w-full">
         {l("Leaderboard & activity by Pod", "الصدارة والنشاط حسب المجموعة")}
         <NativeSelect className="mt-2" value={pod} onChange={(e) => setPod(e.target.value)}>
@@ -74,7 +102,12 @@ export function PodCommunity({ userId }: { userId: string }) {
           ))}
         </NativeSelect>
       </label>
-      {!pods?.length && !podError && (
+      {podsPending && (
+        <p role="status" className="mt-3 text-sm text-muted-foreground">
+          {l("Loading your Pods…", "جارٍ تحميل مجموعاتك…")}
+        </p>
+      )}
+      {!pods?.length && !podError && !podsPending && (
         <p className="mt-2 text-sm text-muted-foreground">
           {l("Your leader will assign you to a Pod.", "سيعينك قائدك في مجموعة.")}
         </p>
@@ -113,11 +146,23 @@ export function PodCommunity({ userId }: { userId: string }) {
             "Pod activity could not be loaded. Please retry when connected.",
             "تعذر تحميل نشاط المجموعة. حاول عند الاتصال.",
           )}
+          <button
+            className="ms-2 min-h-11 underline"
+            onClick={() => {
+              void retryPods();
+              if (pod) {
+                void retryBoard();
+                void retryFeed();
+              }
+            }}
+          >
+            {l("Retry Pod activity", "إعادة تحميل نشاط المجموعة")}
+          </button>
         </p>
       )}
       {pod && (
         <div className="mt-4 grid gap-5 sm:grid-cols-2">
-          <div>
+          <div className="min-w-0 rounded-lg bg-background p-3">
             <h3 className="text-sm font-semibold text-gold">
               {l("Weekly Pod leaderboard", "صدارة المجموعة الأسبوعية")}
             </h3>
@@ -127,23 +172,31 @@ export function PodCommunity({ userId }: { userId: string }) {
                 "تستخدم اختيار المشاركة في الصدارة أعلاه.",
               )}
             </p>
+            {boardPending && (
+              <p role="status" className="mt-3 text-xs">
+                {l("Loading scores…", "جارٍ تحميل النتائج…")}
+              </p>
+            )}
             <ol className="mt-2 divide-y divide-border">
               {board?.map((r, i) => (
-                <li className="flex justify-between gap-2 py-2 text-sm" key={r.member_id}>
-                  <span>
+                <li
+                  className={`flex flex-wrap justify-between gap-2 py-3 text-sm ${r.member_id === userId ? "text-gold" : ""}`}
+                  key={r.member_id}
+                >
+                  <span className="min-w-0 break-words">
                     {i + 1}. {r.member_id === userId ? l("You", "أنت") : r.display_name}
                   </span>
                   <strong className="text-gold">{r.xp} XP</strong>
                 </li>
               ))}
             </ol>
-            {!board?.length && (
+            {!board?.length && !boardPending && !boardError && (
               <p className="mt-3 text-xs text-muted-foreground">
                 {l("No opted-in scores this week.", "لا توجد نتائج مشاركة هذا الأسبوع.")}
               </p>
             )}
           </div>
-          <div>
+          <div className="min-w-0 rounded-lg bg-background p-3">
             <h3 className="text-sm font-semibold text-gold">{l("Pod feed", "نشاط المجموعة")}</h3>
             <ul className="mt-2 space-y-3">
               {feed?.map((r) => (
@@ -156,13 +209,19 @@ export function PodCommunity({ userId }: { userId: string }) {
                     <time dateTime={r.created_at} className="text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString(
                         locale === "ar" ? "ar-EG" : "en-GB",
+                        { timeZone: "Africa/Cairo" },
                       )}
                     </time>
                   </div>
                 </li>
               ))}
             </ul>
-            {!feed?.length && (
+            {feedPending && (
+              <p role="status" className="mt-3 text-xs">
+                {l("Loading Pod feed…", "جارٍ تحميل نشاط المجموعة…")}
+              </p>
+            )}
+            {!feed?.length && !feedPending && !feedError && (
               <p className="mt-3 text-xs text-muted-foreground">
                 {l(
                   "Completed workouts appear here after members choose to share.",

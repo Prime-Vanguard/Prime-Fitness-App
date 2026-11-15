@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/use-me";
 import { useI18n } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
+import { StaffSummary } from "@/components/staff-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { normalizeExercise } from "@/lib/exercise-guidance";
@@ -117,17 +118,45 @@ function Page() {
     );
     void refresh();
   }
+  // Both responsive layouts open the same roster and retain its reviewed drafts.
+  const manageRoster = (id: string) => (
+    <Button
+      variant="outline"
+      disabled={!!pods.error}
+      onClick={() => void navigate({ search: (old) => ({ ...old, pod: id }) })}
+    >
+      {l("Manage roster", "إدارة الأعضاء")}
+    </Button>
+  );
   if (me && !allowed) return <p className="mt-10 text-muted-foreground">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("pods")} />
+      <PageHeader eyebrow={l("Community workspace", "مساحة إدارة المجتمع")} title={t("pods")} />
       <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
         {l(
           "Review Pod summaries, then open a roster to manage members and leadership.",
           "راجع ملخصات المجموعات، ثم افتح قائمة الأعضاء لإدارة العضوية والقيادة.",
         )}
       </p>
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+      {/* Summaries use the complete existing read, never the current page or stale data. */}
+      <StaffSummary
+        label={l("Pod overview", "ملخص المجموعات")}
+        items={[
+          {
+            label: l("Total Pods", "إجمالي المجموعات"),
+            value: pods.error ? undefined : pods.data?.pods.length,
+          },
+          {
+            label: l("Assigned leaders", "المجموعات ذات قائد"),
+            value: pods.error ? undefined : pods.data?.pods.filter((pod) => !!pod.leader_id).length,
+          },
+          {
+            label: l("Matching Pods", "المجموعات المطابقة"),
+            value: pods.data && !pods.error ? filtered.length : undefined,
+          },
+        ]}
+      />
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
         <label className="w-full max-w-sm text-sm">
           {l("Search Pods", "بحث المجموعات")}
           <Input
@@ -186,34 +215,63 @@ function Page() {
               )}
         </p>
       )}
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 grid gap-4 md:hidden">
         {filtered.slice((page - 1) * 20, page * 20).map((pod) => (
           <section
             key={pod.id}
             aria-label={pod.name}
-            className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-5"
+            className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-5"
           >
             <h2 className="break-words font-display text-lg font-bold">{pod.name}</h2>
             <p className="break-words text-sm text-muted-foreground">
               {t("leader")}: {leaderName(pod.leader_id)}
             </p>
-            <p className="text-sm">
+            <p className="rounded-lg border border-border bg-background p-3 text-sm">
               <bdi>{indexes.counts.get(pod.id) ?? 0}</bdi> {l("members", "عضو")}
             </p>
-            <Button
-              variant="outline"
-              disabled={!!pods.error}
-              onClick={() => void navigate({ search: (old) => ({ ...old, pod: pod.id }) })}
-            >
-              {l("Manage roster", "إدارة الأعضاء")}
-            </Button>
+            <div className="[&_button]:w-full">{manageRoster(pod.id)}</div>
           </section>
         ))}
+      </div>
+      {/* Contain tablet-width table scrolling rather than stretching the page. */}
+      <div
+        role="region"
+        aria-label={l("Pod directory table", "جدول المجموعات")}
+        tabIndex={0}
+        className="mt-5 hidden min-w-0 max-w-full overflow-x-auto rounded-xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold md:block"
+      >
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className="bg-background text-xs text-muted-foreground [&_th]:px-4 [&_th]:py-3 [&_th]:text-start">
+            <tr>
+              {[t("pods"), t("leader"), l("Members", "الأعضاء"), l("Action", "الإجراء")].map(
+                (label) => (
+                  <th scope="col" key={label}>
+                    {label}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border [&_td]:px-4 [&_td]:py-4">
+            {filtered.slice((page - 1) * 20, page * 20).map((pod) => (
+              <tr key={pod.id}>
+                <td className="max-w-64 [overflow-wrap:anywhere] font-medium">{pod.name}</td>
+                <td className="max-w-64 [overflow-wrap:anywhere] text-muted-foreground">
+                  {leaderName(pod.leader_id)}
+                </td>
+                <td className="tabular-nums">
+                  <bdi>{indexes.counts.get(pod.id) ?? 0}</bdi>
+                </td>
+                <td>{manageRoster(pod.id)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       {pages > 1 && (
         <nav
           aria-label={l("Pod pages", "صفحات المجموعات")}
-          className="mt-5 flex items-center justify-between gap-3"
+          className="mt-5 flex flex-wrap items-center justify-between gap-3"
         >
           <Button
             variant="outline"

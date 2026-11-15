@@ -17,15 +17,17 @@ import { XpGuide } from "@/components/xp-guide";
 import { PodCommunity } from "@/components/pod-community";
 import { SocialPanel } from "@/features/social/social-panel";
 import { ShareAchievement } from "@/components/share-achievement";
-import { Trophy, Award, Gift, Lock, Sparkles } from "lucide-react";
+import { Trophy, Award, Gift, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RankCrest } from "@/components/rank-crest";
+import { RewardSummary } from "@/features/rewards/reward-summary";
+import { useActivityDay } from "@/hooks/use-activity-day";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { useGamification } from "@/hooks/use-gamification";
 import { useMe } from "@/hooks/use-me";
+import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { weekStart } from "@/lib/streaks";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -53,8 +55,16 @@ export const Route = createFileRoute("/_authenticated/_shell/rewards")({
   component: Page,
   validateSearch: (
     raw: Record<string, unknown>,
-  ): { section?: "journey" | "shop" | "community" | "activity" | undefined } => ({
+  ): {
+    section?: "journey" | "shop" | "community" | "activity" | undefined;
+    community?: "pods" | "friends" | "challenges" | "leaderboard" | undefined;
+  } => ({
     section: pageSection(raw["section"], ["journey", "shop", "community", "activity"], "journey"),
+    community: pageSection(
+      raw["community"],
+      ["pods", "friends", "challenges", "leaderboard"],
+      "pods",
+    ),
   }),
 });
 
@@ -70,9 +80,14 @@ function Page() {
   const search = Route.useSearch(),
     navigate = Route.useNavigate(),
     section = search.section ?? "journey";
+  const community = search.community ?? "pods";
+  const [shopSearch, setShopSearch] = useState("");
+  const [affordable, setAffordable] = useState(false),
+    [available, setAvailable] = useState(false);
   const { t, locale } = useI18n();
   const qc = useQueryClient();
   const { data: g } = useGamification(user.id);
+  const { data: features } = useTrainingFeatures(user.id);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [storedIntents, setIntents] = useState<RedemptionIntent[]>([]),
     [intentOwner, setIntentOwner] = useState(""),
@@ -147,7 +162,12 @@ function Page() {
     },
   });
 
-  const { data: badges } = useQuery({
+  const {
+    data: badges,
+    isPending: badgesPending,
+    error: badgeError,
+    refetch: retryBadges,
+  } = useQuery({
     queryKey: ["badges", user.id],
     enabled: section === "journey",
     queryFn: async () => {
@@ -163,10 +183,16 @@ function Page() {
   });
 
   const { data: me } = useMe(user.id);
-  const ws = weekStart(new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" }));
-  const { data: board } = useQuery({
+  const today = useActivityDay();
+  const ws = weekStart(today);
+  const {
+    data: board,
+    isPending: boardPending,
+    error: boardError,
+    refetch: retryBoard,
+  } = useQuery({
     queryKey: ["leaderboard", ws],
-    enabled: section === "community",
+    enabled: section === "community" && community === "leaderboard",
     queryFn: async () => {
       const { data, error } = await supabase
         .from("leaderboard_weekly")
@@ -258,10 +284,18 @@ function Page() {
   }
   const title = (x: { title_en: string; title_ar: string | null } | null) =>
     (x && ((locale === "ar" && x.title_ar) || x.title_en)) || "";
+  const filteredRewards = data?.rewards.filter(
+    (r) =>
+      (!shopSearch.trim() ||
+        title(r).toLocaleLowerCase().includes(shopSearch.trim().toLocaleLowerCase())) &&
+      (!affordable || (!!g && r.cost_pv <= g.pv)) &&
+      (!available || r.stock === null || r.stock > 0),
+  );
 
   return (
     <>
-      <PageHeader title={t("rewards")} />
+      <PageHeader title={t("rewards")} eyebrow="PRIME VANGUARD" eyebrowTone="accent" />
+      <RewardSummary data={g} compact={section !== "journey"} />
       <Sheet
         open={!!purchase}
         onOpenChange={(open) => {
@@ -368,11 +402,6 @@ function Page() {
           void navigate({ search: { section: section === "journey" ? undefined : section } })
         }
       />
-      {section !== "journey" && (
-        <p className="mt-4 rounded-xl border border-gold/30 p-4 text-sm">
-          {t("pvWallet")}: <strong className="text-gold">{g?.pv ?? "—"} PV</strong>
-        </p>
-      )}
 
       {redemptionError && (
         <p role="alert" className="mt-4 text-sm text-destructive">
@@ -411,61 +440,14 @@ function Page() {
       )}
       {section === "journey" && (
         <>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <section className="gold-glow rounded-xl border border-gold/40 bg-card p-5">
-              <div className="flex items-center gap-3">
-                <RankCrest rank={g?.rank.key ?? "Recruit"} size={64} />
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-gold">
-                    {g ? (locale === "ar" ? g.rank.ar : g.rank.key) : "—"}
-                  </p>
-                  <p className="font-display text-2xl font-bold">
-                    {t("level")} {g?.level ?? 1}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-gold transition-all"
-                  style={{ width: `${Math.round((g?.pct ?? 0) * 100)}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs tabular-nums text-muted-foreground">
-                {g?.xp ?? 0} {t("xp")} ·{" "}
-                {g?.next == null ? t("maxLevel") : `${g.next - g.xp} ${t("toNext")}`}
-              </p>
-              {g?.provisional && (
-                <p className="mt-1 text-[11px] text-muted-foreground">{t("provisional")}</p>
-              )}
-            </section>
-            <section className="relative overflow-hidden rounded-2xl border border-gold/50 bg-gradient-to-br from-card via-background to-card p-5 shadow-lg">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -end-10 -top-10 h-40 w-40 rounded-full border border-gold/20"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -end-4 -top-4 h-24 w-24 rounded-full border border-gold/30"
-              />
-              <div className="flex items-center justify-between">
-                <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-gold">
-                  <Sparkles className="h-4 w-4" />
-                  {t("pvWallet")}
-                </p>
-                <span className="text-[10px] font-semibold tracking-[0.3em] text-muted-foreground">
-                  PRIME VANGUARD
-                </span>
-              </div>
-              <p className="mt-6 font-display text-5xl font-bold tabular-nums text-gold">
-                {g?.pv ?? "—"}
-                <span className="ms-2 text-base font-semibold text-muted-foreground">PV</span>
-              </p>
-              <div className="mt-4 h-px bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
-              <p className="mt-3 text-xs text-muted-foreground">{t("pvHint")}</p>
-            </section>
-          </div>
-
-          <XpGuide />
+          <details className="mt-4 rounded-lg bg-card px-4">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
+              {l("XP earning rules", "قواعد كسب نقاط الخبرة")}
+            </summary>
+            <div className="pb-4">
+              <XpGuide />
+            </div>
+          </details>
           {g && (
             <VanguardRoadmap
               level={g.level}
@@ -486,10 +468,49 @@ function Page() {
           )}
         </>
       )}
-      {section === "community" && <SocialPanel userId={user.id} />}
       {section === "community" && (
         <>
-          <PodCommunity userId={user.id} />
+          <MemberSections
+            label={l("Community destinations", "وجهات المجتمع")}
+            value={community}
+            appearance="segmented"
+            items={[
+              ["pods", l("Pods", "المجموعات")],
+              ...(features?.social
+                ? [
+                    ["friends", l("Friends", "الأصدقاء")] as const,
+                    ["challenges", l("Challenges", "التحديات")] as const,
+                  ]
+                : []),
+              ["leaderboard", t("leaderboard")],
+            ]}
+            onSelect={(community) =>
+              void navigate({
+                search: {
+                  section: "community",
+                  community: community === "pods" ? undefined : community,
+                },
+              })
+            }
+          />
+          <div hidden={community !== "pods"}>
+            <PodCommunity userId={user.id} active={community === "pods"} />
+          </div>
+          <div hidden={community !== "friends" && community !== "challenges"}>
+            <SocialPanel
+              userId={user.id}
+              view={community === "challenges" ? "challenges" : "friends"}
+              active={community === "friends" || community === "challenges"}
+            />
+          </div>
+          {!features?.social && (community === "friends" || community === "challenges") && (
+            <p role="status" className="mt-4 text-sm">
+              {l(
+                "Social availability could not be confirmed. Choose Pods or reconnect.",
+                "تعذر تأكيد إتاحة الميزات الاجتماعية. اختر المجموعات أو أعد الاتصال.",
+              )}
+            </p>
+          )}
         </>
       )}
       {section === "activity" && (
@@ -511,7 +532,7 @@ function Page() {
                   {x.description && (
                     <p className="mt-1 text-xs text-muted-foreground">{x.description}</p>
                   )}
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Input
                       placeholder={t("claimNote")}
                       value={notes[x.id] ?? ""}
@@ -527,26 +548,43 @@ function Page() {
       )}
       {section === "community" && (
         <>
-          <section className="mt-6 rounded-xl border border-border bg-card p-5">
+          <section
+            id="community-leaderboard"
+            hidden={community !== "leaderboard"}
+            className="mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-5"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-display text-lg font-bold">
                 <Trophy className="h-5 w-5 text-gold" />
                 {t("leaderboard")}
               </h2>
               <label className="flex items-center gap-2 text-sm">
-                <Switch checked={optedIn} onCheckedChange={setOptIn} />
+                <Switch disabled={!me} checked={optedIn} onCheckedChange={setOptIn} />
                 {t("showMe")}
               </label>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{t("lbHint")}</p>
-            {rows.length === 0 ? (
+            {boardPending && (
+              <p role="status" className="mt-3 text-sm text-muted-foreground">
+                {l("Loading weekly leaderboard…", "جارٍ تحميل الصدارة الأسبوعية…")}
+              </p>
+            )}
+            {boardError && (
+              <p role="alert" className="mt-3 text-sm">
+                {l("Leaderboard unavailable.", "الصدارة غير متاحة.")}{" "}
+                <Button variant="outline" onClick={() => void retryBoard()}>
+                  {l("Retry leaderboard", "إعادة تحميل الصدارة")}
+                </Button>
+              </p>
+            )}
+            {rows.length === 0 && !boardPending && !boardError ? (
               <p className="mt-3 text-sm text-muted-foreground">{t("lbEmpty")}</p>
             ) : (
-              <ol className="mt-3 divide-y divide-border text-sm">
+              <ol className="mt-3 space-y-2 text-sm">
                 {rows.map((r, i) => (
                   <li
                     key={r.member_id}
-                    className={`flex items-center justify-between gap-3 py-2 ${r.member_id === user.id ? "font-semibold text-gold" : ""}`}
+                    className={`flex items-center justify-between gap-3 rounded-lg bg-background p-3 ${r.member_id === user.id ? "font-semibold text-gold" : ""}`}
                   >
                     <span className="flex items-center gap-3">
                       <span
@@ -573,33 +611,53 @@ function Page() {
               <Award className="h-5 w-5 text-gold" />
               {t("badges")}
               <span className="text-sm font-normal text-muted-foreground tabular-nums">
-                {badges?.filter((b) => b.unlockedAt).length ?? 0}/{badges?.length ?? 0}
+                {badges ? `${badges.filter((b) => b.unlockedAt).length}/${badges.length}` : "—"}
               </span>
             </h2>
-            <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {badgesPending && (
+              <p role="status" className="mt-3 text-sm text-muted-foreground">
+                {l("Loading badges…", "جارٍ تحميل الأوسمة…")}
+              </p>
+            )}
+            {badgeError && (
+              <p role="alert" className="mt-3 text-sm">
+                {l("Badges unavailable.", "الأوسمة غير متاحة.")}{" "}
+                <Button variant="outline" onClick={() => void retryBadges()}>
+                  {l("Retry badges", "إعادة تحميل الأوسمة")}
+                </Button>
+              </p>
+            )}
+            {badges?.length === 0 && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {l("No badges are available yet.", "لا توجد أوسمة متاحة بعد.")}
+              </p>
+            )}
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
               {badges?.map((b) => (
                 <li
                   key={b.code}
-                  className={`rounded-lg border p-3 text-center ${b.unlockedAt ? "gold-glow border-gold/50" : "border-border opacity-60"}`}
+                  className={`flex items-start gap-3 rounded-lg border p-4 ${b.unlockedAt ? "border-gold/40 bg-background" : "border-border bg-background text-muted-foreground"}`}
                 >
                   <div
-                    className={`mx-auto flex h-11 w-11 items-center justify-center rounded-full border-2 ${b.unlockedAt ? "border-gold text-gold" : "border-muted text-muted-foreground"}`}
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-card ${b.unlockedAt ? "text-gold" : "text-muted-foreground"}`}
                   >
                     {b.unlockedAt ? <Award className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
                   </div>
-                  <p className="mt-2 text-sm font-semibold">
-                    {locale === "ar" ? b.title_ar : b.title_en}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {locale === "ar" ? b.description_ar : b.description_en}
-                  </p>
-                  <p className="mt-1 text-[11px] tabular-nums text-gold">
-                    {b.unlockedAt
-                      ? new Date(b.unlockedAt).toLocaleDateString(
-                          locale === "ar" ? "ar-EG" : "en-GB",
-                        )
-                      : `+${b.xp_bonus} ${t("xp")}`}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">
+                      {locale === "ar" ? b.title_ar : b.title_en}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {locale === "ar" ? b.description_ar : b.description_en}
+                    </p>
+                    <p className="mt-1 text-[11px] tabular-nums text-gold">
+                      {b.unlockedAt
+                        ? new Date(b.unlockedAt).toLocaleDateString(
+                            locale === "ar" ? "ar-EG" : "en-GB",
+                          )
+                        : `+${b.xp_bonus} ${t("xp")}`}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -616,14 +674,43 @@ function Page() {
             {data?.rewards.length === 0 && (
               <p className="mt-2 text-sm text-muted-foreground">{t("noRewards")}</p>
             )}
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm">
+                {l("Find a reward", "البحث عن مكافأة")}
+                <Input
+                  className="mt-1"
+                  value={shopSearch}
+                  onChange={(event) => setShopSearch(event.target.value)}
+                />
+              </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={affordable}
+                    disabled={!g}
+                    onChange={(e) => setAffordable(e.target.checked)}
+                  />
+                  {l("Within my PV balance", "ضمن رصيدي من PV")}
+                </label>
+                <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={available}
+                    onChange={(e) => setAvailable(e.target.checked)}
+                  />
+                  {l("In stock", "متاح")}
+                </label>
+              </div>
+            </div>
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {data?.rewards.map((r) => {
+              {filteredRewards?.map((r) => {
                 const out = r.stock !== null && r.stock <= 0;
                 const poor = !!g && g.pv < r.cost_pv;
                 return (
                   <li
                     key={r.id}
-                    className="flex flex-col justify-between gap-3 rounded-lg border border-border p-3"
+                    className="flex min-w-0 flex-col justify-between gap-4 rounded-xl bg-background p-4"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -640,6 +727,7 @@ function Page() {
                       )}
                     </div>
                     <Button
+                      variant="secondary"
                       disabled={
                         !g ||
                         redeeming ||
@@ -664,16 +752,42 @@ function Page() {
                 );
               })}
             </ul>
+            {data && filteredRewards?.length === 0 && data.rewards.length > 0 && (
+              <p role="status" className="mt-3 text-sm text-muted-foreground">
+                {l("No rewards match these filters.", "لا توجد مكافآت تطابق هذه الفلاتر.")}{" "}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShopSearch("");
+                    setAffordable(false);
+                    setAvailable(false);
+                  }}
+                >
+                  {l("Clear reward filters", "مسح فلاتر المكافآت")}
+                </Button>
+              </p>
+            )}
             {!!data?.reds.length && (
               <>
                 <h3 className="mt-5 text-sm font-semibold">{t("myRedemptions")}</h3>
                 <ul className="mt-2 space-y-2 text-sm">
                   {data.reds.map((r) => (
-                    <li key={r.id} className="flex items-start justify-between gap-3">
+                    <li
+                      key={r.id}
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-background p-3"
+                    >
                       <div>
                         <p>
                           {title(r.rewards)} ·{" "}
                           <span className="tabular-nums text-muted-foreground">{r.cost_pv} PV</span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <time dateTime={r.created_at}>
+                            {new Date(r.created_at).toLocaleDateString(
+                              locale === "ar" ? "ar-EG" : "en-GB",
+                              { timeZone: "Africa/Cairo" },
+                            )}
+                          </time>
                         </p>
                         {r.review_note && (
                           <p className="text-xs text-muted-foreground">{r.review_note}</p>
@@ -719,7 +833,10 @@ function Page() {
               <h2 className="font-display text-lg font-bold">{t("recentXp")}</h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {g?.recent.map((x) => (
-                  <li key={x.id} className="flex justify-between">
+                  <li
+                    key={x.id}
+                    className="flex flex-wrap justify-between gap-3 rounded-lg bg-background p-3"
+                  >
                     <span className="text-muted-foreground">
                       {x.source === "level_curve_transition"
                         ? locale === "ar"

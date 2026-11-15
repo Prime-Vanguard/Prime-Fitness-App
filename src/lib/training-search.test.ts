@@ -18,6 +18,9 @@ it("validates section/filter/page/session links without accepting malformed valu
   expect(search.q).toBe("Leg day");
   expect(search.page).toBe(2);
   expect(search.section).toBe("history");
+  expect(trainingSearch({ section: "cardio" }).section).toBe("cardio");
+  expect(trainingSearch({ view: "overview" }).view).toBe("overview");
+  expect(trainingSearch({ view: "finish" }).view).toBeUndefined();
   expect(trainingSearch({ page: true, from: "0000-01-01" }).page).toBeUndefined();
   expect(trainingSearch({ page: true, from: "0000-01-01" }).from).toBeUndefined();
   expect(trainingSearch({ session: "A0000000-0000-4000-8000-000000000001" }).session).toBe(

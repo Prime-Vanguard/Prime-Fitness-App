@@ -17,6 +17,7 @@ export function pwaAssets(): Plugin {
           .filter((name) => name.startsWith("assets/"))
           .map((name) => `/${name}`),
         "/train",
+        "/today",
         "/nutrition",
         "/progress",
         "/offline.html",

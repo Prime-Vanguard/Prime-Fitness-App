@@ -37,6 +37,8 @@ export type Workout = {
   finishedAt: string | null;
   error: string | null;
   holdStartedAt?: number | null | undefined;
+  // Optional UI receipt; legacy version-2 drafts need no storage migration.
+  completion?: import("./workout-completion").WorkoutCompletion | undefined;
   editor?: import("./workout-editor").WorkoutEditorState | undefined;
 };
 export const emptyWorkout = (userId: string): Workout => ({
@@ -97,6 +99,7 @@ function db() {
   return database;
 }
 
+// Read the project-scoped draft; unsupported versions require recovery, not replacement.
 export async function readWorkout(userId: string): Promise<Workout> {
   const database = await db();
   return new Promise((resolve, reject) => {
@@ -113,6 +116,7 @@ export async function readWorkout(userId: string): Promise<Workout> {
 }
 
 // A read and its write share one IDB transaction, including across browser tabs.
+// Apply changes atomically and notify other observers only after the transaction commits.
 export async function changeWorkout(
   userId: string,
   change: (value: Workout) => Workout,
@@ -160,6 +164,7 @@ export async function readLegacyWorkout(userId: string): Promise<Workout | null>
     };
   });
 }
+// Move a reviewed legacy draft only when it cannot overwrite an active project draft.
 export async function adoptLegacyWorkout(userId: string) {
   const d = await db();
   return new Promise<void>((resolve, reject) => {

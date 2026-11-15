@@ -22,7 +22,7 @@ export function ProgressLineChart({ series, label, unit }: ProgressChartProps) {
       timeZone: "Africa/Cairo",
     });
   return (
-    <div className="mt-4 h-56" dir="ltr" aria-label={label}>
+    <div className="mt-4 h-56 rounded-lg bg-background p-2" dir="ltr" aria-label={label}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={series}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -50,9 +50,10 @@ export function ProgressLineChart({ series, label, unit }: ProgressChartProps) {
           <Line
             type="monotone"
             dataKey="value"
-            stroke="var(--gold)"
+            stroke="var(--foreground)"
             strokeWidth={2.5}
-            dot={{ r: 3 }}
+            dot={{ r: 3, fill: "var(--background)", stroke: "var(--foreground)" }}
+            activeDot={{ r: 5, fill: "var(--gold)", stroke: "var(--background)" }}
             isAnimationActive={false}
           />
         </LineChart>

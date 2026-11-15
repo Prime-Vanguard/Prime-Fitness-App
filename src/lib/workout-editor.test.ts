@@ -17,6 +17,7 @@ import {
   nextSupersetSlot,
   slotReference,
   togglePlannedHold,
+  supersetChoices,
 } from "./workout-editor";
 
 function fixture() {
@@ -34,6 +35,50 @@ function fixture() {
   return appendSet(w, { exercise_id: "bench", reps: 5, weight_kg: 50, rpe: 7, slot_key: "first" });
 }
 describe("workout editor", () => {
+  it("builds full-catalogue superset choices in linear passes with frozen repeated slots", () => {
+    const w = fixture();
+    let idReads = 0;
+    w.exercises = Array.from({ length: 5000 }, (_, index) => ({
+      get id() {
+        idReads++;
+        return `exercise-${index}`;
+      },
+      name_en: `Exercise ${index}`,
+      name_ar: `تمرين ${index}`,
+      muscle: "chest",
+      equipment: "barbell",
+    }));
+    w.plan = [
+      { id: "exercise-0", slot_key: "first", sets: 3, reps: "8" },
+      {
+        id: "exercise-0",
+        slot_key: "second",
+        sets: 2,
+        reps: "12",
+        exercise: {
+          id: "exercise-0",
+          name_en: "Frozen name",
+          name_ar: "اسم ثابت",
+          muscle: "chest",
+          equipment: "barbell",
+        },
+      },
+    ];
+    w.sets = [];
+    const choices = supersetChoices(w, slotReference("other", ""), "ar");
+    expect(choices).toHaveLength(5001);
+    expect(choices[1]).toEqual({
+      value: slotReference("exercise-0", "second"),
+      label: "اسم ثابت · 2",
+    });
+    expect(choices.at(-1)?.label).toBe("تمرين 4999");
+    // A structural complexity check: catalogue IDs must not be rescanned per option.
+    expect(idReads).toBeLessThan(5000 * 6);
+    expect(new Set(choices.map((choice) => choice.value)).size).toBe(5001);
+    expect(supersetChoices(w, slotReference("exercise-0", "first"), "en")[0]?.label).toBe(
+      "Frozen name",
+    );
+  });
   it("merges independently edited fields without replacing a newer weight draft", () => {
     let w = fixture();
     w.plan = [{ id: "bench", slot_key: "first", sets: 2, reps: "8-12" }];

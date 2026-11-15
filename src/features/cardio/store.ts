@@ -127,6 +127,7 @@ export async function saveIntervalTimer(
     return { ...state, timer: timer ? intervalTimer.parse(timer) : null };
   });
 }
+// Complete the expected timer through local state, protecting against stale tabs.
 export async function completeIntervalTimer(user: string, expected: IntervalTimer) {
   await change(user, (state) => {
     if (state.timer?.id === expected.id && state.timer.saved) return state;

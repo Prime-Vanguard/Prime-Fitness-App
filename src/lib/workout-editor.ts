@@ -69,11 +69,40 @@ export const workoutEditorSchema = z.object({
 
 export const slotReference = (exercise: string, slot = "") => JSON.stringify([exercise, slot]);
 export const slotDraftKey = (exercise: string, slot = "") => `${slot}:${exercise}`;
-export function supersetCandidates(w: Workout) {
+export function supersetCandidates(w: Pick<Workout, "plan" | "sets" | "exercises">) {
   const slots = workoutSlots(w);
-  for (const e of w.exercises)
-    if (!slots.some((p) => p.id === e.id)) slots.push({ id: e.id, key: "", sets: 0, reps: "" });
+  const seen = new Set(slots.map((slot) => slot.id));
+  for (const e of w.exercises) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    slots.push({ id: e.id, key: "", sets: 0, reps: "" });
+  }
   return slots;
+}
+
+/** One catalogue pass, retaining frozen names and distinct repeated program slots. */
+export function supersetChoices(
+  w: Pick<Workout, "plan" | "sets" | "exercises">,
+  exclude: string,
+  locale: "en" | "ar",
+) {
+  const candidates = supersetCandidates(w).filter(
+    (slot) => slotReference(slot.id, slot.key) !== exclude,
+  );
+  const catalogue = new Map(w.exercises.map((exercise) => [exercise.id, exercise]));
+  const counts = new Map<string, number>();
+  for (const slot of candidates) counts.set(slot.id, (counts.get(slot.id) ?? 0) + 1);
+  return candidates.map((slot, index) => {
+    const exercise = slot.exercise ?? catalogue.get(slot.id);
+    const name =
+      (locale === "ar" && exercise?.name_ar) ||
+      exercise?.name_en ||
+      (locale === "ar" ? "تمرين" : "Exercise");
+    return {
+      value: slotReference(slot.id, slot.key),
+      label: name + ((counts.get(slot.id) ?? 0) > 1 ? ` · ${index + 1}` : ""),
+    };
+  });
 }
 /** Old ID-based groups are read only when each exercise resolves unambiguously. */
 export function supersetPair(w: Workout): string[] {
@@ -220,6 +249,7 @@ export function updatePlannedRow(
     },
   };
 }
+// Reject stale row values before replacing a planned row with a completed set.
 export function completePlannedRow(
   w: Workout,
   exercise: string,
@@ -262,6 +292,7 @@ export function completePlannedRow(
   };
 }
 
+// Store a start timestamp so hold duration survives background timer throttling.
 export function togglePlannedHold(w: Workout, key: string, id: string, now = Date.now()): Workout {
   if (!w.session || w.phase !== "active") throw new Error("This workout is no longer editable.");
   const row = w.editor?.plannedRows?.[key]?.find((r) => r.id === id);
@@ -345,7 +376,7 @@ export function sameSetWrite(current: WorkoutSet, sent: WorkoutSet) {
   );
 }
 
-export function workoutSlots(w: Workout) {
+export function workoutSlots(w: Pick<Workout, "plan" | "sets">) {
   const slots = w.plan.map((p) => ({ ...p, key: p.slot_key ?? "" }));
   for (const s of w.sets.filter((s) => s.sync !== "deleted")) {
     if (!slots.some((p) => p.id === s.exercise_id && p.key === (s.slot_key ?? "")))

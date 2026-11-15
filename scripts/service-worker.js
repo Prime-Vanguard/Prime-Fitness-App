@@ -1,9 +1,9 @@
-/* Only public build assets and the client-only training shell are cached.
+/* Only public build assets and explicitly listed client-only shells are cached.
    Auth, API responses, photos, and mutation requests never enter this cache. */
 const BASE = __BASE_PATH__;
 const PREFIX = "pf-shell-" + encodeURIComponent(BASE) + "-";
 const CACHE = PREFIX + "__BUILD_ID__";
-const SHELLS = ["train", "nutrition", "progress"].map((path) => BASE + path);
+const SHELLS = ["train", "today", "nutrition", "progress"].map((path) => BASE + path);
 const ASSETS = __PRECACHE__;
 const STATIC = new Set(ASSETS);
 self.addEventListener("install", (event) => {

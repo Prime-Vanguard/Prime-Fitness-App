@@ -72,7 +72,7 @@ export function MuscleBodyDiagram({
             {/* Equivalent labeled keyboard controls and live totals follow the diagram. */}
             <div
               aria-hidden="true"
-              className="mx-auto mt-2 max-w-[200px] [&_svg]:h-auto [&_svg]:w-full"
+              className="muscle-diagram mx-auto mt-2 max-w-[200px] [&_svg]:h-auto [&_svg]:w-full"
             >
               <Body
                 side={side}

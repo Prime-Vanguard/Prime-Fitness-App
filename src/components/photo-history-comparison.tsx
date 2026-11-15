@@ -23,6 +23,9 @@ export function PhotoHistoryComparison({
   const [before, setBefore] = useState<HistoryPhoto | null>(null),
     [after, setAfter] = useState<HistoryPhoto | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // Signing a different pair may remount its images; keep the member's view
+  // preference with the history controller rather than the transient viewer.
+  const [view, setView] = useState<"side" | "slider">("side");
   const valid = !from || !to || from <= to;
   const omitted = excluded.join(",");
   const history = useQuery({
@@ -85,62 +88,87 @@ export function PhotoHistoryComparison({
     }
   }, [signed.data, signed.isSuccess, selectedKey, before, after]);
   return (
-    <div className="mt-5 space-y-3 rounded-xl border border-border p-3">
-      <h3 className="font-semibold">{l("Comparison photo history", "سجل صور المقارنة")}</h3>
-      <p className="text-xs text-muted-foreground">
-        {l(
-          "Selected photos stay pinned while you browse other pages or dates.",
-          "تبقى الصور المحددة محفوظة أثناء تصفح صفحات أو تواريخ أخرى.",
-        )}
-      </p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <label className="text-xs min-w-0 max-w-full block">
-          {l("Pose", "الوضعية")}
-          <NativeSelect
-            aria-label={l("Comparison pose", "وضعية المقارنة")}
-            value={pose}
-            className="mt-2"
-            onChange={(e) => {
-              setPose(e.target.value);
-              setPage(0);
-              setBefore(null);
-              setAfter(null);
-            }}
-          >
-            {["front", "side", "back"].map((p) => (
-              <option key={p} value={p}>
-                {p === "front"
-                  ? l("Front", "أمام")
-                  : p === "side"
-                    ? l("Side", "جانب")
-                    : l("Back", "خلف")}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <label className="text-xs">
-          {l("Photos from", "الصور من")}
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
-              setPage(0);
-            }}
-          />
-        </label>
-        <label className="text-xs">
-          {l("Photos through", "الصور حتى")}
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
-              setPage(0);
-            }}
-          />
-        </label>
-      </div>
+    <div
+      className="space-y-4 rounded-xl border border-border bg-card p-4"
+      data-photo-history-comparison
+    >
+      {/* Comparison comes first; history filters still select and pin the same
+          authorized records, without an extra query or a second comparison owner. */}
+      {history.data && !history.error && !signed.error && !(ids.length > 0 && signed.isPending) && (
+        <PhotoComparison
+          view={view}
+          onViewChange={setView}
+          photos={[]}
+          pair={{
+            before: signed.error ? undefined : signed.data?.find((p) => p.id === before?.id),
+            after: signed.error
+              ? undefined
+              : signed.data?.find((p) => p.id === after?.id && p.id !== before?.id),
+          }}
+          hideControls
+          onRenew={() => void signed.refetch({ cancelRefetch: false })}
+        />
+      )}
+      <details className="rounded-lg bg-background p-3" data-photo-comparison-filters>
+        <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
+          {l("Comparison filters", "فلاتر المقارنة")}
+        </summary>
+        <h3 className="sr-only">{l("Comparison photo history", "سجل صور المقارنة")}</h3>
+        <p className="text-xs text-muted-foreground">
+          {l(
+            "Selected photos stay pinned while you browse other pages or dates.",
+            "تبقى الصور المحددة محفوظة أثناء تصفح صفحات أو تواريخ أخرى.",
+          )}
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <label className="text-xs min-w-0 max-w-full block">
+            {l("Pose", "الوضعية")}
+            <NativeSelect
+              aria-label={l("Comparison pose", "وضعية المقارنة")}
+              value={pose}
+              className="mt-2"
+              onChange={(e) => {
+                setPose(e.target.value);
+                setPage(0);
+                setBefore(null);
+                setAfter(null);
+              }}
+            >
+              {["front", "side", "back"].map((p) => (
+                <option key={p} value={p}>
+                  {p === "front"
+                    ? l("Front", "أمام")
+                    : p === "side"
+                      ? l("Side", "جانب")
+                      : l("Back", "خلف")}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+          <label className="text-xs">
+            {l("Photos from", "الصور من")}
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPage(0);
+              }}
+            />
+          </label>
+          <label className="text-xs">
+            {l("Photos through", "الصور حتى")}
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPage(0);
+              }}
+            />
+          </label>
+        </div>
+      </details>
       {!valid && (
         <p role="alert">
           {l(
@@ -160,7 +188,7 @@ export function PhotoHistoryComparison({
           </Button>
         </div>
       )}
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         {(["before", "after"] as const).map((side) => (
           <label className="text-xs min-w-0 max-w-full block" key={side}>
             {side === "before" ? l("Before", "قبل") : l("After", "بعد")}
@@ -228,19 +256,6 @@ export function PhotoHistoryComparison({
             {l("Retry selected photos", "إعادة تحميل الصور المحددة")}
           </Button>
         </div>
-      )}
-      {history.data && !history.error && !signed.error && !(ids.length > 0 && signed.isPending) && (
-        <PhotoComparison
-          photos={[]}
-          pair={{
-            before: signed.error ? undefined : signed.data?.find((p) => p.id === before?.id),
-            after: signed.error
-              ? undefined
-              : signed.data?.find((p) => p.id === after?.id && p.id !== before?.id),
-          }}
-          hideControls
-          onRenew={() => void signed.refetch({ cancelRefetch: false })}
-        />
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import type { WorkoutSessionController } from "./types";
 
 const blank: SetDraft = { reps: "", weight: "", rpe: "" };
 /** Owns exercise selection and durable entry drafts; session dialogs stay in the view. */
+// Coordinates the active exercise, editable drafts and durable set operations.
 export function useWorkoutEditor({
   controller,
   units,
@@ -124,6 +125,53 @@ export function useWorkoutEditor({
       },
     })).catch((e: Error) => onError(e.message));
   }
+  async function persistDraft() {
+    // Flush the visible configuration after any queued keystroke writes. Never log it here.
+    const value = {
+      ...draft,
+      units,
+      set_role: role,
+      side,
+      pair_id: side === "bilateral" ? undefined : pair,
+      root_set_id: role === "drop" ? root || undefined : undefined,
+    };
+    const parsed = parseSetDraft(value, timed, units);
+    if (parsed.weight_kg != null && parsed.weight_kg > 1000)
+      throw new Error(l("Weight must be 0–1000 kg.", "يجب أن يكون الوزن من ٠ إلى ١٠٠٠ كجم."));
+    await change((current) => {
+      if (current.phase !== "active" || !current.session)
+        throw new Error(
+          l("This workout is no longer editable.", "لم تعد هذه الجلسة قابلة للتعديل."),
+        );
+      if (
+        role === "drop" &&
+        !current.sets.some(
+          (set) =>
+            set.id === root &&
+            set.sync !== "deleted" &&
+            (set.set_role ?? "working") === "working" &&
+            (set.side ?? "bilateral") === side &&
+            set.exercise_id === exerciseId &&
+            (set.slot_key ?? "") === selection,
+        )
+      )
+        throw new Error(
+          l(
+            "Choose a working set for this drop segment.",
+            "اختر مجموعة عمل أساسية لهذا الجزء التنازلي.",
+          ),
+        );
+      return {
+        ...current,
+        editor: {
+          ...current.editor,
+          selectedSlot: selection,
+          selectedExercise: exerciseId,
+          drafts: { ...current.editor?.drafts, [draftKey]: value },
+        },
+      };
+    });
+  }
   const previous = usePreviousPerformance(
     {
       member: w.userId,
@@ -168,6 +216,7 @@ export function useWorkoutEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey, activePlan?.reps, timed, previous.data, previous.isPending, online, units]);
 
+  // Save the set through the workout store before giving completion feedback.
   async function logSet(restSeconds: number) {
     primeAudio();
     await run(async () => {
@@ -291,6 +340,7 @@ export function useWorkoutEditor({
     draft,
     plannedInitial,
     updateDraft,
+    persistDraft,
     pick,
     logging,
     logSet,

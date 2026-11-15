@@ -18,6 +18,7 @@ import {
   type PvTask,
 } from "@/lib/admin-pv";
 import { AdminEditorDrawer } from "@/components/admin-editor-drawer";
+import { AdminReviewFrame } from "@/components/admin-review-frame";
 import { AdminChangeReview, type AdminReview } from "@/components/admin-change-review";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -464,7 +465,8 @@ export function PvClaimEditor({
   }
   return (
     <>
-      <AdminEditorDrawer
+      <AdminReviewFrame
+        claimId={id}
         open={open}
         close={close}
         locked={!!review || reloading}
@@ -506,28 +508,32 @@ export function PvClaimEditor({
                 </Button>
               </div>
             )}
-            <h3 className="break-words font-medium">
-              {locale === "ar"
-                ? snapshot.pv_tasks?.title_ar || snapshot.pv_tasks?.title_en
-                : snapshot.pv_tasks?.title_en}
-            </h3>
-            <p className="text-sm">
-              <bdi>{snapshot.pv_tasks?.points ?? "—"} PV</bdi> ·{" "}
-              {snapshot.status === "approved"
-                ? t("approved")
-                : snapshot.status === "rejected"
-                  ? t("rejected")
-                  : snapshot.status === "needs_info"
-                    ? l("Needs information", "يحتاج معلومات")
-                    : t("pending")}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {l("Cairo time", "توقيت القاهرة")}:{" "}
-              <bdi>{adminDate(snapshot.created_at, locale)}</bdi>
-            </p>
+            {/* Snapshot facts stay distinct from evidence and the editable decision. */}
+            <section className="space-y-2 rounded-lg border border-border bg-background p-3">
+              <h3 className="break-words font-medium">
+                {locale === "ar"
+                  ? snapshot.pv_tasks?.title_ar || snapshot.pv_tasks?.title_en
+                  : snapshot.pv_tasks?.title_en}
+              </h3>
+              <p className="text-sm">
+                <bdi>{snapshot.pv_tasks?.points ?? "—"} PV</bdi> ·{" "}
+                {snapshot.status === "approved"
+                  ? t("approved")
+                  : snapshot.status === "rejected"
+                    ? t("rejected")
+                    : snapshot.status === "needs_info"
+                      ? l("Needs information", "يحتاج معلومات")
+                      : t("pending")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {l("Cairo time", "توقيت القاهرة")}:{" "}
+                <bdi>{adminDate(snapshot.created_at, locale)}</bdi>
+              </p>
+            </section>
+            {/* Keep submitted evidence distinct from staff feedback; render both as plain text. */}
             <section
               aria-label={l("Member evidence", "دليل العضو")}
-              className="space-y-2 rounded-xl border border-border p-4"
+              className="space-y-3 rounded-xl border border-border bg-background p-4"
             >
               <h3 className="text-sm font-medium">{l("Member evidence", "دليل العضو")}</h3>
               <p className="whitespace-pre-wrap break-words text-sm">
@@ -535,7 +541,7 @@ export function PvClaimEditor({
               </p>
             </section>
             {snapshot.review_note && (
-              <section className="space-y-2">
+              <section className="space-y-3 rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-medium">
                   {l("Saved review feedback", "ملاحظات المراجعة المحفوظة")}
                 </h3>
@@ -624,7 +630,7 @@ export function PvClaimEditor({
                     )}
                   </p>
                 )}
-                <Button type="submit" disabled={!ready || !!review}>
+                <Button type="submit" className="w-full" disabled={!ready || !!review}>
                   {l("Review decision", "مراجعة القرار")}
                 </Button>
               </form>
@@ -643,7 +649,7 @@ export function PvClaimEditor({
             </Button>
           </>
         )}
-      </AdminEditorDrawer>
+      </AdminReviewFrame>
       <AdminChangeReview review={review} close={() => setReview(null)} />
       <AlertDialog open={reload} onOpenChange={setReload}>
         <AlertDialogContent>

@@ -17,6 +17,7 @@ import {
   type PersonalBackup,
 } from "@/lib/personal-backup";
 
+// Keep the existing durable operations; this surface groups their review and recovery states.
 export function BackupRestore({ userId }: { userId: string }) {
   return <BackupRestoreAccount key={userId} userId={userId} />;
 }
@@ -71,7 +72,11 @@ function BackupRestoreAccount({ userId }: { userId: string }) {
     }
   }
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-6" aria-busy={busy}>
+    <section
+      data-stitch-backup
+      className="space-y-4 rounded-xl bg-card p-4 sm:p-5"
+      aria-busy={busy}
+    >
       <h2 className="font-heading font-semibold">
         {l("Backup & restore", "النسخ الاحتياطي والاستعادة")}
       </h2>
@@ -162,12 +167,21 @@ function BackupRestoreAccount({ userId }: { userId: string }) {
               </dd>
             </div>
           </dl>
-          <p className="text-sm">
-            {RESTORE_TABLES.map(
-              (tab) => `${labels[tab]}: ${(backup.data[tab] as unknown[]).length}`,
-            ).join(" · ")}{" "}
-            · {l("Photo files", "ملفات الصور")}: {backup.media.length}
-          </p>
+          {/* These are file contents, not promises about records the server will insert. */}
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            {RESTORE_TABLES.map((tab) => (
+              <div key={tab} className="min-w-0 rounded-lg bg-background p-3">
+                <dt className="text-xs text-muted-foreground">{labels[tab]}</dt>
+                <dd className="mt-1 font-semibold tabular-nums">
+                  {(backup.data[tab] as unknown[]).length}
+                </dd>
+              </div>
+            ))}
+            <div className="min-w-0 rounded-lg bg-background p-3">
+              <dt className="text-xs text-muted-foreground">{l("Photo files", "ملفات الصور")}</dt>
+              <dd className="mt-1 font-semibold tabular-nums">{backup.media.length}</dd>
+            </div>
+          </dl>
           {backup.pendingMemberData != null && (
             <div className="rounded-lg border border-border p-3 text-sm">
               <p>

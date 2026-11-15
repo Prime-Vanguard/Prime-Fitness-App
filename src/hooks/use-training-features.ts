@@ -12,6 +12,7 @@ export type TrainingFeature =
   | "food_scanning"
   | "cardio"
   | "social";
+// Retrieve rollout availability and retain a device copy for supported offline views.
 export function useTrainingFeatures(userId: string) {
   const query = useQuery({
     queryKey: ["training-features", userId],

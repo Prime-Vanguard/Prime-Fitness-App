@@ -16,11 +16,13 @@ import { useI18n } from "@/lib/i18n";
 import { PageHeader } from "./page-header";
 import { MemberSections } from "./member-sections";
 import { CoachTrainingTools } from "./coach-training-tools";
+import { TrainingPreferencesSummary } from "./training-preferences-summary";
 import { WellnessCheckIn } from "./wellness-checkin";
 import { ProgressPhotos } from "./progress-photos";
 import { Button } from "./ui/button";
 export type CoachSection = "overview" | "training" | "nutrition" | "checkins" | "photos";
 
+/** Compose authorized member sections without prefetching private records on overview. */
 export function CoachMemberWorkspace({
   actor,
   member,
@@ -164,8 +166,17 @@ export function CoachMemberWorkspace({
       <Link className="mt-2 inline-block min-h-11 py-2 text-sm text-muted-foreground" to="/members">
         {t("myMembers")}
       </Link>
-      <PageHeader title={access.data.display_name || access.data.email || t("memberDetail")} />
+      <PageHeader
+        eyebrow={l("Member workspace", "مساحة العضو")}
+        eyebrowTone="accent"
+        title={access.data.display_name || access.data.email || t("memberDetail")}
+      >
+        <p className="mt-2 break-all text-sm text-muted-foreground">
+          <bdi>{access.data.email}</bdi>
+        </p>
+      </PageHeader>
       <MemberSections
+        appearance="segmented"
         label={l("Member workspace sections", "أقسام مساحة العضو")}
         value={section}
         items={[
@@ -178,25 +189,51 @@ export function CoachMemberWorkspace({
         onSelect={onSection}
       />
       {section === "overview" && (
-        <section className="mt-6 rounded-xl border bg-card p-5">
-          <h2 className="font-display text-lg font-bold">
-            {l("Last seven days", "آخر سبعة أيام")}
-          </h2>
-          {overview.isPending ? (
-            <p role="status">{l("Loading summary…", "جارٍ تحميل الملخص…")}</p>
-          ) : overview.error ? (
-            <QueryFailure onRetry={() => void overview.refetch()} />
-          ) : (
-            <p className="mt-3">
-              {overview.data ?? "—"} {l("completed workouts", "جلسات مكتملة")}
-            </p>
-          )}
-          <p className="mt-3 text-sm text-muted-foreground">
-            {l(
-              "Cairo dates; imported completed workouts are included in history. Open Training for source sets, Nutrition for logged-day averages, or Check-ins for private wellness.",
-              "وفق تواريخ القاهرة؛ يشمل السجل الجلسات المستوردة المكتملة. افتح التدريب لمراجعة المجموعات، والتغذية لمتوسطات أيام التسجيل، والمتابعة للبيانات الخاصة.",
+        <section className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr]">
+          <TrainingPreferencesSummary value={access.data.training_preferences} />
+          <div className="rounded-xl bg-card p-5">
+            <h2 className="font-display text-lg font-bold">
+              {l("Last seven days", "آخر سبعة أيام")}
+            </h2>
+            {overview.isPending ? (
+              <p role="status">{l("Loading summary…", "جارٍ تحميل الملخص…")}</p>
+            ) : overview.error ? (
+              <QueryFailure onRetry={() => void overview.refetch()} />
+            ) : (
+              <p className="mt-3 rounded-lg bg-background p-4 font-heading text-2xl font-bold tabular-nums">
+                {overview.data ?? "—"} {l("completed workouts", "جلسات مكتملة")}
+              </p>
             )}
-          </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {l(
+                "Cairo dates; imported completed workouts are included in history. Open Training for source sets, Nutrition for logged-day averages, or Check-ins for private wellness.",
+                "وفق تواريخ القاهرة؛ يشمل السجل الجلسات المستوردة المكتملة. افتح التدريب لمراجعة المجموعات، والتغذية لمتوسطات أيام التسجيل، والمتابعة للبيانات الخاصة.",
+              )}
+            </p>
+          </div>
+          {/* Navigation reveals existing sections; it does not fetch wellness or photos early. */}
+          <div className="space-y-3 rounded-xl bg-card p-5">
+            <h2 className="font-heading text-lg font-bold">
+              {l("Review member records", "مراجعة سجلات العضو")}
+            </h2>
+            {(
+              [
+                ["training", l("Review training history", "مراجعة سجل التدريب")],
+                ["nutrition", l("Review nutrition logs", "مراجعة سجل التغذية")],
+                ["checkins", l("Review private check-ins", "مراجعة المتابعة الخاصة")],
+                ["photos", l("Review progress photos", "مراجعة صور التقدم")],
+              ] as const
+            ).map(([target, label]) => (
+              <Button
+                key={target}
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => onSection(target)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
         </section>
       )}
       {(section === "training" || visited.has("training")) && (

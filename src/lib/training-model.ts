@@ -24,6 +24,7 @@ export type PerformanceSet = Partial<SetDetails> & {
   id?: string;
   session_id?: string;
 };
+// Keep measurement mode, side pairing and drop-set references internally consistent.
 export function validateSetDetails(value: PerformanceSet) {
   const d = setDetailsSchema.parse(value);
   if (
@@ -54,6 +55,7 @@ export function validateSetDetails(value: PerformanceSet) {
     throw new Error("RPE must be 1–10.");
   return d;
 }
+// Timed work contributes seconds; unilateral work counts half a working set.
 export function setMetrics(set: PerformanceSet) {
   const working = (set.set_role ?? "working") === "working";
   const unilateral = set.side != null && set.side !== "bilateral";
@@ -100,6 +102,7 @@ export type TrainingSuggestion = {
   reason: string;
   revision: number;
 };
+// Apply coach policy to comparable working sets, holding when evidence is incomplete.
 export function suggestTraining(raw: TrainingPolicy, sets: PerformanceSet[]): TrainingSuggestion {
   const p = policySchema.parse(raw);
   const work = sets.filter((s) => (s.set_role ?? "working") === "working");

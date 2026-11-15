@@ -39,7 +39,7 @@ export type NutritionEntryModel = {
   changeMeal: (meal: string) => void;
   closeEntry: () => void;
   choose: (food: FoodPick) => void;
-  copyYesterday: () => Promise<void>;
+
   add: (event: FormEvent) => Promise<void>;
   onLogged: () => void;
 };

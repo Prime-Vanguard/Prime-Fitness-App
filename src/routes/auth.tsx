@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { appPath } from "@/lib/app-path";
-import { LoaderCircle, MailCheck } from "lucide-react";
+import { LoaderCircle, MailCheck, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { BrandShell } from "@/components/brand-shell";
+import { OnboardingShell } from "@/components/onboarding-shell";
 import { AuthNotice, PasswordField } from "@/components/auth-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Handle sign-in, invitation signup and recovery without accepting external redirects.
 function AuthPage() {
   const search = Route.useSearch();
   const target = safeAuthRedirect(search.redirect);
@@ -178,7 +179,7 @@ function AuthPage() {
           ? c.send
           : c.resend;
   return (
-    <BrandShell title={c[mode]} subtitle={c.members} focusKey={mode}>
+    <OnboardingShell title={c[mode]} subtitle={c.members} focusKey={mode} languageLocked={busy}>
       {checking ? (
         <p role="status" className="flex items-center gap-2 text-sm">
           <LoaderCircle
@@ -191,43 +192,67 @@ function AuthPage() {
         <>
           <section
             aria-label={locale === "ar" ? "حالة الدخول" : "Access context"}
-            className={`mb-4 rounded-lg border p-3 text-sm ${mode === "signin" ? "border-border bg-background/50" : mode === "signup" ? "border-gold/30 bg-gold/5" : mode === "forgot" ? "border-primary/30 bg-primary/5" : "border-success/30 bg-success/5"}`}
+            className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm"
           >
-            <p className="font-medium">
-              {mode === "signin"
-                ? locale === "ar"
-                  ? "تسجيل دخول الأعضاء"
-                  : "Member sign-in"
-                : mode === "signup"
+            {/* Describe the real credential flow; the reference's passkeys/OTP
+                and verified token claims require separate backend support. */}
+            <span
+              aria-hidden
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background text-gold"
+            >
+              {mode === "signin" ? (
+                <KeyRound className="size-5" />
+              ) : (
+                <MailCheck className="size-5" />
+              )}
+            </span>
+            <div className="min-w-0 space-y-2">
+              <p className="font-medium">
+                {mode === "signin"
                   ? locale === "ar"
-                    ? "دعوة من مدربك مطلوبة"
-                    : "Your coach’s invitation is required"
-                  : mode === "forgot"
+                    ? "تسجيل دخول الأعضاء"
+                    : "Member sign-in"
+                  : mode === "signup"
                     ? locale === "ar"
-                      ? "اطلب رابطاً آمناً من بريدك"
-                      : "Request a secure email link"
-                    : locale === "ar"
-                      ? "تأكيد البريد قبل تسجيل الدخول"
-                      : "Confirm your email before signing in"}
-            </p>
-            {mode === "forgot" && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {locale === "ar"
-                  ? "استخدم بريد حسابك. ستبقى هذه الصفحة متاحة لإعادة المحاولة."
-                  : "Use your account email. This page stays available for a retry."}
+                      ? "دعوة من مدربك مطلوبة"
+                      : "Your coach’s invitation is required"
+                    : mode === "forgot"
+                      ? locale === "ar"
+                        ? "اطلب رابطاً آمناً من بريدك"
+                        : "Request a secure email link"
+                      : locale === "ar"
+                        ? "تأكيد البريد قبل تسجيل الدخول"
+                        : "Confirm your email before signing in"}
               </p>
-            )}
+              {mode === "signin" && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {locale === "ar"
+                    ? "استخدم بريد حسابك وكلمة المرور للمتابعة."
+                    : "Continue with your account email and password."}
+                </p>
+              )}
+              {mode === "signup" && (
+                <p className="text-xs leading-relaxed text-muted-foreground">{c.inviteHint}</p>
+              )}
+              {mode === "forgot" && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {locale === "ar"
+                    ? "استخدم بريد حسابك. ستبقى هذه الصفحة متاحة لإعادة المحاولة."
+                    : "Use your account email. This page stays available for a retry."}
+                </p>
+              )}
+            </div>
           </section>
-          {mode === "signup" && (
-            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{c.inviteHint}</p>
-          )}
           {mode === "confirm" && <MailCheck className="mb-4 size-8 text-gold" aria-hidden="true" />}
           <div className="mb-4 space-y-3">
             {error && <AuthNotice error message={c[error]} />}
             {notice && <AuthNotice message={c[notice]} />}
           </div>
           <form onSubmit={submit} noValidate aria-busy={busy} className="space-y-4">
-            <fieldset disabled={busy} className="space-y-4">
+            <fieldset
+              disabled={busy}
+              className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+            >
               {mode === "signup" && (
                 <div className="space-y-2">
                   <Label htmlFor="name">{c.name}</Label>
@@ -299,20 +324,20 @@ function AuthPage() {
                   )}
                 </>
               )}
-              <Button
-                type="submit"
-                className="h-12 w-full text-base"
-                disabled={busy || (sending && seconds > 0)}
-              >
-                {busy && (
-                  <LoaderCircle
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden="true"
-                  />
-                )}
-                {button}
-              </Button>
             </fieldset>
+            <Button
+              type="submit"
+              className="min-h-[50px] w-full text-base"
+              disabled={busy || (sending && seconds > 0)}
+            >
+              {busy && (
+                <LoaderCircle
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                  aria-hidden="true"
+                />
+              )}
+              {button}
+            </Button>
             {sending && seconds > 0 && (
               <p role="status" className="text-xs text-muted-foreground">
                 {c.wait} {seconds} {c.seconds}.
@@ -375,6 +400,6 @@ function AuthPage() {
           </div>
         </>
       )}
-    </BrandShell>
+    </OnboardingShell>
   );
 }

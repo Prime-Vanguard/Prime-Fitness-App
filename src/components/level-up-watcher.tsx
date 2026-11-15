@@ -10,7 +10,7 @@ import { RankCrest } from "@/components/rank-crest";
 import { useGamification } from "@/hooks/use-gamification";
 import { useI18n } from "@/lib/i18n";
 
-/** Celebrates when the member's level rises since their last visit on this device. */
+/** Compare server-derived levels with the last level seen on this device. */
 export function LevelUpWatcher({ userId }: { userId: string }) {
   const { data: me } = useMe(userId);
   const { data: g } = useGamification(userId);
@@ -58,7 +58,7 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
   return (
     <Dialog open={!!show} onOpenChange={(o) => !o && setShow(null)}>
       <DialogContent className="gold-glow max-w-sm border-gold/50 text-center">
-        <div className="mx-auto motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-700">
+        <div className="crest-reveal mx-auto">
           <RankCrest rank={g.rank.key} size={160} />
         </div>
         <DialogTitle className="font-display text-2xl">

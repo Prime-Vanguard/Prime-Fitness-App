@@ -1,3 +1,4 @@
+// Rank boundaries are independent of the server-provided cumulative XP thresholds.
 export const RANKS = [
   { key: "Recruit", ar: "مجنّد", min: 1, max: 15 },
   { key: "Seeker", ar: "الساعي", min: 16, max: 35 },

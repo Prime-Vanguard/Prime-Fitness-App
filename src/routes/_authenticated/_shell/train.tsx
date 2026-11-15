@@ -2,9 +2,10 @@ import { useUnits } from "@/hooks/use-units";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Dumbbell } from "lucide-react";
+import { Dumbbell, Activity, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
+import { MemberSections } from "@/components/member-sections";
 import { LegacyWorkoutRecovery } from "@/components/legacy-workout-recovery";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +15,7 @@ import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { CardioPanel } from "@/features/cardio/cardio-panel";
 import { TrainingSchedule } from "@/components/training-schedule";
 import { WorkoutSession } from "@/components/workout-session";
+import { WorkoutComplete } from "@/features/workouts/workout-complete";
 import { WorkoutHistoryDetail } from "@/components/workout-history-detail";
 import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 import { WorkoutHistoryFilters } from "@/components/workout-history-filters";
@@ -48,7 +50,8 @@ function Train() {
     error: historyError,
     refetch: retryHistory,
   } = useQuery({
-    enabled: ready && section === "history" && !w.session && validRange,
+    enabled:
+      ready && section === "history" && (!w.session || search.view === "overview") && validRange,
     queryKey: ["sessions", user.id, historyPage, search.q, search.from, search.to],
     queryFn: async ({ signal }) => {
       let query = supabase
@@ -73,7 +76,11 @@ function Train() {
   const linked = useQuery({
     queryKey: ["linked-workout", user.id, expandedHistory],
     enabled:
-      section === "history" && !w.session && linkedOutsidePage && !historyError && validRange,
+      section === "history" &&
+      (!w.session || search.view === "overview") &&
+      linkedOutsidePage &&
+      !historyError &&
+      validRange,
     retry: 0,
     queryFn: async ({ signal }) => {
       const r = await supabase
@@ -90,41 +97,80 @@ function Train() {
   });
   const displayedHistory =
     linkedOutsidePage && linked.data ? [linked.data, ...(history ?? [])] : history;
-  if (ready && w.session)
+  if (ready && w.session && search.view !== "overview")
     return <WorkoutSession key={`${w.session.id}:${units}`} controller={controller} />;
   return (
     <>
-      <PageHeader title={t("train")} />
-      <CardioPanel userId={user.id} />
-      <LegacyWorkoutRecovery key={user.id} userId={user.id} />
+      <div className={section === "cardio" ? "relative pe-12" : ""}>
+        <PageHeader
+          eyebrowTone="accent"
+          title={section === "cardio" ? l("Cardio & HIIT", "الكارديو وHIIT") : t("train")}
+          eyebrow={section === "cardio" ? l("Intervals & endurance", "الفترات والتحمل") : ""}
+        />
+        {section === "cardio" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute end-0 bottom-1"
+            aria-label={l("Back to workouts", "العودة إلى التمارين")}
+            onClick={() => void navigate({ search: { ...search, section: undefined } })}
+          >
+            <ChevronRight aria-hidden className="size-5 rotate-180 rtl:rotate-0" />
+          </Button>
+        )}
+      </div>
       {!ready && <p role="status">{l("Opening your workout…", "جارٍ فتح التمرين…")}</p>}
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-amber-500/40 p-3 text-sm">
           {error}
         </p>
       )}
-      <nav className="mt-5 flex gap-2" aria-label={l("Training sections", "أقسام التدريب")}>
-        {(
-          [
+      {section !== "cardio" && (
+        <MemberSections
+          animated
+          appearance="segmented"
+          label={l("Training sections", "أقسام التدريب")}
+          value={section}
+          items={[
             ["workout", t("workout")],
             ["program", t("myProgram")],
             ["history", t("history")],
-          ] as const
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            variant={section === value ? "default" : "outline"}
-            aria-pressed={section === value}
-            onClick={() =>
-              void navigate({
-                search: { ...search, section: value === "workout" ? undefined : value },
-              })
-            }
-          >
-            {label}
-          </Button>
+          ]}
+          onSelect={(value) =>
+            void navigate({
+              search: { ...search, section: value === "workout" ? undefined : value },
+            })
+          }
+        />
+      )}
+      <LegacyWorkoutRecovery key={user.id} userId={user.id} />
+      {/* Completing a prescribed day returns to Program; keep its accepted receipt visible there too. */}
+      {ready &&
+        w.userId === user.id &&
+        !w.session &&
+        (section === "workout" || section === "program") &&
+        w.completion && (
+          <WorkoutComplete
+            receipt={w.completion}
+            units={units}
+            onDismiss={() => {
+              void controller
+                .change((current) => ({ ...current, completion: undefined }))
+                .catch((e: Error) => toast.error(e.message));
+            }}
+          />
+        )}
+      {section === "cardio" &&
+        (features?.cardio ? (
+          <CardioPanel userId={user.id} />
+        ) : (
+          <p role="status" className="mt-5 text-sm text-muted-foreground">
+            {l(
+              "Cardio availability could not be confirmed. Reconnect or select another training section.",
+              "تعذر تأكيد إتاحة الكارديو. اتصل أو اختر قسماً آخر للتدريب.",
+            )}
+          </p>
         ))}
-      </nav>
       {section === "program" && (
         <>
           <MyProgram
@@ -136,22 +182,49 @@ function Train() {
           />
         </>
       )}
-      {section !== "history" && (
+      {(section === "workout" || section === "program") && (
         <TrainingSchedule
           compact={section === "workout"}
           userId={user.id}
           onStart={controller.start}
           canStart={ready && !w.session && !error}
+          exercises={w.exercises as ExerciseGuidance[]}
+          guidanceEnabled={features?.guidance === true}
         />
       )}
       {section === "workout" &&
         ready &&
         (w.session ? (
-          <WorkoutSession key={`${w.session.id}:${units}`} controller={controller} />
+          <section
+            className="mt-5 space-y-3 rounded-xl border border-gold/40 bg-card p-4"
+            data-workout-resume
+          >
+            {/* Hub navigation only: the same controller still owns the session and sets. */}
+            <h2 className="font-heading text-lg font-semibold">
+              {w.session.title || t("workout")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {l(
+                "Your workout is still open. Resume logging when ready.",
+                "تمرينك ما زال مفتوحاً. تابع التسجيل عندما تكون مستعداً.",
+              )}
+            </p>
+            <Button
+              onClick={() =>
+                void navigate({ search: { ...search, view: undefined, section: undefined } })
+              }
+            >
+              {t("continueWorkout")}
+            </Button>
+          </section>
         ) : (
-          <div className="mt-8 rounded-xl border border-border bg-card p-6">
-            <Dumbbell className="h-8 w-8 text-gold" />
-            <h2 className="mt-3 text-xl font-bold">{t("readyToTrain")}</h2>
+          <div className="mt-5 rounded-xl bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-heading text-base font-bold">
+                {l("Unprogrammed Free Session", "جلسة حرة خارج البرنامج")}
+              </h2>
+              <Dumbbell aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
+            </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {l(
                 "Your sets save on this device first, then sync when connected.",
@@ -159,7 +232,8 @@ function Train() {
               )}
             </p>
             <Button
-              className="mt-5"
+              className="mt-4 w-full"
+              variant="secondary"
               size="lg"
               disabled={!w.exercises.length}
               onClick={() => {
@@ -170,13 +244,37 @@ function Train() {
             </Button>
           </div>
         ))}
+      {features?.cardio && section === "workout" && (
+        <button
+          type="button"
+          aria-label={l("Cardio", "الكارديو")}
+          onClick={() => void navigate({ search: { section: "cardio", view: search.view } })}
+          className="mt-4 flex min-h-20 w-full items-center gap-4 rounded-2xl bg-card p-5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        >
+          <Activity aria-hidden className="size-6 shrink-0 text-gold" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading font-bold">
+              {l("Cardio & HIIT workouts", "تمارين الكارديو وHIIT")}
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {l("Log cardio or run an interval session", "سجّل الكارديو أو ابدأ جلسة فترات")}
+            </span>
+          </span>
+          <ChevronRight
+            aria-hidden
+            className="size-5 shrink-0 text-muted-foreground rtl:rotate-180"
+          />
+        </button>
+      )}
       {section === "history" && (
         <>
-          <h2 className="mt-6 text-lg font-bold">{t("history")}</h2>
+          <h2 className="sr-only">{t("history")}</h2>
           <WorkoutHistoryFilters
             key={`${search.q ?? ""}:${search.from ?? ""}:${search.to ?? ""}`}
             search={search}
-            onApply={(filters) => void navigate({ search: { section: "history", ...filters } })}
+            onApply={(filters) =>
+              void navigate({ search: { section: "history", view: search.view, ...filters } })
+            }
           />
           {linkedOutsidePage && linked.isFetching && (
             <p role="status">{l("Opening linked workout…", "جارٍ فتح الجلسة المرتبطة…")}</p>
@@ -196,7 +294,7 @@ function Train() {
               )}
             </p>
           )}
-          <ul className="mt-3 divide-y divide-border rounded-xl border border-border bg-card">
+          <ul className="mt-4 space-y-3" data-stitch-history>
             {historyPending && validRange && (
               <li role="status" className="p-4">
                 {l("Loading workouts...", "جارٍ تحميل الجلسات…")}
@@ -219,11 +317,14 @@ function Train() {
             )}
             {validRange &&
               displayedHistory?.map((s) => (
-                <li key={s.id} className="p-4 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <li
+                  key={s.id}
+                  className={`rounded-xl border bg-card p-4 text-sm ${expandedHistory === s.id ? "border-gold" : "border-border"}`}
+                >
+                  <div className="flex flex-col items-stretch gap-3">
                     <button
                       type="button"
-                      className="min-h-11 min-w-0 flex-1 text-start font-semibold break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                      className="min-h-11 min-w-0 w-full text-start font-semibold break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                       aria-expanded={expandedHistory === s.id}
                       aria-controls={`history-${s.id}`}
                       aria-label={`${l("View workout details", "عرض تفاصيل الجلسة")}: ${s.title ?? t("workout")}`}
@@ -236,17 +337,20 @@ function Train() {
                         })
                       }
                     >
-                      {s.title}
-                      {" · "}
-                      {new Date(
-                        `${s.activity_date ?? activityDay(s.started_at)}T12:00:00Z`,
-                      ).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB", {
-                        timeZone: "UTC",
-                      })}
-                      {s.time_precision !== "date" &&
-                        s.finished_at &&
-                        Date.parse(s.finished_at) >= Date.parse(s.started_at) &&
-                        ` · ${Math.round((Date.parse(s.finished_at) - Date.parse(s.started_at)) / 60000)} ${l("min", "د")}`}
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {new Date(
+                          `${s.activity_date ?? activityDay(s.started_at)}T12:00:00Z`,
+                        ).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB", {
+                          timeZone: "UTC",
+                        })}
+                        {s.time_precision !== "date" &&
+                          s.finished_at &&
+                          Date.parse(s.finished_at) >= Date.parse(s.started_at) &&
+                          ` · ${Math.round((Date.parse(s.finished_at) - Date.parse(s.started_at)) / 60000)} ${l("min", "د")}`}
+                      </span>
+                      <span className="mt-2 block font-heading text-lg font-bold leading-6">
+                        {s.title ?? t("workout")}
+                      </span>
                       {linkedOutsidePage && s.id === expandedHistory && (
                         <span className="block text-xs text-muted-foreground">
                           {l(
@@ -255,15 +359,17 @@ function Train() {
                           )}
                         </span>
                       )}
-                      <span className="block text-xs font-normal text-gold">
+                      <span className="mt-2 block text-xs font-normal text-muted-foreground">
                         {expandedHistory === s.id
                           ? l("Hide details", "إخفاء التفاصيل")
                           : l("View details", "عرض التفاصيل")}
                       </span>
                     </button>
-                    <span>
-                      {s.set_logs[0]?.count ?? 0} {t("sets")}{" "}
-                      {s.origin === "import" ? l("· Imported", "· مستورد") : ""}
+                    <span className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {s.set_logs[0]?.count ?? 0} {t("sets")}{" "}
+                        {s.origin === "import" ? l("· Imported", "· مستورد") : ""}
+                      </span>
                       <Button
                         size="sm"
                         variant="outline"

@@ -2,6 +2,7 @@
 export const isImageMime = (mime: string) => /^image\/[a-z0-9.+-]+$/i.test(mime);
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
+// Decode and re-encode locally to validate dimensions and produce a bounded JPEG.
 export async function normalizePhoto(file: File): Promise<Blob> {
   if (!isImageMime(file.type) || /svg/i.test(file.type))
     throw new Error("Choose a bitmap photo such as JPEG, PNG or WebP.");

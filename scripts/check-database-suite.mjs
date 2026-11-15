@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 
 // Serial execution bounds WASM memory use and stops at the first failed suite.
 const suites = [
+  ["scripts/check-onboarding.mjs"],
+  ["scripts/check-production-access.mjs"],
   ["scripts/build-exercise-encoding-repair.mjs"],
   ["scripts/check-exercise-encoding.mjs"],
   ["scripts/check-exercise-catalogue.mjs"],

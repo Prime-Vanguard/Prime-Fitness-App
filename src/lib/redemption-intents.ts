@@ -15,6 +15,7 @@ const key = "redemption-intents";
 export async function readRedemptionIntents(user: string) {
   return z.array(schema).parse((await readMemberState(user)).references[key] ?? []);
 }
+// Persist one request identity per reward before contacting the server.
 export async function reserveRedemptionIntent(
   user: string,
   reward: string,

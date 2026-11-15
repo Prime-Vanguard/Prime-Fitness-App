@@ -6,6 +6,7 @@ import { MemberSyncPanel } from "./member-sync-panel";
 export function MemberSync({ userId }: { userId: string }) {
   return <MemberSyncAccount key={userId} userId={userId} />;
 }
+// Scope subscriptions to the signed-in account and refresh after accepted changes.
 function MemberSyncAccount({ userId }: { userId: string }) {
   const { state, error } = useMemberData(userId);
   const qc = useQueryClient();

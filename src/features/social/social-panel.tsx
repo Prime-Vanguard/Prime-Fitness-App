@@ -1,3 +1,4 @@
+import { useRecordFeedback } from "@/hooks/use-record-feedback";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,12 +13,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { featureCall } from "@/features/experience/api";
 import { socialState, challengeDraft, type SocialState } from "./contracts";
-export function SocialPanel({ userId }: { userId: string }) {
+// Keep friends and challenges in their own views while preserving in-progress forms.
+export function SocialPanel({
+  userId,
+  view = "friends",
+  active = true,
+}: {
+  userId: string;
+  view?: "friends" | "challenges";
+  active?: boolean;
+}) {
   const { data: features } = useTrainingFeatures(userId);
   if (!features?.social) return null;
-  return <SocialContent key={userId} userId={userId} />;
+  return <SocialContent key={userId} userId={userId} view={view} active={active} />;
 }
-function SocialContent({ userId }: { userId: string }) {
+function SocialContent({
+  userId,
+  view,
+  active,
+}: {
+  userId: string;
+  view: "friends" | "challenges";
+  active: boolean;
+}) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const qc = useQueryClient(),
@@ -58,7 +76,7 @@ function SocialContent({ userId }: { userId: string }) {
   }, [userId]);
   const query = useQuery({
     queryKey: key,
-    enabled: online,
+    enabled: online && active,
     queryFn: () =>
       featureCall("social_action", { _op: "state", _data: {} }, (value) =>
         socialState.parse(value),
@@ -67,6 +85,20 @@ function SocialContent({ userId }: { userId: string }) {
     retry: 0,
   });
   const data = query.data;
+  const feedbackRef = useRecordFeedback<HTMLElement>(
+    userId,
+    data
+      ? [
+          ...data.friends
+            .filter((friend) => friend.status === "accepted")
+            .map((friend) => ({ id: friend.member_id, value: friend.status })),
+          ...data.challenges.map((challenge) => ({
+            id: challenge.id,
+            value: JSON.stringify([challenge.progress, challenge.participants, challenge.status]),
+          })),
+        ]
+      : undefined,
+  );
   async function perform(op: string, args: Record<string, Json> = {}) {
     if (!online || lock.current) return;
     lock.current = true;
@@ -143,7 +175,12 @@ function SocialContent({ userId }: { userId: string }) {
       </section>
     );
   return (
-    <section className="my-5 space-y-4 rounded-xl border border-gold/30 p-4">
+    <section
+      ref={feedbackRef}
+      id="community-friends"
+      className="my-5 scroll-mt-24 space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+      data-stitch-friends
+    >
       <h2 className="text-xl font-semibold">
         {l("Friends & shared challenges", "الأصدقاء والتحديات المشتركة")}
       </h2>
@@ -164,7 +201,7 @@ function SocialContent({ userId }: { userId: string }) {
       {notice && <p role="status">{notice}</p>}
       {data && (
         <>
-          <div className="rounded border p-3">
+          <div hidden={view !== "friends"} className="rounded-lg bg-background p-4">
             <p className="font-semibold">{l("Your member search code", "رمز بحث العضوية")}</p>
             <code dir="ltr" className="break-all select-all">
               {data.account.code}
@@ -192,7 +229,7 @@ function SocialContent({ userId }: { userId: string }) {
               )}
             </p>
           </div>
-          <label className="flex min-h-11 items-center gap-2">
+          <label hidden={view !== "friends"} className="flex min-h-11 items-center gap-2">
             <input
               type="checkbox"
               disabled={busy}
@@ -225,357 +262,381 @@ function SocialContent({ userId }: { userId: string }) {
             />
             {l("Opt in to shared challenge progress", "الموافقة على مشاركة تقدم التحديات")}
           </label>
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (lock.current) return;
-              lock.current = true;
-              setBusy(true);
-              setError("");
-              setFound(null);
-              void featureCall(
-                "social_action",
-                { _op: "lookup", _data: { code: code.trim().toUpperCase() } },
-                (value) =>
-                  z
-                    .object({ member_id: z.string().uuid(), name: z.string().nullable() })
-                    .nullable()
-                    .parse(value),
-              )
-                .then((result) => {
-                  setFound(result);
-                  if (!result)
-                    setNotice(
-                      l(
-                        "Member unavailable or discovery disabled.",
-                        "العضو غير متاح أو الظهور معطل.",
-                      ),
-                    );
-                })
-                .catch((e) => setError(e.message))
-                .finally(() => {
-                  lock.current = false;
-                  setBusy(false);
-                });
-            }}
-          >
-            <label>
-              {l("Exact member code", "رمز العضو الدقيق")}
-              <Input
-                dir="ltr"
-                value={code}
-                maxLength={19}
-                onChange={(e) => setCode(e.target.value)}
-              />
-            </label>
-            <Button
-              disabled={
-                busy ||
-                !data.account.discoverable ||
-                !/^PF-[A-F0-9]{16}$/.test(code.trim().toUpperCase())
-              }
+          <div hidden={view !== "friends"} className="space-y-4">
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (lock.current) return;
+                lock.current = true;
+                setBusy(true);
+                setError("");
+                setFound(null);
+                void featureCall(
+                  "social_action",
+                  { _op: "lookup", _data: { code: code.trim().toUpperCase() } },
+                  (value) =>
+                    z
+                      .object({ member_id: z.string().uuid(), name: z.string().nullable() })
+                      .nullable()
+                      .parse(value),
+                )
+                  .then((result) => {
+                    setFound(result);
+                    if (!result)
+                      setNotice(
+                        l(
+                          "Member unavailable or discovery disabled.",
+                          "العضو غير متاح أو الظهور معطل.",
+                        ),
+                      );
+                  })
+                  .catch((e) => setError(e.message))
+                  .finally(() => {
+                    lock.current = false;
+                    setBusy(false);
+                  });
+              }}
             >
-              {l("Find member", "بحث عن عضو")}
-            </Button>
-          </form>
-          {found && (
-            <div className="rounded border p-3">
-              <p>{found.name ?? l("Member", "عضو")}</p>
+              <label className="min-w-0 flex-1">
+                {l("Exact member code", "رمز العضو الدقيق")}
+                <Input
+                  dir="ltr"
+                  value={code}
+                  maxLength={19}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </label>
               <Button
-                disabled={busy}
-                onClick={() => void perform("request", { member_id: found.member_id })}
+                disabled={
+                  busy ||
+                  !data.account.discoverable ||
+                  !/^PF-[A-F0-9]{16}$/.test(code.trim().toUpperCase())
+                }
               >
-                {l("Send friend request", "إرسال طلب صداقة")}
+                {l("Find member", "بحث عن عضو")}
               </Button>
-            </div>
-          )}
-          <h3 className="font-semibold">{l("Friends and requests", "الأصدقاء والطلبات")}</h3>
-          {!data.friends.length && (
-            <p>{l("No friends or pending requests yet.", "لا يوجد أصدقاء أو طلبات معلقة بعد.")}</p>
-          )}
-          <ul className="space-y-2">
-            {data.friends.map((friend) => (
-              <li key={friend.member_id} className="rounded border p-3">
-                <p>
-                  {friend.name ?? l("Member", "عضو")} ·{" "}
-                  {friend.status === "accepted"
-                    ? l("Friend", "صديق")
-                    : friend.incoming
-                      ? l("Incoming request", "طلب وارد")
-                      : l("Request sent", "أُرسل الطلب")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {friend.status === "pending" && friend.incoming && (
-                    <>
-                      <Button
-                        disabled={busy}
-                        onClick={() => void perform("accept", { member_id: friend.member_id })}
-                      >
-                        {l("Accept", "قبول")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void perform("decline", { member_id: friend.member_id })}
-                      >
-                        {l("Decline", "رفض")}
-                      </Button>
-                    </>
-                  )}
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          l("Remove this friend/request?", "إزالة هذا الصديق أو الطلب؟"),
+            </form>
+            {found && (
+              <div className="rounded border p-3">
+                <p>{found.name ?? l("Member", "عضو")}</p>
+                <Button
+                  disabled={busy}
+                  onClick={() => void perform("request", { member_id: found.member_id })}
+                >
+                  {l("Send friend request", "إرسال طلب صداقة")}
+                </Button>
+              </div>
+            )}
+            <h3 className="font-semibold">{l("Friends and requests", "الأصدقاء والطلبات")}</h3>
+            {!data.friends.length && (
+              <p>
+                {l("No friends or pending requests yet.", "لا يوجد أصدقاء أو طلبات معلقة بعد.")}
+              </p>
+            )}
+            <ul className="space-y-2">
+              {data.friends.map((friend) => (
+                <li
+                  key={friend.member_id}
+                  data-feedback-record={friend.member_id}
+                  className="space-y-3 rounded-lg bg-background p-3"
+                >
+                  <p>
+                    {friend.name ?? l("Member", "عضو")} ·{" "}
+                    {friend.status === "accepted"
+                      ? l("Friend", "صديق")
+                      : friend.incoming
+                        ? l("Incoming request", "طلب وارد")
+                        : l("Request sent", "أُرسل الطلب")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {friend.status === "pending" && friend.incoming && (
+                      <>
+                        <Button
+                          disabled={busy}
+                          onClick={() => void perform("accept", { member_id: friend.member_id })}
+                        >
+                          {l("Accept", "قبول")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void perform("decline", { member_id: friend.member_id })}
+                        >
+                          {l("Decline", "رفض")}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            l("Remove this friend/request?", "إزالة هذا الصديق أو الطلب؟"),
+                          )
                         )
-                      )
-                        void perform("remove", { member_id: friend.member_id });
-                    }}
+                          void perform("remove", { member_id: friend.member_id });
+                      }}
+                    >
+                      {l("Remove", "إزالة")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            l(
+                              "Block this member? Shared challenges between you will be disconnected.",
+                              "حظر العضو؟ ستتوقف مشاركة التحديات بينكما.",
+                            ),
+                          )
+                        )
+                          void perform("block", { member_id: friend.member_id });
+                      }}
+                    >
+                      {l("Block", "حظر")}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {data.blocked.length > 0 && (
+              <details>
+                <summary>
+                  {l("Blocked members", "الأعضاء المحظورون")} ({data.blocked.length})
+                </summary>
+                {data.blocked.map((block) => (
+                  <p key={block.member_id}>
+                    …{block.member_id.slice(-6)}{" "}
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void perform("unblock", { member_id: block.member_id })}
+                    >
+                      {l("Unblock", "إلغاء الحظر")}
+                    </Button>
+                  </p>
+                ))}
+              </details>
+            )}
+          </div>
+          <div hidden={view !== "challenges"} className="space-y-4">
+            <form
+              id="community-challenges"
+              className="scroll-mt-24 space-y-3 rounded-lg bg-background p-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitChallenge();
+              }}
+            >
+              <h3 className="font-semibold">
+                {l("Create a shared challenge", "إنشاء تحدٍ مشترك")}
+              </h3>
+              <p className="text-xs">
+                {l(
+                  "A shared total across accepted participants, up to 10 people. Cardio contribution is capped at 180 active minutes per member per day; strength counts qualifying workout days. Imported workouts never contribute.",
+                  "إجمالي مشترك للمشاركين الموافقين حتى ١٠ أشخاص. حد الكارديو ١٨٠ دقيقة نشطة لكل عضو يومياً؛ القوة تحسب أيام التدريب المؤهلة. لا تُحتسب التمارين المستوردة.",
+                )}
+              </p>
+              <label className="block">
+                {l("Challenge title", "عنوان التحدي")}
+                <Input
+                  maxLength={100}
+                  value={form.title}
+                  disabled={!!pending || busy}
+                  onChange={(e) => setForm((v) => ({ ...v, title: e.target.value }))}
+                />
+              </label>
+              <label className="min-w-0 max-w-full block">
+                {l("Goal type", "نوع الهدف")}
+                <NativeSelect
+                  className="mt-2"
+                  value={form.metric}
+                  disabled={!!pending || busy}
+                  onChange={(e) => setForm((v) => ({ ...v, metric: e.target.value }))}
+                >
+                  <option value="cardio_minutes">
+                    {l("Active cardio minutes", "دقائق الكارديو النشطة")}
+                  </option>
+                  <option value="workout_days">
+                    {l("Qualifying workout days", "أيام التدريب المؤهلة")}
+                  </option>
+                </NativeSelect>
+              </label>
+              {(
+                [
+                  ["goal", l("Shared goal", "الهدف المشترك")],
+                  ["starts_on", l("Start date", "تاريخ البداية")],
+                  ["ends_on", l("End date", "تاريخ النهاية")],
+                ] as const
+              ).map(([field, label]) => (
+                <label className="block" key={field}>
+                  {label}
+                  <Input
+                    type={field === "goal" ? "text" : "date"}
+                    inputMode={field === "goal" ? "numeric" : undefined}
+                    disabled={!!pending || busy}
+                    value={form[field]}
+                    onChange={(e) => setForm((v) => ({ ...v, [field]: e.target.value }))}
+                  />
+                </label>
+              ))}
+              <Button disabled={busy || !data.account.sharing || !!pending}>
+                {l("Create challenge", "إنشاء التحدي")}
+              </Button>
+              {pending && (
+                <div role="status">
+                  <p>
+                    {l(
+                      "A saved creation request is awaiting confirmation. Retry uses the same identity.",
+                      "طلب إنشاء محفوظ ينتظر التأكيد. تستخدم المحاولة الهوية نفسها.",
+                    )}{" "}
+                    {pending.title}
+                  </p>
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    variant="outline"
+                    onClick={() => void submitChallenge(pending)}
                   >
-                    {l("Remove", "إزالة")}
+                    {l("Retry saved challenge", "إعادة الطلب المحفوظ")}
                   </Button>
                   <Button
+                    type="button"
                     variant="outline"
                     disabled={busy}
                     onClick={() => {
                       if (
                         window.confirm(
                           l(
-                            "Block this member? Shared challenges between you will be disconnected.",
-                            "حظر العضو؟ ستتوقف مشاركة التحديات بينكما.",
+                            "Cancel this saved request? If it was already created, its challenge will be cancelled too.",
+                            "إلغاء هذا الطلب المحفوظ؟ إذا أُنشئ التحدي بالفعل فسيُلغى أيضاً.",
                           ),
                         )
                       )
-                        void perform("block", { member_id: friend.member_id });
+                        void perform("cancel_creation", { id: pending.id })
+                          .then(async (result) => {
+                            if (!result) return;
+                            await changeMemberState(userId, (s) => ({
+                              ...s,
+                              references: {
+                                ...s.references,
+                                challengeCreate:
+                                  challengeDraft.safeParse(s.references["challengeCreate"]).data
+                                    ?.id === pending.id
+                                    ? null
+                                    : (s.references["challengeCreate"] ?? null),
+                              },
+                            }));
+                            setPending(null);
+                          })
+                          .catch((e) => setError(e.message));
                     }}
                   >
-                    {l("Block", "حظر")}
+                    {l("Cancel saved challenge request", "إلغاء طلب التحدي المحفوظ")}
                   </Button>
                 </div>
-              </li>
-            ))}
-          </ul>
-          {data.blocked.length > 0 && (
-            <details>
-              <summary>
-                {l("Blocked members", "الأعضاء المحظورون")} ({data.blocked.length})
-              </summary>
-              {data.blocked.map((block) => (
-                <p key={block.member_id}>
-                  …{block.member_id.slice(-6)}{" "}
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void perform("unblock", { member_id: block.member_id })}
-                  >
-                    {l("Unblock", "إلغاء الحظر")}
-                  </Button>
-                </p>
-              ))}
-            </details>
-          )}
-          <form
-            className="space-y-3 rounded border p-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submitChallenge();
-            }}
-          >
-            <h3 className="font-semibold">{l("Create a shared challenge", "إنشاء تحدٍ مشترك")}</h3>
-            <p className="text-xs">
-              {l(
-                "A shared total across accepted participants, up to 10 people. Cardio contribution is capped at 180 active minutes per member per day; strength counts qualifying workout days. Imported workouts never contribute.",
-                "إجمالي مشترك للمشاركين الموافقين حتى ١٠ أشخاص. حد الكارديو ١٨٠ دقيقة نشطة لكل عضو يومياً؛ القوة تحسب أيام التدريب المؤهلة. لا تُحتسب التمارين المستوردة.",
               )}
-            </p>
-            <label className="block">
-              {l("Challenge title", "عنوان التحدي")}
-              <Input
-                maxLength={100}
-                value={form.title}
-                disabled={!!pending || busy}
-                onChange={(e) => setForm((v) => ({ ...v, title: e.target.value }))}
-              />
-            </label>
-            <label className="min-w-0 max-w-full block">
-              {l("Goal type", "نوع الهدف")}
-              <NativeSelect
-                className="mt-2"
-                value={form.metric}
-                disabled={!!pending || busy}
-                onChange={(e) => setForm((v) => ({ ...v, metric: e.target.value }))}
-              >
-                <option value="cardio_minutes">
-                  {l("Active cardio minutes", "دقائق الكارديو النشطة")}
-                </option>
-                <option value="workout_days">
-                  {l("Qualifying workout days", "أيام التدريب المؤهلة")}
-                </option>
-              </NativeSelect>
-            </label>
-            {(
-              [
-                ["goal", l("Shared goal", "الهدف المشترك")],
-                ["starts_on", l("Start date", "تاريخ البداية")],
-                ["ends_on", l("End date", "تاريخ النهاية")],
-              ] as const
-            ).map(([field, label]) => (
-              <label className="block" key={field}>
-                {label}
-                <Input
-                  type={field === "goal" ? "text" : "date"}
-                  inputMode={field === "goal" ? "numeric" : undefined}
-                  disabled={!!pending || busy}
-                  value={form[field]}
-                  onChange={(e) => setForm((v) => ({ ...v, [field]: e.target.value }))}
-                />
-              </label>
-            ))}
-            <Button disabled={busy || !data.account.sharing || !!pending}>
-              {l("Create challenge", "إنشاء التحدي")}
-            </Button>
-            {pending && (
-              <div role="status">
-                <p>
-                  {l(
-                    "A saved creation request is awaiting confirmation. Retry uses the same identity.",
-                    "طلب إنشاء محفوظ ينتظر التأكيد. تستخدم المحاولة الهوية نفسها.",
-                  )}{" "}
-                  {pending.title}
-                </p>
-                <Button
-                  type="button"
-                  disabled={busy}
-                  variant="outline"
-                  onClick={() => void submitChallenge(pending)}
+            </form>
+            <ul className="space-y-3">
+              {data.challenges.map((c) => (
+                <li
+                  key={c.id}
+                  data-feedback-record={c.id}
+                  className="space-y-3 rounded-lg bg-background p-4"
                 >
-                  {l("Retry saved challenge", "إعادة الطلب المحفوظ")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        l(
-                          "Cancel this saved request? If it was already created, its challenge will be cancelled too.",
-                          "إلغاء هذا الطلب المحفوظ؟ إذا أُنشئ التحدي بالفعل فسيُلغى أيضاً.",
-                        ),
-                      )
-                    )
-                      void perform("cancel_creation", { id: pending.id })
-                        .then(async (result) => {
-                          if (!result) return;
-                          await changeMemberState(userId, (s) => ({
-                            ...s,
-                            references: {
-                              ...s.references,
-                              challengeCreate:
-                                challengeDraft.safeParse(s.references["challengeCreate"]).data
-                                  ?.id === pending.id
-                                  ? null
-                                  : (s.references["challengeCreate"] ?? null),
-                            },
-                          }));
-                          setPending(null);
-                        })
-                        .catch((e) => setError(e.message));
-                  }}
-                >
-                  {l("Cancel saved challenge request", "إلغاء طلب التحدي المحفوظ")}
-                </Button>
-              </div>
-            )}
-          </form>
-          <ul className="space-y-3">
-            {data.challenges.map((c) => (
-              <li key={c.id} className="space-y-2 rounded border p-3">
-                <h3 className="font-semibold">{c.title}</h3>
-                <p>
-                  {c.starts_on} → {c.ends_on} · {c.participants} {l("participants", "مشاركون")}
-                </p>
-                <p>
-                  {c.progress} / {c.goal}{" "}
-                  {c.metric === "cardio_minutes"
-                    ? l("active minutes", "دقائق نشطة")
-                    : l("workout days", "أيام تدريب")}{" "}
-                  ·{" "}
-                  {c.status === "completed"
-                    ? l("Completed", "مكتمل")
-                    : c.status === "cancelled"
-                      ? l("Cancelled", "ملغى")
-                      : l("Active", "نشط")}
-                </p>
-                <progress className="w-full" value={Math.min(c.progress, c.goal)} max={c.goal} />
-                <div className="flex flex-wrap gap-2">
-                  {c.participation === "invited" && (
+                  <h3 className="font-semibold">{c.title}</h3>
+                  <p>
+                    {c.starts_on} → {c.ends_on} · {c.participants} {l("participants", "مشاركون")}
+                  </p>
+                  <p>
+                    {c.progress} / {c.goal}{" "}
+                    {c.metric === "cardio_minutes"
+                      ? l("active minutes", "دقائق نشطة")
+                      : l("workout days", "أيام تدريب")}{" "}
+                    ·{" "}
+                    {c.status === "completed"
+                      ? l("Completed", "مكتمل")
+                      : c.status === "cancelled"
+                        ? l("Cancelled", "ملغى")
+                        : l("Active", "نشط")}
+                  </p>
+                  <progress
+                    aria-label={l("Challenge progress", "تقدم التحدي")}
+                    className="h-2 w-full accent-gold"
+                    value={Math.min(c.progress, c.goal)}
+                    max={c.goal}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {c.participation === "invited" && (
+                      <Button
+                        disabled={busy || !data.account.sharing}
+                        onClick={() => void perform("join", { id: c.id })}
+                      >
+                        {l("Join challenge", "الانضمام للتحدي")}
+                      </Button>
+                    )}
                     <Button
-                      disabled={busy || !data.account.sharing}
-                      onClick={() => void perform("join", { id: c.id })}
-                    >
-                      {l("Join challenge", "الانضمام للتحدي")}
-                    </Button>
-                  )}
-                  <Button
-                    disabled={busy}
-                    variant="outline"
-                    onClick={() => void perform("refresh_challenge", { id: c.id })}
-                  >
-                    {l("Check completion", "فحص الاكتمال")}
-                  </Button>
-                  <Button
-                    disabled={busy}
-                    variant="outline"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          l("Leave/cancel this challenge?", "مغادرة أو إلغاء هذا التحدي؟"),
-                        )
-                      )
-                        void perform(c.owner_id === userId ? "cancel_challenge" : "leave", {
-                          id: c.id,
-                        });
-                    }}
-                  >
-                    {c.owner_id === userId
-                      ? l("Cancel challenge", "إلغاء التحدي")
-                      : l("Leave", "مغادرة")}
-                  </Button>
-                </div>
-                {c.owner_id === userId && c.status === "active" && (
-                  <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                    <NativeSelect
-                      aria-label={l("Friend to invite", "الصديق المدعو")}
-                      value={invite[c.id] ?? ""}
-                      onChange={(e) => setInvite((v) => ({ ...v, [c.id]: e.target.value }))}
-                    >
-                      <option value="">
-                        {l("Choose an accepted friend", "اختر صديقاً وافق على الصداقة")}
-                      </option>
-                      {data.friends
-                        .filter((f) => f.status === "accepted")
-                        .map((f) => (
-                          <option key={f.member_id} value={f.member_id}>
-                            {f.name ?? "—"}
-                          </option>
-                        ))}
-                    </NativeSelect>
-                    <Button
-                      disabled={busy || !invite[c.id]}
+                      disabled={busy}
                       variant="outline"
-                      onClick={() => void perform("invite", { id: c.id, member_id: invite[c.id]! })}
+                      onClick={() => void perform("refresh_challenge", { id: c.id })}
                     >
-                      {l("Invite friend", "دعوة صديق")}
+                      {l("Check completion", "فحص الاكتمال")}
+                    </Button>
+                    <Button
+                      disabled={busy}
+                      variant="outline"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            l("Leave/cancel this challenge?", "مغادرة أو إلغاء هذا التحدي؟"),
+                          )
+                        )
+                          void perform(c.owner_id === userId ? "cancel_challenge" : "leave", {
+                            id: c.id,
+                          });
+                      }}
+                    >
+                      {c.owner_id === userId
+                        ? l("Cancel challenge", "إلغاء التحدي")
+                        : l("Leave", "مغادرة")}
                     </Button>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {c.owner_id === userId && c.status === "active" && (
+                    <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <NativeSelect
+                        aria-label={l("Friend to invite", "الصديق المدعو")}
+                        value={invite[c.id] ?? ""}
+                        onChange={(e) => setInvite((v) => ({ ...v, [c.id]: e.target.value }))}
+                      >
+                        <option value="">
+                          {l("Choose an accepted friend", "اختر صديقاً وافق على الصداقة")}
+                        </option>
+                        {data.friends
+                          .filter((f) => f.status === "accepted")
+                          .map((f) => (
+                            <option key={f.member_id} value={f.member_id}>
+                              {f.name ?? "—"}
+                            </option>
+                          ))}
+                      </NativeSelect>
+                      <Button
+                        disabled={busy || !invite[c.id]}
+                        variant="outline"
+                        onClick={() =>
+                          void perform("invite", { id: c.id, member_id: invite[c.id]! })
+                        }
+                      >
+                        {l("Invite friend", "دعوة صديق")}
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       )}
     </section>

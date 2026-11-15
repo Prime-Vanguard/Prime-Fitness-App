@@ -1,22 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import {
-  Apple,
-  BadgeCheck,
-  Users,
-  UsersRound,
-  CalendarRange,
-  Target,
-  Dumbbell,
-  Gift,
-  Home,
-  LineChart,
-  LogOut,
-  Mail,
-  Menu,
-  User,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Dumbbell, Menu, User } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { WorkoutSync } from "@/components/workout-sync";
@@ -28,25 +13,37 @@ import { LevelUpWatcher } from "@/components/level-up-watcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { useMe } from "@/hooks/use-me";
 import { stripAppBase } from "@/lib/app-path";
-import { useI18n, type TKey } from "@/lib/i18n";
-import logo from "@/assets/logo.png";
+import { useI18n } from "@/lib/i18n";
 import { useWorkoutSummary } from "@/hooks/use-workout-summary";
+import { BrandLockup } from "@/components/brand-lockup";
+import {
+  WorkspaceNavigation,
+  WorkspaceBottomNavigation,
+} from "@/features/navigation/workspace-navigation";
+import {
+  routeWorkspace,
+  staffAccess,
+  workspaceDestinations,
+  workspaceHome,
+  workspaceName,
+  type Workspace,
+} from "@/features/navigation/workspace";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/_shell")({ component: Shell });
 
-const nav: {
-  to: "/today" | "/train" | "/nutrition" | "/progress" | "/rewards" | "/profile";
-  key: TKey;
-  icon: typeof Home;
-}[] = [
-  { to: "/today", key: "today", icon: Home },
-  { to: "/train", key: "train", icon: Dumbbell },
-  { to: "/nutrition", key: "nutrition", icon: Apple },
-  { to: "/progress", key: "progress", icon: LineChart },
-  { to: "/rewards", key: "rewards", icon: Gift },
-  { to: "/profile", key: "profile", icon: User },
-];
+// This is an account/project-scoped presentation preference, never permission evidence.
+function readWorkspace(key: string): Workspace {
+  try {
+    return typeof window !== "undefined" && sessionStorage.getItem(key) === "staff"
+      ? "staff"
+      : "fitness";
+  } catch {
+    return "fitness";
+  }
+}
 
+// Shared signed-in layout: navigation, permission-aware routes and sync owners.
 function Shell() {
   const { user } = Route.useRouteContext();
   const { data: trainingFeatures } = useTrainingFeatures(user.id);
@@ -58,8 +55,70 @@ function Shell() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const preferenceKey = `pf-workspace:${import.meta.env["VITE_SUPABASE_URL"]}:${user.id}`;
+  const [sharedWorkspace, setSharedWorkspace] = useState(() => ({
+    key: preferenceKey,
+    value: readWorkspace(preferenceKey),
+  }));
+  const routedWorkspace = routeWorkspace(path);
+  const access = staffAccess(
+    data?.roles ?? [],
+    !permissionError && data?.profile?.access_active === true,
+  );
+  const workspace =
+    routedWorkspace ??
+    (access.staff && sharedWorkspace.key === preferenceKey ? sharedWorkspace.value : "fitness");
+  const destinations = workspaceDestinations(workspace, access);
+  useEffect(() => {
+    setSharedWorkspace({ key: preferenceKey, value: readWorkspace(preferenceKey) });
+  }, [preferenceKey]);
+  useEffect(() => {
+    if (!routedWorkspace) return;
+    setSharedWorkspace({ key: preferenceKey, value: routedWorkspace });
+    try {
+      sessionStorage.setItem(preferenceKey, routedWorkspace);
+    } catch {
+      /* Preference storage is optional. */
+    }
+  }, [routedWorkspace, preferenceKey]);
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [path]);
+  useEffect(() => {
+    const media = matchMedia("(min-width: 768px)");
+    const closeOnDesktop = () => {
+      if (media.matches) setMenuOpen(false);
+    };
+    media.addEventListener("change", closeOnDesktop);
+    return () => media.removeEventListener("change", closeOnDesktop);
+  }, []);
+  const switchWorkspace = (next: Workspace) => {
+    if (next === "staff" && !access.staff) return;
+    setMenuOpen(false);
+    // Navigate first; route-owned selection changes only if draft guards accept it.
+    void navigate({ to: workspaceHome(next, access.admin) });
+  };
+
+  const pageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    if (reducedMotion.matches) return;
+    const animation = pageRef.current?.animate([{ opacity: 0.85 }, { opacity: 1 }], {
+      duration: 140,
+      easing: "ease-out",
+    });
+    const cancel = () => animation?.cancel();
+    reducedMotion.addEventListener("change", cancel);
+    return () => {
+      cancel();
+      reducedMotion.removeEventListener("change", cancel);
+    };
+  }, [path]);
   const workout = useWorkoutSummary(user.id);
-  const focused = path === "/train" && !!workout?.session;
+  const focused =
+    path === "/train" &&
+    !!workout?.session &&
+    new URLSearchParams(location.searchStr).get("view") !== "overview";
 
   useEffect(() => {
     if (data?.profile && !data.profile.onboarding_completed)
@@ -71,6 +130,11 @@ function Shell() {
   }, [data?.profile?.locale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function signOut() {
+    try {
+      sessionStorage.removeItem(preferenceKey);
+    } catch {
+      /* Optional UI preference only. */
+    }
     await qc.cancelQueries();
     qc.clear();
     await supabase.auth.signOut();
@@ -80,167 +144,155 @@ function Shell() {
   if (data?.profile && !data.profile.access_active) {
     return (
       <div className="bg-hero flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-        <img src={logo} alt="Prime Vanguard" className="h-16 w-16 object-contain" />
-        <h1 className="font-display text-2xl font-bold">{t("accessPausedTitle")}</h1>
-        <p className="max-w-sm text-sm text-muted-foreground">{t("accessPausedBody")}</p>
-        <button className="text-sm text-gold underline" onClick={signOut}>
-          {t("signOut")}
-        </button>
+        {/* A paused account stays outside member navigation; this card grants no cached access. */}
+        <BrandLockup />
+        <section className="w-full max-w-md space-y-5 rounded-xl bg-card p-6 text-start">
+          <h1 className="font-display text-2xl font-bold">{t("accessPausedTitle")}</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">{t("accessPausedBody")}</p>
+          <button
+            className="min-h-11 rounded-lg border border-destructive/50 px-4 text-sm text-destructive focus-visible:ring-2 focus-visible:ring-gold"
+            onClick={signOut}
+          >
+            {t("signOut")}
+          </button>
+        </section>
       </div>
     );
   }
 
-  const linkCls =
-    "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-gold";
-  const activeCls = "bg-accent text-gold";
-  const adminLinks = [
-    { to: "/admin/members", key: "members", icon: Users },
-    { to: "/admin/pods", key: "pods", icon: UsersRound },
-    { to: "/admin/invites", key: "invites", icon: Mail },
-    { to: "/admin/exercises", key: "exercises", icon: Dumbbell },
-    { to: "/admin/programs", key: "programs", icon: CalendarRange },
-    { to: "/admin/analytics", key: "analytics", icon: LineChart },
-    { to: "/admin/shop", key: "rewardsAdmin", icon: Gift },
-    { to: "/admin/targets", key: "targets", icon: Target },
-    { to: "/admin/pv", key: "pvApprovals", icon: BadgeCheck },
-  ] as const;
-
-  const navBody = (
-    <>
-      <img src={logo} alt="Prime Vanguard" className="mb-6 h-12 w-12 object-contain" />
-      <nav className="flex flex-col gap-1">
-        {nav.map(({ to, key, icon: Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            onClick={() => haptic("tab")}
-            className={linkCls}
-            activeProps={{ className: activeCls }}
-          >
-            <Icon className="h-4 w-4" />
-            {t(key)}
-          </Link>
-        ))}
-        {(data?.isAdmin || data?.roles.includes("coach") || data?.roles.includes("pod_leader")) && (
-          <Link to="/members" className={`${linkCls} mt-4`} activeProps={{ className: activeCls }}>
-            <UsersRound className="h-4 w-4" />
-            {t("myMembers")}
-          </Link>
-        )}
-        {data?.isAdmin && (
-          <>
-            <p className="mt-6 px-3 text-xs font-semibold uppercase tracking-widest text-gold">
-              {t("admin")}
-            </p>
-            {adminLinks.map(({ to, key, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={() => haptic("tab")}
-                className={linkCls}
-                activeProps={{ className: activeCls }}
-              >
-                <Icon className="h-4 w-4" />
-                {t(key)}
-              </Link>
-            ))}
-          </>
-        )}
-      </nav>
-      <div className="mt-auto flex flex-col gap-1 pt-6">
-        <button className={linkCls} onClick={() => setLocale(locale === "ar" ? "en" : "ar")}>
-          {locale === "ar" ? "English" : "العربية"}
-        </button>
-        <button className={linkCls} onClick={signOut}>
-          <LogOut className="h-4 w-4" />
-          {t("signOut")}
-        </button>
-      </div>
-    </>
-  );
+  const controlClass =
+    "flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
+  const navigationProps = {
+    workspace,
+    destinations,
+    canSwitch: access.staff,
+    onSwitch: switchWorkspace,
+    onClose: () => setMenuOpen(false),
+    onSignOut: () => void signOut(),
+  };
 
   return (
-    <div className="bg-hero min-h-screen md:flex">
+    <div className="min-h-dvh bg-background md:flex" data-studio-shell data-workspace={workspace}>
+      <a
+        href="#main-content"
+        className="fixed start-4 top-2 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-primary-foreground focus:translate-y-0"
+      >
+        {locale === "ar" ? "تخطى إلى المحتوى" : "Skip to content"}
+      </a>
       {trainingFeatures?.cardio && <CardioSync userId={user.id} />}
       <aside
         className={
           focused
             ? "hidden"
-            : "hidden w-60 shrink-0 flex-col border-e border-border bg-sidebar p-4 md:flex"
+            : "sticky top-0 hidden h-dvh w-[88px] shrink-0 flex-col overflow-hidden border-e border-border bg-sidebar md:flex lg:w-60"
         }
       >
-        {navBody}
-        <div className="mt-1">
-          <NotificationBell userId={user.id} className={linkCls} />
-        </div>
+        <WorkspaceNavigation {...navigationProps} />
       </aside>
 
       <header
-        className={focused ? "hidden" : "flex items-center justify-between px-4 py-3 md:hidden"}
+        className={
+          focused
+            ? "hidden"
+            : "flex min-h-18 items-center justify-between gap-2 border-b border-border px-4 py-3 md:hidden"
+        }
       >
-        <img src={logo} alt="Prime Vanguard" className="h-9 w-9 object-contain" />
-        <div className="flex gap-1">
-          <Link to="/profile" aria-label={t("profile")} className={linkCls}>
+        <div className="min-w-0">
+          <BrandLockup />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {workspaceName(workspace, locale === "ar")}
+          </p>
+        </div>
+        <div className="flex shrink-0">
+          <NotificationBell userId={user.id} className={controlClass} />
+          <Link to="/profile" aria-label={t("profile")} className={controlClass}>
             <User className="h-5 w-5" />
           </Link>
-          <NotificationBell userId={user.id} className={linkCls} />
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <button className={linkCls} aria-label={locale === "ar" ? "القائمة" : "Menu"}>
+              <button className={controlClass} aria-label={locale === "ar" ? "القائمة" : "Menu"}>
                 <Menu className="h-5 w-5" />
               </button>
             </SheetTrigger>
             <SheetContent
               side={locale === "ar" ? "left" : "right"}
-              className="flex w-72 flex-col overflow-y-auto border-border bg-sidebar p-4"
+              className="flex w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-border bg-sidebar p-0"
             >
               <SheetTitle className="sr-only">{locale === "ar" ? "القائمة" : "Menu"}</SheetTitle>
-              <div
-                className="flex flex-1 flex-col"
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).closest("a,button")) setMenuOpen(false);
-                }}
-              >
-                {navBody}
-              </div>
+              <WorkspaceNavigation {...navigationProps} drawer />
             </SheetContent>
           </Sheet>
         </div>
       </header>
 
       <main
+        id="main-content"
+        data-app-content
+        data-staff-layout={adminRoute || undefined}
+        tabIndex={-1}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a[data-pf-tab]")) haptic("tab");
         }}
-        className={`min-w-0 flex-1 px-4 ${focused ? "pb-[calc(8rem+env(safe-area-inset-bottom))] md:mx-auto md:max-w-4xl md:px-8" : workout?.session ? "pb-[calc(11rem+env(safe-area-inset-bottom))] md:px-10 md:py-8" : "pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-10 md:py-8"}`}
+        className={`min-w-0 flex-1 px-4 focus:outline-none md:px-6 lg:px-8 ${focused ? "pb-[calc(10rem+env(safe-area-inset-bottom))] md:mx-auto md:max-w-4xl" : workout?.session ? "pb-[calc(11rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"}`}
       >
-        {adminRoute && (permissionError || !data || !data.isAdmin) ? (
-          <p
-            role={permissionError ? "alert" : "status"}
-            className="mt-6 text-sm text-muted-foreground"
+        {/* Focus mode owns one compact header inside WorkoutSession. */}
+        {!focused && (
+          <header
+            data-app-toolbar
+            data-staff-toolbar={adminRoute || undefined}
+            className="-mx-4 mb-6 hidden min-h-18 items-center justify-between gap-3 border-b border-border bg-sidebar px-4 md:-mx-6 md:flex md:px-6 lg:-mx-8 lg:px-8"
           >
-            {permissionError
-              ? locale === "ar"
-                ? "تعذر التحقق من الصلاحيات. أعد الاتصال وحاول مرة أخرى."
-                : "Permissions could not be verified. Reconnect and try again."
-              : !data
-                ? locale === "ar"
-                  ? "جارٍ التحقق من الصلاحيات…"
-                  : "Checking permissions…"
-                : t("notAllowed")}
-          </p>
-        ) : (
-          <Outlet />
+            <p className="min-w-0 text-sm font-semibold">
+              {workspaceName(workspace, locale === "ar")}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <NotificationBell userId={user.id} className={controlClass} />
+              <Link to="/profile" aria-label={t("profile")} className={controlClass}>
+                <User aria-hidden className="size-5" />
+              </Link>
+            </div>
+          </header>
         )}
-        <LevelUpWatcher userId={user.id} />
-        <WorkoutSync userId={user.id} />
-        {trainingFeatures?.offline && <MemberSync userId={user.id} />}
+        {/* Staff tables use the wider reference canvas; member reading width stays bounded. */}
+        <div
+          ref={pageRef}
+          className={`app-page-flow mx-auto w-full ${adminRoute ? "max-w-[1440px]" : "max-w-[1200px]"}`}
+        >
+          {adminRoute && (permissionError || !data || !data.isAdmin) ? (
+            <div>
+              <p
+                role={permissionError ? "alert" : "status"}
+                className="mt-6 text-sm text-muted-foreground"
+              >
+                {permissionError
+                  ? locale === "ar"
+                    ? "تعذر التحقق من الصلاحيات. أعد الاتصال وحاول مرة أخرى."
+                    : "Permissions could not be verified. Reconnect and try again."
+                  : !data
+                    ? locale === "ar"
+                      ? "جارٍ التحقق من الصلاحيات…"
+                      : "Checking permissions…"
+                    : t("notAllowed")}
+              </p>
+              <Button asChild variant="outline" className="mt-4">
+                <Link to="/today">
+                  {locale === "ar" ? "العودة إلى لياقتي" : "Return to My Fitness"}
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <Outlet />
+          )}
+          <LevelUpWatcher userId={user.id} />
+          <WorkoutSync userId={user.id} />
+          {trainingFeatures?.offline && <MemberSync userId={user.id} />}
+        </div>
       </main>
 
       {!focused && workout?.session && (
         <Link
           to="/train"
-          className="fixed inset-x-3 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex min-h-14 items-center justify-between gap-3 rounded-xl border border-gold bg-card px-4 py-3 shadow-lg md:inset-x-auto md:end-6 md:bottom-6 md:w-96"
+          className="fixed inset-x-3 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex min-h-14 items-center justify-between gap-3 rounded-xl border border-gold/60 bg-card px-4 py-3 md:inset-x-auto md:end-6 md:bottom-6 md:w-96"
         >
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold">
@@ -257,28 +309,7 @@ function Shell() {
           <Dumbbell className="h-5 w-5 shrink-0 text-gold" />
         </Link>
       )}
-      {!focused && (
-        <nav
-          aria-label={locale === "ar" ? "التنقل الرئيسي" : "Primary navigation"}
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-sidebar md:hidden"
-        >
-          {nav
-            .filter((item) => item.to !== "/profile")
-            .map(({ to, key, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={() => haptic("tab")}
-                className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-xs leading-tight text-muted-foreground focus-visible:ring-2 focus-visible:ring-gold"
-                activeProps={{ className: "text-gold" }}
-              >
-                <Icon className="h-5 w-5" />
-                {t(key)}
-              </Link>
-            ))}
-        </nav>
-      )}
+      {!focused && <WorkspaceBottomNavigation destinations={destinations} />}
     </div>
   );
 }

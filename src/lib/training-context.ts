@@ -24,6 +24,7 @@ export type TrainingContext = {
     load_convention: "external_total" | "per_hand" | "bodyweight";
   };
 };
+// Compare only matching measurement conventions before applying a coach policy.
 export function contextSuggestion(context: TrainingContext): TrainingSuggestion {
   const policy = policySchema.parse(context.policy);
   if (policy.rule === "off") return suggestTraining(policy, []);

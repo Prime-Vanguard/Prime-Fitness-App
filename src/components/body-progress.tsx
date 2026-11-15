@@ -18,6 +18,8 @@ import { Input } from "./ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import { DeferredProgressChart } from "./deferred-progress-chart";
 import { saveNativeMeasurement } from "@/lib/measurement-write";
+import { RecordComparison } from "./record-comparison";
+import { LoadingPlaceholder } from "./loading-placeholder";
 
 export function BodyProgress({ userId }: { userId: string }) {
   const { t, locale } = useI18n(),
@@ -73,6 +75,10 @@ export function BodyProgress({ userId }: { userId: string }) {
   const ordered = rows
     .slice()
     .sort((a, b) => b.measured_on.localeCompare(a.measured_on) || b.id.localeCompare(a.id));
+  // A device cache can contain only recent or pending entries, so missing values
+  // are definitive only after a successful online history read.
+  const completeHistory = navigator.onLine && query.data !== undefined && !query.error;
+  const loadingHistory = !ordered.length && query.data === undefined && query.isFetching;
   const pending = new Map(
     local.queue.filter((m) => m.entity === "body_measurements").map((m) => [m.record_id, m.status]),
   );
@@ -155,11 +161,83 @@ export function BodyProgress({ userId }: { userId: string }) {
     }
   }
   return (
-    <section className="mt-6 rounded-xl border border-border bg-card p-5">
+    <section className="mt-6 space-y-4" data-stitch-body-workspace>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-bold">{t("body")}</h2>
         <Button onClick={begin}>{l("Add measurements", "إضافة قياسات")}</Button>
       </div>
+      {loadingHistory ? (
+        <LoadingPlaceholder label={l("Loading measurements…", "جارٍ تحميل القياسات…")} />
+      ) : (
+        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" data-stitch-body-metrics>
+          {(["weight_kg", "waist_cm", "body_fat_pct"] as const).map((field) => {
+            const latest = ordered.find((row) => row[field] != null);
+            const previous =
+              latest &&
+              ordered.find((row) => row[field] != null && row.measured_on < latest.measured_on);
+            return (
+              <div key={field} className="min-w-0 rounded-xl border border-border bg-card p-4">
+                <dt className="text-xs text-muted-foreground">
+                  {field === "weight_kg"
+                    ? t("weight")
+                    : field === "waist_cm"
+                      ? t("waist")
+                      : t("bodyFat")}
+                </dt>
+                <dd className="mt-2 font-heading text-2xl font-bold tabular-nums">
+                  <bdi>
+                    {latest ? value(latest, field) : "—"}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {field === "weight_kg"
+                        ? weightUnit(units)
+                        : field === "waist_cm"
+                          ? lengthUnit(units)
+                          : "%"}
+                    </span>
+                  </bdi>
+                </dd>
+                <dd className="mt-1 text-xs text-muted-foreground">
+                  {latest ? (
+                    <>
+                      <bdi>{latest.measured_on}</bdi>
+                      {pending.has(latest.id) && (
+                        <span>
+                          {" "}
+                          ·{" "}
+                          {l(
+                            "Device change · see status below",
+                            "تغيير على الجهاز · انظر الحالة أدناه",
+                          )}
+                        </span>
+                      )}
+                    </>
+                  ) : completeHistory ? (
+                    l("Not recorded", "لم يُسجّل")
+                  ) : (
+                    l("Not available in loaded history", "غير متاح في السجل المحمّل")
+                  )}
+                </dd>
+                {latest && previous && (
+                  <dd>
+                    <RecordComparison
+                      compact
+                      before={{ date: previous.measured_on, value: value(previous, field)! }}
+                      after={{ date: latest.measured_on, value: value(latest, field)! }}
+                      unit={
+                        field === "weight_kg"
+                          ? weightUnit(units)
+                          : field === "waist_cm"
+                            ? lengthUnit(units)
+                            : "%"
+                      }
+                    />
+                  </dd>
+                )}
+              </div>
+            );
+          })}
+        </dl>
+      )}
       {saved && (
         <p role="status" className="mt-3 text-sm">
           {saved}
@@ -168,16 +246,17 @@ export function BodyProgress({ userId }: { userId: string }) {
       {query.error && (
         <p role="alert" className="mt-3 text-sm">
           {l(
-            "Could not load online measurements. Device entries remain available.",
-            "تعذر تحميل القياسات عبر الإنترنت. تظل سجلات الجهاز متاحة.",
+            features?.offline
+              ? "Could not load online measurements. Device entries remain available."
+              : "Could not load measurements. Try again.",
+            features?.offline
+              ? "تعذر تحميل القياسات عبر الإنترنت. تظل سجلات الجهاز متاحة."
+              : "تعذر تحميل القياسات. حاول مرة أخرى.",
           )}
           <Button variant="outline" onClick={() => void query.refetch()}>
             {l("Retry measurements", "إعادة تحميل القياسات")}
           </Button>
         </p>
-      )}
-      {query.isPending && !features?.offline && (
-        <p role="status">{l("Loading measurements…", "جارٍ تحميل القياسات…")}</p>
       )}
       {features?.offline && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -201,7 +280,7 @@ export function BodyProgress({ userId }: { userId: string }) {
         </NativeSelect>
       </label>
       {series.length > 1 && <DeferredProgressChart series={series} label={label} unit={unit} />}
-      {!ordered.length && !query.isPending && !query.error && (
+      {!ordered.length && completeHistory && (
         <p className="mt-4 text-sm text-muted-foreground">
           {l(
             "No measurements available. Add your first entry to start a trend.",
@@ -209,8 +288,61 @@ export function BodyProgress({ userId }: { userId: string }) {
           )}
         </p>
       )}
+      {/* Phone cards and desktop rows share the same values and pending statuses;
+          neither creates a separate read or infers missing measurements. */}
       {!!ordered.length && (
-        <div className="mt-4 overflow-x-auto">
+        <section
+          className="space-y-3 md:hidden"
+          aria-label={l("Measurement history", "سجل القياسات")}
+        >
+          <h3 className="font-heading text-base font-semibold">
+            {l("Measurement history", "سجل القياسات")}
+          </h3>
+          <ul className="space-y-3">
+            {ordered.map((row) => (
+              <li key={row.id} className="min-w-0 rounded-xl border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <bdi className="font-semibold">{row.measured_on}</bdi>
+                  <span className="text-xs text-muted-foreground">
+                    {pending.get(row.id) === "conflict"
+                      ? l("Conflict · needs review", "تعارض · يحتاج إلى مراجعة")
+                      : pending.get(row.id) === "rejected"
+                        ? l("Rejected · kept on device", "مرفوض · محفوظ على الجهاز")
+                        : pending.has(row.id)
+                          ? l("Pending sync", "بانتظار المزامنة")
+                          : l("Saved", "محفوظ")}
+                  </span>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                  {(["weight_kg", "waist_cm", "body_fat_pct"] as const).map((field) => (
+                    <div key={field} className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">
+                        {field === "weight_kg"
+                          ? t("weight")
+                          : field === "waist_cm"
+                            ? t("waist")
+                            : t("bodyFat")}
+                      </dt>
+                      <dd className="mt-1 font-medium">
+                        <bdi>
+                          {value(row, field) ?? "—"}{" "}
+                          {field === "weight_kg"
+                            ? weightUnit(units)
+                            : field === "waist_cm"
+                              ? lengthUnit(units)
+                              : "%"}
+                        </bdi>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {!!ordered.length && (
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <table className="w-full text-start text-sm">
             <caption className="mb-2 text-start text-xs text-muted-foreground">
               {l(

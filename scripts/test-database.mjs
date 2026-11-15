@@ -1,7 +1,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
 
-export async function createTestDatabase(beforeMigration) {
+export async function createTestDatabase(
+  beforeMigration,
+  migrationDirectory = new URL("../supabase/migrations/", import.meta.url),
+) {
   const db = new PGlite();
   try {
     await db.exec(`
@@ -17,13 +20,11 @@ export async function createTestDatabase(beforeMigration) {
       CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$ SELECT string_to_array($1,'/') $$;
       CREATE FUNCTION public.rls_auto_enable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN END $$;
     `);
-    const files = (await readdir(new URL("../supabase/migrations/", import.meta.url)))
+    const files = (await readdir(migrationDirectory))
       .filter((name) => name.endsWith(".sql") && (!beforeMigration || name < beforeMigration))
       .sort();
     for (const name of files)
-      await db.exec(
-        await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8"),
-      );
+      await db.exec(await readFile(new URL(name, migrationDirectory), "utf8"));
     return db;
   } catch (error) {
     await db.close();

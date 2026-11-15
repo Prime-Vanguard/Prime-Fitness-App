@@ -62,6 +62,7 @@ function checkRole(superAdmin: boolean, role: InviteRole) {
   ))
     throw new Error("Only a current super administrator can manage privileged invitations.");
 }
+// Reuse the request ID to reconcile uncertain responses and prevent duplicate invites.
 export async function createInvitation(
   actor: string,
   request: { id: string; email: string; role: InviteRole },

@@ -42,6 +42,7 @@ export function PlannedSetRows({
     rows = w.editor?.plannedRows?.[key];
   const { locale } = useI18n();
   const [error, setError] = useState("");
+  const [showEffort, setShowEffort] = useState(false);
   const prepare = () => {
     setError("");
     void change((c) => initializePlannedRows(c, exercise, slot, initial)).catch((e: Error) =>
@@ -56,13 +57,22 @@ export function PlannedSetRows({
   return (
     <section
       aria-label={locale === "ar" ? "المجموعات المخططة" : "Planned working sets"}
-      className="space-y-3"
+      className="space-y-2"
     >
-      <p className="text-xs text-muted-foreground">
-        {locale === "ar"
-          ? "الأهداف غير محددة كمكتملة. أكمل كل صف بعد أداء المجموعة."
-          : "Targets are unchecked. Complete each row after performing the set."}
-      </p>
+      {!!rows?.length && (
+        <div
+          aria-hidden
+          className="grid grid-cols-[24px_40px_minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2 px-2 text-center text-[10px] uppercase text-muted-foreground"
+        >
+          <span>{locale === "ar" ? "مجموعة" : "Set"}</span>
+          <span>{locale === "ar" ? "السابق" : "Prev"}</span>
+          <span>{weightUnit(units)}</span>
+          <span>
+            {timed ? (locale === "ar" ? "ثوانٍ" : "Secs") : locale === "ar" ? "تكرار" : "Reps"}
+          </span>
+          <span>{locale === "ar" ? "الحالة" : "Status"}</span>
+        </div>
+      )}
       {rows === undefined && (
         <p role="status" className="text-sm">
           {locale === "ar" ? "جارٍ تجهيز الصفوف…" : "Preparing planned sets…"}
@@ -83,10 +93,12 @@ export function PlannedSetRows({
             : "Planned rows completed. You can add another set using the advanced editor."}
         </p>
       )}
-      {rows?.map((row) => (
+      {rows?.map((row, index) => (
         <PlannedRowInputs
           key={`${key}:${row.id}:${units}`}
           row={row}
+          current={index === 0}
+          showEffort={showEffort}
           units={units}
           timed={timed}
           disabled={disabled}
@@ -108,6 +120,17 @@ export function PlannedSetRows({
           }}
         />
       ))}
+      {!!rows?.length && (
+        <Button
+          variant="ghost"
+          type="button"
+          className="w-full bg-background text-muted-foreground"
+          aria-expanded={showEffort}
+          onClick={() => setShowEffort(!showEffort)}
+        >
+          {locale === "ar" ? "تقييم الجهد (RPE)" : "Effort ratings (RPE)"}
+        </Button>
+      )}
     </section>
   );
 }
@@ -121,6 +144,8 @@ function PlannedRowInputs({
   holdStartedAt,
   otherHold,
   onToggleHold,
+  current,
+  showEffort,
 }: {
   row: PlannedRow;
   units: Units;
@@ -131,6 +156,8 @@ function PlannedRowInputs({
   holdStartedAt: number | null;
   otherHold: boolean;
   onToggleHold: () => Promise<SetDraft>;
+  current: boolean;
+  showEffort: boolean;
 }) {
   const { locale, t } = useI18n();
   const [draft, setDraft] = useState(() => {
@@ -161,85 +188,135 @@ function PlannedRowInputs({
   }, [row.draft, units, focused]);
   const label = locale === "ar" ? `مجموعة مخططة ${row.number}` : `Planned set ${row.number}`;
   return (
-    <fieldset
-      aria-label={label}
-      className="min-w-0 rounded-xl border border-border bg-background/40 p-3"
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+    <form
+      id={`planned-${row.id}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (disabled || completing || holdStartedAt || otherHold) return;
+        setCompleting(true);
+        setError("");
+        void onComplete(row.id, draft)
+          .catch((e: Error) => setError(e.message))
+          .finally(() => setCompleting(false));
       }}
     >
-      <legend className="px-1 text-sm font-semibold">{label}</legend>
-      <div className="grid grid-cols-3 gap-2">
-        {(
-          [
-            ["weight", weightUnit(units)],
-            ["reps", timed ? (locale === "ar" ? "ثوانٍ" : "Seconds") : t("reps")],
-            ["rpe", "RPE 1–10"],
-          ] as const
-        ).map(([key, text]) => (
-          <label className="min-w-0 text-xs text-muted-foreground" key={key}>
-            {text}
-            <Input
-              className="mt-1 h-12 text-base tabular-nums"
-              disabled={disabled || completing}
-              inputMode={key === "reps" ? "numeric" : "decimal"}
-              value={draft[key]}
-              onChange={(e) => {
-                const next = { ...draft, units, [key]: e.target.value };
-                setDraft(next);
-                setError("");
-                void onUpdate({ units, [key]: e.target.value }).catch((e: Error) =>
-                  setError(e.message),
-                );
-              }}
-            />
-          </label>
-        ))}
-      </div>
-      {error && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
-      {timed && (
-        <Button
-          variant="outline"
-          className="mt-3 w-full"
-          disabled={disabled || completing || otherHold}
-          onClick={() => {
-            setError("");
-            setCompleting(true);
-            void onToggleHold()
-              .then((value) => {
-                setDraft(convertDraftUnits(value, units));
-                setNow(Date.now());
-              })
-              .catch((e: Error) => setError(e.message))
-              .finally(() => setCompleting(false));
-          }}
-        >
-          {holdStartedAt
-            ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${Math.max(0, Math.floor((now - holdStartedAt) / 1000))}s`
-            : locale === "ar"
-              ? "بدء الثبات"
-              : "Start hold"}
-        </Button>
-      )}
-      <Button
-        className="mt-3 w-full"
-        disabled={disabled || completing || !!holdStartedAt || otherHold}
-        onClick={() => {
-          setCompleting(true);
-          setError("");
-          void onComplete(row.id, draft)
-            .catch((e: Error) => setError(e.message))
-            .finally(() => setCompleting(false));
+      <fieldset
+        aria-label={label}
+        aria-busy={completing}
+        className={`relative min-w-0 rounded-lg border bg-row p-2 ${current ? "border-gold/60" : "border-transparent"}`}
+        onFocus={() => setFocused(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
         }}
       >
-        <Check />
-        {locale === "ar" ? "إكمال هذه المجموعة" : "Complete this set"}
-      </Button>
-    </fieldset>
+        <legend className="sr-only">{label}</legend>
+        <div className="grid grid-cols-[24px_40px_minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
+          <span
+            aria-hidden
+            className={`text-center text-sm font-bold ${current ? "text-gold" : "text-muted-foreground"}`}
+          >
+            {row.number}
+          </span>
+          <span
+            className="text-center text-xs text-muted-foreground"
+            aria-label={
+              locale === "ar"
+                ? "لا يتوفر سجل مطابق لهذه المجموعة"
+                : "No matching history for this set"
+            }
+          >
+            —
+          </span>
+          {(
+            [
+              ["weight", weightUnit(units)],
+              ["reps", timed ? (locale === "ar" ? "ثوانٍ" : "Seconds") : t("reps")],
+            ] as const
+          ).map(([key, text]) => (
+            <label className="min-w-0" key={key}>
+              <span className="sr-only">{text}</span>
+              <Input
+                className="h-11 border-transparent bg-background px-1 text-center text-base font-semibold tabular-nums"
+                disabled={disabled || completing}
+                inputMode={key === "reps" ? "numeric" : "decimal"}
+                value={draft[key]}
+                onChange={(e) => {
+                  const next = { ...draft, units, [key]: e.target.value };
+                  setDraft(next);
+                  setError("");
+                  void onUpdate({ units, [key]: e.target.value }).catch((e: Error) =>
+                    setError(e.message),
+                  );
+                }}
+              />
+            </label>
+          ))}
+          <Button
+            type="submit"
+            variant="outline"
+            className={`h-11 w-11 border-transparent bg-background px-0 ${current ? "text-gold" : "text-muted-foreground"}`}
+            aria-label={locale === "ar" ? "إكمال هذه المجموعة" : "Complete this set"}
+            disabled={disabled || completing || !!holdStartedAt || otherHold}
+          >
+            <Check aria-hidden="true" />
+          </Button>
+        </div>
+        {/* The row is removed only after persistence; never announce success while saving. */}
+        {completing && (
+          <p role="status" className="mt-2 text-xs text-muted-foreground">
+            {locale === "ar" ? "جارٍ حفظ المجموعة على الجهاز…" : "Saving set on this device…"}
+          </p>
+        )}
+        <label
+          hidden={!showEffort}
+          className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground"
+        >
+          RPE 1–10
+          <Input
+            className="h-11 w-16 border-transparent bg-background px-1 text-center tabular-nums"
+            inputMode="decimal"
+            disabled={disabled || completing}
+            value={draft.rpe}
+            onChange={(e) => {
+              setDraft({ ...draft, units, rpe: e.target.value });
+              setError("");
+              void onUpdate({ units, rpe: e.target.value }).catch((e: Error) =>
+                setError(e.message),
+              );
+            }}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+        {timed && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 w-full"
+            disabled={disabled || completing || otherHold}
+            onClick={() => {
+              setError("");
+              setCompleting(true);
+              void onToggleHold()
+                .then((value) => {
+                  setDraft(convertDraftUnits(value, units));
+                  setNow(Date.now());
+                })
+                .catch((e: Error) => setError(e.message))
+                .finally(() => setCompleting(false));
+            }}
+          >
+            {holdStartedAt
+              ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${Math.max(0, Math.floor((now - holdStartedAt) / 1000))}s`
+              : locale === "ar"
+                ? "بدء الثبات"
+                : "Start hold"}
+          </Button>
+        )}
+      </fieldset>
+    </form>
   );
 }

@@ -1,5 +1,1946 @@
-import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type BrowserContext, type Page, type Locator } from "@playwright/test";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
+
+// Phase 5 fixtures use synthetic accounts; captures must never contain real member data.
+test("Stitch controlled reference captures", async ({ browser }) => {
+  test.skip(!process.env["PW_STITCH_COMPARE"], "Opt-in visual review; no production records.");
+  test.setTimeout(120000);
+  const requestedStage = process.env["PW_STITCH_STAGE"];
+  const stage =
+    requestedStage === "after" ||
+    requestedStage === "member-baseline" ||
+    requestedStage === "review-baseline" ||
+    requestedStage === "daily-baseline" ||
+    requestedStage === "progress-baseline" ||
+    requestedStage === "training-baseline" ||
+    requestedStage === "conditioning-baseline" ||
+    requestedStage === "picker-calibration-baseline"
+      ? requestedStage
+      : "before";
+  const cases = [
+    {
+      key: "training-complete",
+      reference: "workout_complete_prime_fitness",
+      route: "/train?section=program",
+      width: 387,
+      height: 1422,
+      scale: 1.125,
+      baselineStage: "conditioning-baseline",
+      calibration:
+        "1.125 export scale inferred from the 72 px header / h-16 (64 CSS px) and about 50 px Finish button / h-11 (44 CSS px). Rounded CSS frame. Five frozen exercise slots with completed working sets, accepted through the normal finish path. The baseline starts after the completion feature was implemented. Source-only PRs, heart rate, rank transition and proof-card export are not fabricated; the application currently returns to Train with a completion panel.",
+    },
+    {
+      key: "training-cardio",
+      reference: "cardio_hiit_prime_fitness",
+      route: "/train?section=cardio",
+      width: 372,
+      height: 1067,
+      scale: 1.5,
+      rasterHeightTolerance: 1,
+      baselineStage: "conditioning-baseline",
+      calibration:
+        "1.5 export scale inferred from 54 px activity chips / h-9 (36 CSS px), 96 px header / h-16 and the w-52 ring. Rounded height produces one extra raster pixel. Running first round, 45 s work / 15 s rest, 12 rounds, no preparation; 45 recorded recent minutes. Actual duration is 11:45, not the mockup's inconsistent 24:00. Running controls replace the source's Start action; no heart-rate zones or weekly targets are invented.",
+    },
+    {
+      key: "training-active",
+      reference: "active_workout_prime_fitness_1",
+      route: "/train?section=program",
+      width: 390,
+      height: 1298,
+      scale: 1,
+      baselineStage: "training-baseline",
+      calibration:
+        "Native phone frame. Five frozen exercise slots, one completed 85 kg × 10 set and an editable 90 kg × 8 next set. Static catalogue fallback; source demonstration and coaching notes are unavailable.",
+    },
+    {
+      key: "training-picker",
+      reference: "add_exercise_prime_fitness",
+      route: "/train",
+      width: 392,
+      height: 1067,
+      scale: 1.5,
+      rasterHeightTolerance: 1,
+      baselineStage: "picker-calibration-baseline",
+      calibration:
+        "1.5 export scale inferred from 84 px thumbnail / w-14 (56 CSS px) and 36 px list inset / px-margin (24 CSS px). Rounded 392 × 1067 CSS viewport produces 588 × 1601 PNGs, one pixel taller than the export; preserved without rescaling. Baseline was recaptured after layout refinement to correct the initial scale assumption; no before/after improvement claim for this frame. Two staged selections; source-only features/media are absent.",
+    },
+    {
+      key: "training-program",
+      reference: "train_my_program_prime_fitness_2",
+      route: "/train?section=program",
+      width: 341,
+      height: 1600,
+      scale: 1,
+      baselineStage: "training-baseline",
+      calibration:
+        "Native phone frame. Six-week frozen assignment with four nonempty days per week. Selected week means browsing, not inferred completion; rest-day/cardio prescriptions and coach doctrine are absent from the fixture.",
+    },
+    {
+      key: "training-history",
+      reference: "train_history_prime_fitness_1",
+      route: "/train?section=history",
+      width: 395,
+      height: 1600,
+      scale: 1,
+      baselineStage: "training-baseline",
+      calibration:
+        "Native phone frame. Three completed native workouts; latest expanded with frozen exercise snapshots and actual logged sets. Source monthly summaries, PR badges and workout-card export are not available here.",
+    },
+    {
+      key: "progress-strength",
+      reference: "progress_strength_prime_fitness",
+      route: "/progress?section=strength",
+      width: 373,
+      height: 1600,
+      scale: 1,
+      baselineStage: "progress-baseline",
+      calibration:
+        "Native phone viewport. Two completed weighted performances; source counts, report exports and volume-distribution content differ.",
+    },
+    {
+      key: "progress-body",
+      reference: "progress_body_wellness_prime_fitness",
+      route: "/progress?section=body",
+      width: 425,
+      height: 1600,
+      scale: 1,
+      baselineStage: "progress-baseline",
+      calibration:
+        "Native phone viewport. Three recorded measurements; application retains a measurement sheet and self-reported wellness. No resting-heart-rate or recovery claims are fabricated.",
+    },
+    {
+      key: "progress-photos",
+      reference: "progress_photos_prime_fitness",
+      route: "/progress?section=photos",
+      width: 445,
+      height: 1600,
+      scale: 1,
+      baselineStage: "progress-baseline",
+      calibration:
+        "Native phone viewport. Four synthetic test images through mocked signed URLs; no real photos or source-model photos. Privacy and archive controls remain real application flows.",
+    },
+    {
+      key: "staff-members",
+      reference: "staff_members_list_prime_fitness",
+      route: "/admin/members",
+      width: 1280,
+      height: 1062,
+      scale: 1.25,
+      calibration:
+        "PNG sidebar is 300 px; exported HTML fixes it at 240 CSS px. 1.25 export scale inferred from that anchor.",
+    },
+    {
+      key: "staff-pods",
+      reference: "staff_pods_management_prime_fitness",
+      route: "/admin/pods",
+      width: 1280,
+      height: 1376,
+      scale: 1,
+      calibration: "Native PNG viewport; sidebar matches the exported 240 CSS px anchor.",
+    },
+    {
+      key: "staff-review",
+      reference: "staff_review_queue_prime_fitness",
+      route: "/admin/pv",
+      width: 1283,
+      height: 1333,
+      scale: 1.2,
+      calibration:
+        "1.2 export scale inferred from two anchors: 288 px sidebar / 240 CSS px and about 67 px toolbar / 56 CSS px. Rounded CSS viewport; both captures open the same synthetic claim. Content and typography still differ.",
+      baselineStage: "review-baseline",
+    },
+    {
+      key: "train",
+      reference: "train_workout_prime_fitness_1",
+      route: "/train",
+      width: 360,
+      height: 1600,
+      scale: 1,
+      calibration:
+        "Native mobile PNG viewport. Member-refinement baseline and current both show the same scheduled five-exercise program. Original free-session baseline remains separate.",
+      baselineStage: "member-baseline",
+    },
+    {
+      key: "profile",
+      reference: "profile_hub_prime_fitness",
+      route: "/profile",
+      width: 415,
+      height: 1600,
+      scale: 1,
+      calibration: "Native mobile PNG viewport.",
+      baselineStage: "member-baseline",
+    },
+    {
+      key: "today",
+      reference: "today_prime_fitness_1",
+      route: "/today",
+      width: 377,
+      height: 1600,
+      scale: 1,
+      calibration:
+        "Native mobile viewport. Scheduled five-exercise program; synthetic food and completed history. Source media and prior-performance content differ.",
+      baselineStage: "daily-baseline",
+    },
+    {
+      key: "nutrition",
+      reference: "nutrition_daily_hub_prime_fitness",
+      route: "/nutrition",
+      width: 313,
+      height: 1600,
+      scale: 1,
+      calibration:
+        "Native 313 px reference viewport. Three logged meals with actual fixture targets; source totals differ. Offline metadata stays visible.",
+      baselineStage: "daily-baseline",
+    },
+    {
+      key: "progress",
+      reference: "progress_prime_fitness_1",
+      route: "/progress",
+      width: 363,
+      height: 1600,
+      scale: 1,
+      calibration:
+        "Native mobile overview viewport. Source embeds strength trends/PRs; application keeps them under Strength. This composition gap remains open; metric scopes differ.",
+      baselineStage: "daily-baseline",
+    },
+  ];
+  const output = `artifacts/stitch-comparison/${stage}`;
+  mkdirSync(output, { recursive: true });
+  for (const entry of cases) {
+    const selectedKeys = process.env["PW_STITCH_KEYS"]?.split(",");
+    if (selectedKeys && !selectedKeys.includes(entry.key)) continue;
+    const context = await browser.newContext({
+      baseURL: "http://127.0.0.1:3173",
+      viewport: { width: entry.width, height: entry.height },
+      deviceScaleFactor: entry.scale,
+      serviceWorkers: "block",
+      reducedMotion: "reduce",
+    });
+    try {
+      const backend = await fakeBackend(context);
+      seedAdminPods(backend);
+      seedPvReviews(backend);
+      await trainingFeatures(context, {
+        guidance: true,
+        cardio: true,
+        scheduling: entry.key === "train" || entry.key === "today",
+      });
+      await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+        route.fulfill({ json: [] }),
+      );
+      const version = crypto.randomUUID();
+      const names = [
+        "Incline Barbell Bench Press",
+        "Weighted Dips",
+        "Cable Crossover Flyes",
+        "EZ-Bar Skullcrushers",
+        "Triceps Rope Pushdown",
+      ];
+      const exercises = names.map((name, position) => ({
+        ...backend.tables.exercises![0],
+        id: crypto.randomUUID(),
+        name_en: name,
+        name_ar: name,
+        muscle: position < 3 ? "chest" : "triceps",
+      }));
+      backend.tables.exercises!.push(...exercises);
+      const assignment = crypto.randomUUID();
+      backend.tables.program_assignments = [
+        { id: assignment, member_id: userId, program_version_id: version, active: true },
+      ];
+      backend.tables.program_schedules = [
+        {
+          id: crypto.randomUUID(),
+          assignment_id: assignment,
+          mode: "rotation",
+          start_date: "2026-11-12",
+        },
+      ];
+      backend.tables.session_occurrences = [
+        {
+          id: crypto.randomUUID(),
+          assignment_id: assignment,
+          program_version_id: version,
+          week: 1,
+          day: 1,
+          ordinal: 0,
+          due_date: null,
+          status: "scheduled",
+        },
+      ];
+      backend.tables.program_versions = [
+        {
+          id: version,
+          name: "Strength & Hypertrophy II",
+          version: 1,
+          weeks: 1,
+          items: exercises.map((exercise, position) => ({
+            ...exercise,
+            id: crypto.randomUUID(),
+            exercise_id: exercise.id,
+            week: 1,
+            day: 1,
+            position,
+            target_sets: position < 2 ? 4 : 3,
+            target_reps: position < 2 ? "6–8" : "10–12",
+            logging_mode: "weighted_reps",
+            load_convention: "external_total",
+          })),
+        },
+      ];
+      if (entry.key === "training-program") {
+        const template = backend.tables.program_versions[0]!;
+        template.weeks = 6;
+        template.items = Array.from({ length: 6 }, (_, week) =>
+          [1, 2, 4, 6].flatMap((day) =>
+            exercises.map((exercise, position) => ({
+              ...exercise,
+              id: crypto.randomUUID(),
+              exercise_id: exercise.id,
+              week: week + 1,
+              day,
+              position,
+              target_sets: position < 2 ? 4 : 3,
+              target_reps: position < 2 ? "6–8" : "10–12",
+              logging_mode: "weighted_reps",
+              load_convention: "external_total",
+            })),
+          ),
+        ).flat();
+      }
+      const page = await context.newPage();
+      if (entry.key.startsWith("training-")) {
+        await page.clock.setFixedTime(new Date("2026-11-12T10:00:00Z"));
+      }
+      if (entry.key === "training-history") {
+        backend.tables.workout_sessions = [12, 10, 8].map((day, index) => ({
+          id: `00000000-0000-4000-8000-00000006300${index}`,
+          member_id: userId,
+          title: ["Chest & Triceps Density", "Back & Biceps", "Legs & Core"][index],
+          origin: "native",
+          started_at: `2026-11-${String(day).padStart(2, "0")}T09:00:00Z`,
+          finished_at: `2026-11-${String(day).padStart(2, "0")}T09:50:00Z`,
+        }));
+        backend.tables.workout_exercises = backend.tables.workout_sessions.flatMap((session) =>
+          exercises.slice(0, 3).map((exercise, position) => ({
+            id: crypto.randomUUID(),
+            member_id: userId,
+            session_id: session.id,
+            exercise_id: exercise.id,
+            position,
+            snapshot: exercise,
+          })),
+        );
+        backend.tables.set_logs = backend.tables.workout_exercises.flatMap((slot) =>
+          [1, 2, 3].map((number) => ({
+            id: crypto.randomUUID(),
+            member_id: userId,
+            session_id: slot.session_id,
+            workout_exercise_id: slot.id,
+            exercise_id: slot.exercise_id,
+            set_number: number,
+            reps: 10,
+            weight_kg: 60 + number * 5,
+            rpe: 8,
+            set_role: "working",
+            side: "bilateral",
+            logging_mode: "weighted_reps",
+            load_convention: "external_total",
+            created_at: "2026-11-12T09:10:00Z",
+          })),
+        );
+      }
+      if (entry.key === "training-cardio") {
+        await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+          route.fulfill({
+            json: [
+              {
+                id: "00000000-0000-4000-8000-000000064000",
+                member_id: userId,
+                activity: "walk",
+                log_date: "2026-11-12",
+                duration_seconds: 2700,
+                distance_m: null,
+                incline_pct: null,
+                resistance: null,
+                heart_rate: null,
+                notes: "",
+                intervals: null,
+                revision: 1,
+                deleted_at: null,
+              },
+            ],
+          }),
+        );
+      }
+      if (entry.key.startsWith("progress-")) {
+        await page.clock.setFixedTime(new Date("2026-11-12T10:00:00Z"));
+        backend.tables.workout_sessions = ["2026-10-15", "2026-11-12"].map((day, index) => ({
+          id: `00000000-0000-4000-8000-00000006200${index}`,
+          member_id: userId,
+          title: "Synthetic strength session",
+          origin: "native",
+          started_at: `${day}T10:00:00Z`,
+          finished_at: `${day}T10:45:00Z`,
+        }));
+        backend.tables.set_logs = backend.tables.workout_sessions.map((session, index) => ({
+          id: `00000000-0000-4000-8000-00000006201${index}`,
+          member_id: userId,
+          session_id: session.id,
+          exercise_id: exercises[0]!.id,
+          reps: 8,
+          weight_kg: 80 + index * 10,
+          logging_mode: "weighted_reps",
+          load_convention: "external_total",
+          set_role: "working",
+          side: "bilateral",
+          created_at: session.started_at,
+        }));
+        backend.tables.body_measurements = ["2026-10-01", "2026-10-22", "2026-11-12"].map(
+          (day, index) => ({
+            id: `00000000-0000-4000-8000-00000006202${index}`,
+            member_id: userId,
+            measured_on: day,
+            weight_kg: 85 - index,
+            waist_cm: 86 - index,
+            body_fat_pct: 20 - index,
+          }),
+        );
+        backend.tables.progress_photos = [
+          "2026-10-01",
+          "2026-10-15",
+          "2026-11-01",
+          "2026-11-12",
+        ].map((day, index) => ({
+          id: `00000000-0000-4000-8000-00000006203${index}`,
+          member_id: userId,
+          pose: "front",
+          taken_on: day,
+          created_at: `${day}T12:00:00Z`,
+          path: `${userId}/synthetic-${index}.jpg`,
+        }));
+        await context.route("**/storage/v1/**", async (route) => {
+          if (route.request().method() === "POST") {
+            const paths = route.request().postDataJSON().paths as string[];
+            await route.fulfill({
+              json: paths.map((path) => ({
+                path,
+                signedURL: `/object/sign/progress-photos/${path}?token=synthetic`,
+              })),
+            });
+          } else {
+            // Deliberately recognizable test artwork: never capture a real member image.
+            await route.fulfill({
+              contentType: "image/svg+xml",
+              body: '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="#151f33"/><rect x="24" y="24" width="252" height="352" rx="16" fill="none" stroke="#d4af37"/><text x="150" y="195" fill="#f1f5f9" font-family="sans-serif" font-size="18" text-anchor="middle">SYNTHETIC PHOTO</text><text x="150" y="225" fill="#94a3b8" font-family="sans-serif" font-size="14" text-anchor="middle">Visual review fixture</text></svg>',
+            });
+          }
+        });
+      }
+      if (["today", "nutrition", "progress"].includes(entry.key)) {
+        // Stable Cairo activity dates and sanitized, populated daily views for both stages.
+        await page.clock.setFixedTime(new Date("2026-11-12T10:00:00Z"));
+        backend.tables.food_logs = ["breakfast", "lunch", "dinner"].map((meal, index) => ({
+          id: `00000000-0000-4000-8000-00000006100${index}`,
+          member_id: userId,
+          name: ["Oats & yogurt", "Chicken & rice", "Lentil soup"][index],
+          meal,
+          log_date: "2026-11-12",
+          calories: [500, 650, 400][index],
+          protein_g: 40,
+          carbs_g: 60,
+          fat_g: 14,
+          grams: 250,
+        }));
+        backend.tables.water_logs = [
+          {
+            id: "00000000-0000-4000-8000-000000061010",
+            member_id: userId,
+            log_date: "2026-11-12",
+            ml: 1750,
+          },
+        ];
+        backend.tables.workout_sessions = [0, 1].map((index) => ({
+          id: `00000000-0000-4000-8000-00000006102${index}`,
+          member_id: userId,
+          origin: "native",
+          title: "Completed synthetic session",
+          started_at: `2026-11-${10 + index}T10:00:00Z`,
+          finished_at: `2026-11-${10 + index}T10:45:00Z`,
+          activity_date: `2026-11-${10 + index}`,
+        }));
+      }
+      await page.goto(entry.route);
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+      if (entry.key === "staff-review") {
+        await page
+          .getByRole("region", { name: "Claim review table", exact: true })
+          .getByRole("button")
+          .first()
+          .click();
+        await expect(
+          page
+            .getByRole("dialog", { name: "Claim review", exact: true })
+            .getByLabel("Decision reason", { exact: true }),
+        ).toBeEnabled();
+      }
+      if (entry.key === "training-active") {
+        await page.getByRole("button", { name: "Start this day", exact: true }).first().click();
+        const first = page.getByRole("group", { name: "Planned set 1", exact: true });
+        await first.getByLabel("kg", { exact: true }).fill("85");
+        await first.getByLabel("Reps", { exact: true }).fill("10");
+        await page.getByRole("button", { name: "Log set 1", exact: true }).click();
+        const second = page.getByRole("group", { name: "Planned set 2", exact: true });
+        await second.getByLabel("kg", { exact: true }).fill("90");
+        await second.getByLabel("Reps", { exact: true }).fill("8");
+      }
+      if (entry.key === "training-complete") {
+        await page.getByRole("button", { name: "Start this day", exact: true }).first().click();
+        for (let exercise = 0; exercise < exercises.length; exercise++) {
+          const card = page.locator(`[data-exercise-id="${exercises[exercise]!.id}"]`);
+          if (exercise > 0) await card.locator("button[aria-expanded]").click();
+          for (let number = 1; number <= (exercise < 2 ? 4 : 3); number++) {
+            const group = page.getByRole("group", { name: `Planned set ${number}`, exact: true });
+            await group.getByLabel("kg", { exact: true }).fill(exercise < 2 ? "80" : "25");
+            await group.getByLabel("Reps", { exact: true }).fill(exercise < 2 ? "8" : "12");
+            await page.getByRole("button", { name: `Log set ${number}`, exact: true }).click();
+          }
+        }
+        await page.clock.setFixedTime(new Date("2026-11-12T10:52:00Z"));
+        await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+        await page.getByRole("button", { name: "Save workout", exact: true }).click();
+        if (stage === "after")
+          await expect(page.locator("[data-workout-complete]")).toContainText("52:00");
+        // Capture the same hub state in both stages. Program-origin completion
+        // visibility is verified separately, without masking its navigation bug.
+        await expect(
+          page.getByRole("button", { name: "Start this day", exact: true }).first(),
+        ).toBeVisible();
+        await page.goto("/train");
+        await expect(page.locator("[data-workout-complete]")).toContainText("52:00");
+      }
+      if (entry.key === "training-cardio") {
+        const hiit = page.getByRole("region", { name: "HIIT", exact: true });
+        await hiit.getByLabel("Work seconds", { exact: true }).fill("45");
+        await hiit.getByLabel("Rest seconds", { exact: true }).fill("15");
+        await hiit.getByLabel("Rounds", { exact: true }).fill("12");
+        await hiit.getByLabel("Preparation seconds", { exact: true }).fill("0");
+        await hiit.getByRole("button", { name: "Start HIIT", exact: true }).click();
+        await expect(hiit.locator("[data-interval-clock]")).toContainText("0:45");
+        await expect(hiit).toContainText("11:45");
+      }
+      if (entry.key === "training-picker") {
+        await page.getByRole("button", { name: "Start workout", exact: true }).click();
+        await page.getByRole("button", { name: "Add exercise", exact: true }).click();
+        const picker = page.getByRole("dialog", { name: "Add exercise", exact: true });
+        await picker
+          .getByRole("navigation", { name: "Exercise views", exact: true })
+          .getByRole("button", { name: "All", exact: true })
+          .click();
+        const add = picker.getByRole("button", { name: "Add", exact: true });
+        await add.first().click();
+        await add.first().click();
+        await expect(
+          picker.getByRole("button", { name: "Insert selected exercises", exact: true }),
+        ).toContainText("2");
+      }
+      if (entry.key === "training-history") {
+        await page
+          .getByRole("button", { name: /^View workout details:/ })
+          .first()
+          .click();
+        await expect(
+          page.getByText("Incline Barbell Bench Press", { exact: true }).first(),
+        ).toBeVisible();
+      }
+      await page.evaluate(() => document.fonts.ready);
+      await expect(
+        page.locator('[role="status"]:visible').filter({ hasText: /^(Loading|جارٍ تحميل)/ }),
+      ).toHaveCount(0);
+      if (entry.key === "train")
+        await expect(
+          page.locator("[data-scheduled-preview] [data-session-exercises] > li"),
+        ).toHaveCount(5);
+      if (entry.key === "today")
+        await expect(page.locator("[data-stitch-today-session] ol > li")).toHaveCount(5);
+      if (entry.key === "nutrition")
+        await expect(page.locator("[data-stitch-nutrition-summary]")).toContainText("1,550");
+      if (entry.key === "progress-strength")
+        await expect(page.locator("[data-stitch-strength-trend] svg").first()).toBeVisible();
+      if (entry.key === "progress-body")
+        await expect(page.locator("[data-stitch-body-metrics]")).toContainText("83");
+      if (entry.key === "progress-photos") {
+        await page
+          .getByLabel("Before photo", { exact: true })
+          .selectOption({ label: "2026-10-01" });
+        await page.getByLabel("After photo", { exact: true }).selectOption({ label: "2026-11-12" });
+        await expect(page.getByAltText("Before: 2026-10-01", { exact: true })).toBeVisible();
+      }
+      await page.evaluate(() =>
+        Promise.all([...document.images].map((image) => image.decode().catch(() => {}))),
+      );
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({
+        path: `${output}/${entry.key}.png`,
+        animations: "disabled",
+      });
+    } finally {
+      await context.close();
+    }
+  }
+  writeFileSync(`${output}/manifest.json`, JSON.stringify(cases, null, 2));
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`training comparison layouts keep the focus header and picker controls reachable in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { guidance: true, logging: true });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    // Enough rows to verify the list scrolls independently of the staged action.
+    backend.tables.exercises!.push(
+      ...Array.from({ length: 30 }, (_, index) => ({
+        ...backend.tables.exercises![0],
+        id: crypto.randomUUID(),
+        name_en: `Synthetic exercise ${index}`,
+        name_ar: `تمرين تجريبي ${index}`,
+      })),
+    );
+    await page.goto("/train");
+    await page
+      .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
+      .click();
+    const header = page.locator("[data-workout-focus-header]");
+    await expect(header).toHaveCount(1);
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(64);
+    await expect(
+      header.getByRole("link", { name: l("Back to Train", "العودة إلى التدريب"), exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: l("Add exercise", "إضافة تمرين"), exact: true }).click();
+    const picker = page.getByRole("dialog", {
+      name: l("Add exercise", "إضافة تمرين"),
+      exact: true,
+    });
+    await picker
+      .getByRole("button", { name: l("Add", "أضف"), exact: true })
+      .first()
+      .click();
+    const insert = picker.getByRole("button", {
+      name: l("Insert selected exercises", "إدراج التمارين المحددة"),
+      exact: true,
+    });
+    for (const [width, height] of [
+      [320, 600],
+      [390, 844],
+      [588, 1600],
+      [1280, 900],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await expect(insert).toBeInViewport();
+      const results = picker.getByRole("list", {
+        name: l("Exercise results", "نتائج التمارين"),
+        exact: true,
+      });
+      expect((await results.boundingBox())!.height).toBeGreaterThanOrEqual(80);
+      await picker
+        .locator("[data-exercise-picker-scroll]")
+        .evaluate((node) => (node.scrollTop = node.scrollHeight));
+      await expect(insert).toBeInViewport();
+      await expect(insert).toContainText("1");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width + 1,
+      );
+    }
+    await page.keyboard.press("Escape");
+    await expect(picker).toBeHidden();
+    expect(backend.tables.set_logs).toHaveLength(0);
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`focused picker keeps shortlist search favorites history and offline insertion in ${locale}`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    const backend = await fakeBackend(context, locale);
+    backend.tables.exercises!.find((exercise) => exercise.id === secondExercise)!.name_ar =
+      "سحب بالبار";
+    await trainingFeatures(context, { guidance: true, logging: true });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    const rows = Array.from({ length: 30 }, (_, index) => ({
+      ...backend.tables.exercises![0],
+      id: crypto.randomUUID(),
+      name_en: `Synthetic exercise ${String(index).padStart(2, "0")}`,
+      name_ar: `تمرين تجريبي ${String(index).padStart(2, "0")}`,
+      aliases: index === 29 ? ["تمرين خاص نادر"] : [],
+      muscle: "back",
+      equipment: "dumbbell",
+      equipment_tags: ["dumbbell"],
+      active: true,
+    }));
+    backend.tables.exercises!.push(...rows);
+    const completed = crypto.randomUUID();
+    backend.tables.workout_sessions!.push({
+      id: completed,
+      member_id: userId,
+      title: "Completed synthetic workout",
+      origin: "native",
+      started_at: "2026-11-11T10:00:00Z",
+      finished_at: "2026-11-11T10:40:00Z",
+    });
+    backend.tables.set_logs!.push({
+      id: crypto.randomUUID(),
+      session_id: completed,
+      member_id: userId,
+      exercise_id: secondExercise,
+      set_role: "working",
+      reps: 8,
+      weight_kg: 60,
+      created_at: "2026-11-11T10:10:00Z",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/train");
+    await page
+      .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
+      .click();
+    const open = () =>
+      page.getByRole("button", { name: l("Add exercise", "إضافة تمرين"), exact: true }).click();
+    await open();
+    const picker = page.getByRole("dialog", {
+      name: l("Add exercise", "إضافة تمرين"),
+      exact: true,
+    });
+    const list = picker.getByRole("list", {
+      name: l("Exercise results", "نتائج التمارين"),
+      exact: true,
+    });
+    const views = picker.getByRole("navigation", {
+      name: l("Exercise views", "طرق عرض التمارين"),
+      exact: true,
+    });
+    const view = (en: string, ar: string) =>
+      views.getByRole("button", { name: l(en, ar), exact: true }).click();
+    const name = (index: number) => String(rows[index]![locale === "ar" ? "name_ar" : "name_en"]);
+    await expect.poll(() => list.getByRole("listitem").count()).toBeLessThanOrEqual(8);
+    await view("Recent", "الأخيرة");
+    await expect(
+      list.getByRole("button", { name: l("Barbell Row", "سحب بالبار"), exact: true }),
+    ).toBeVisible();
+    await view("All", "الكل");
+    await expect(list.getByRole("listitem")).toHaveCount(12);
+    await picker
+      .getByRole("button", { name: /Show more exercises|عرض المزيد من التمارين/ })
+      .click();
+    await expect(list.getByRole("listitem")).toHaveCount(24);
+    const target = list.getByRole("listitem").filter({ hasText: name(8) });
+    await target
+      .getByRole("button", {
+        name: l("Save favorite: ", "حفظ في المفضلة: ") + name(8),
+        exact: true,
+      })
+      .click();
+    await expect(
+      target.getByRole("button", {
+        name: l("Remove favorite: ", "إزالة من المفضلة: ") + name(8),
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const scroller = picker.locator("[data-exercise-picker-scroll]");
+    await list.getByRole("button", { name: name(15), exact: true }).scrollIntoViewIfNeeded();
+    const position = await scroller.evaluate((node) => node.scrollTop);
+    await list.getByRole("button", { name: name(15), exact: true }).click();
+    await page
+      .getByRole("dialog")
+      .last()
+      .getByRole("button", { name: l("Close", "إغلاق"), exact: true })
+      .click();
+    await expect
+      .poll(async () => Math.abs((await scroller.evaluate((node) => node.scrollTop)) - position))
+      .toBeLessThanOrEqual(2);
+    await view("Favorites", "المفضلة");
+    await expect(list.getByRole("listitem")).toHaveCount(1);
+    await list.getByRole("button", { name: l("Add", "أضف"), exact: true }).click();
+    const search = picker.getByRole("searchbox", {
+      name: l("Search exercises", "ابحث عن تمرين"),
+      exact: true,
+    });
+    await search.fill("تمرين خاص نادر");
+    await expect(list.getByRole("button", { name: name(29), exact: true })).toBeVisible();
+    await picker
+      .getByRole("button", { name: l("Browse by muscle", "تصفح حسب العضلة"), exact: true })
+      .click();
+    await picker
+      .getByRole("group", { name: l("Muscle", "العضلة"), exact: true })
+      .getByRole("button", { name: l("Chest", "الصدر"), exact: true })
+      .click();
+    await expect(list.getByRole("listitem")).toHaveCount(0);
+    await expect(
+      picker.getByRole("status").filter({ hasText: l("filters apply", "الفلاتر مطبقة") }),
+    ).toBeVisible();
+    await picker
+      .getByRole("button", { name: l("Reset filters", "إعادة ضبط الفلاتر"), exact: true })
+      .click();
+    await list.getByRole("button", { name: l("Add", "أضف"), exact: true }).click();
+    await picker
+      .getByRole("button", {
+        name: l("Clear exercise search", "مسح البحث عن التمارين"),
+        exact: true,
+      })
+      .click();
+    const insert = picker.getByRole("button", {
+      name: l("Insert selected exercises", "إدراج التمارين المحددة"),
+      exact: true,
+    });
+    await expect(insert).toContainText("2");
+    await expect(insert).toBeInViewport();
+    await page.screenshot({ path: `artifacts/focused-picker-${locale}.png` });
+    await insert.click();
+    await expect(picker).toBeHidden();
+    // The compatibility config blocks service workers; installed-shell/offline
+    // recovery is verified by the production Chrome run, while WebKit checks refresh.
+    if (testInfo.project.name === "mobile-chromium") {
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+      await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+      await context.setOffline(true);
+    }
+    await page.reload();
+    await open();
+    await view("Favorites", "المفضلة");
+    await expect(list.getByRole("button", { name: name(8), exact: true })).toBeVisible();
+    await view("Recent", "الأخيرة");
+    await expect(list.getByRole("button", { name: name(29), exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(`[data-exercise-id="${rows[8]!.id}"]`)).toHaveCount(1);
+    await expect(page.locator(`[data-exercise-id="${rows[29]!.id}"]`)).toHaveCount(1);
+    expect(backend.tables.set_logs).toHaveLength(1);
+  });
+}
+
+test("workspace preferences cannot expose staff navigation to a member", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  backend.tables.user_roles = [{ user_id: userId, role: "member" }];
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/today");
+  await expect(page.locator("aside [data-workspace-navigation]")).toHaveAttribute(
+    "data-workspace-navigation",
+    "fitness",
+  );
+  await page.evaluate(() => {
+    for (const key of Object.keys(sessionStorage))
+      if (key.startsWith("pf-workspace:")) sessionStorage.setItem(key, "staff");
+  });
+  await page.goto("/profile");
+  await expect(page.locator("[data-studio-shell]")).toHaveAttribute("data-workspace", "fitness");
+  await expect(page.getByRole("button", { name: /^Workspace:/ })).toHaveCount(0);
+  await expect(page.locator('aside a[href^="/admin/"]')).toHaveCount(0);
+  await page.goto("/admin/members");
+  await expect(page.getByRole("link", { name: "Return to My Fitness", exact: true })).toBeVisible();
+  await expect(page.locator('aside a[href^="/admin/"]')).toHaveCount(0);
+  await page.getByRole("link", { name: "Return to My Fitness", exact: true }).click();
+  await expect(page.locator("[data-studio-shell]")).toHaveAttribute("data-workspace", "fitness");
+});
+
+test("workspace switching respects unsaved staff review drafts", async ({ page, context }) => {
+  const backend = await fakeBackend(context);
+  seedPvReviews(backend);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/admin/pv");
+  await page
+    .getByRole("region", { name: "Claim review table", exact: true })
+    .getByRole("button")
+    .first()
+    .click();
+  const reason = page
+    .getByRole("dialog", { name: "Claim review", exact: true })
+    .getByLabel("Decision reason", { exact: true });
+  await reason.fill("Keep this synthetic draft while changing workspace.");
+  const switchToFitness = async () => {
+    await page.getByRole("button", { name: "Workspace: Staff Workspace", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "My Fitness", exact: true }).click();
+  };
+  // Selection follows accepted navigation, so cancelling the guard cannot change menus.
+  await switchToFitness();
+  const guard = page.getByRole("alertdialog", { name: "Unsaved admin drafts", exact: true });
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(page.locator("[data-studio-shell]")).toHaveAttribute("data-workspace", "staff");
+  await expect(reason).toHaveValue("Keep this synthetic draft while changing workspace.");
+  await switchToFitness();
+  await guard.getByRole("button", { name: "Discard and continue", exact: true }).click();
+  await expect(page).toHaveURL(/\/today$/);
+  await expect(page.locator("[data-studio-shell]")).toHaveAttribute("data-workspace", "fitness");
+  expect(backend.tables.pv_ledger).toHaveLength(0);
+});
+
+test("coach workspace offers existing member management without admin destinations", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  backend.tables.user_roles = [{ user_id: userId, role: "coach" }];
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Workspace: My Fitness", exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Staff Workspace", exact: true }).click();
+  await expect(page).toHaveURL(/\/members$/);
+  await expect(page.locator("aside [data-workspace-navigation]").getByRole("link")).toHaveCount(1);
+  await expect(page.locator('aside a[href="/members"]')).toBeVisible();
+  await expect(page.locator('aside a[href^="/admin/"]')).toHaveCount(0);
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`workspace navigation keeps its order and shared settings context in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    seedAdminPods(backend);
+    seedPvReviews(backend);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/today");
+    const shell = page.locator("[data-studio-shell]");
+    const side = page.locator("aside [data-workspace-navigation]");
+    const hrefs = (node: Locator) =>
+      node
+        .getByRole("link")
+        .evaluateAll((links) =>
+          links.map((link) => new URL((link as HTMLAnchorElement).href).pathname),
+        );
+    const fitness = ["/today", "/train", "/nutrition", "/progress", "/rewards"];
+    await expect.poll(() => hrefs(side)).toEqual(fitness);
+    const footerY = (await page.locator("aside [data-workspace-utilities]").boundingBox())!.y;
+    await side.locator('a[href="/nutrition"]').click();
+    await expect.poll(() => hrefs(side)).toEqual(fitness);
+    await page
+      .locator("[data-app-toolbar]")
+      .getByRole("link", { name: l("Profile", "الملف"), exact: true })
+      .click();
+    await expect(shell).toHaveAttribute("data-workspace", "fitness");
+    await page
+      .getByRole("button", {
+        name: `${l("Workspace", "مساحة العمل")}: ${l("My Fitness", "لياقتي")}`,
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("menuitemradio", { name: l("Staff Workspace", "مساحة عمل الفريق"), exact: true })
+      .click();
+    await expect(page).toHaveURL(/admin\/analytics/);
+    const staff = [
+      "/admin/analytics",
+      "/admin/members",
+      "/admin/programs",
+      "/admin/exercises",
+      "/admin/pods",
+      "/admin/pv",
+      "/admin/shop",
+      "/admin/invites",
+      "/admin/targets",
+      "/members",
+    ];
+    await expect.poll(() => hrefs(side)).toEqual(staff);
+    await expect(side.locator('a[href="/admin/analytics"]')).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // Active text must differ from muted destinations even when utility classes collide.
+    await expect
+      .poll(async () => {
+        const current = await side
+          .locator('a[href="/admin/analytics"]')
+          .evaluate((node) => getComputedStyle(node).color);
+        const inactive = await side
+          .locator('a[href="/admin/members"]')
+          .evaluate((node) => getComputedStyle(node).color);
+        return current !== inactive;
+      })
+      .toBe(true);
+    expect(
+      Math.abs((await page.locator("aside [data-workspace-utilities]").boundingBox())!.y - footerY),
+    ).toBeLessThan(1);
+    await side.locator('a[href="/admin/members"]').click();
+    await expect.poll(() => hrefs(side)).toEqual(staff);
+    await page.locator("aside [data-workspace-utilities]").getByRole("link").click();
+    await expect(shell).toHaveAttribute("data-workspace", "staff");
+    await page.reload();
+    await expect.poll(() => hrefs(side)).toEqual(staff);
+    await page.setViewportSize({ width: 390, height: 850 });
+    const menu = page.getByRole("button", { name: l("Menu", "القائمة"), exact: true });
+    await menu.click();
+    const drawer = page.getByRole("dialog", { name: l("Menu", "القائمة"), exact: true });
+    await expect.poll(() => hrefs(drawer.locator("[data-workspace-navigation]"))).toEqual(staff);
+    await drawer.locator('a[href="/admin/members"]').click();
+    await expect(drawer).toHaveCount(0);
+    await expect
+      .poll(() =>
+        hrefs(
+          page.getByRole("navigation", {
+            name: l("Primary navigation", "التنقل الرئيسي"),
+            exact: true,
+          }),
+        ),
+      )
+      .toEqual(staff.slice(0, 5));
+    await menu.click();
+    await page.setViewportSize({ width: 900, height: 850 });
+    await expect(drawer).toHaveCount(0);
+    await expect(page.locator("aside")).toHaveCSS("width", "88px");
+    await expect.poll(() => hrefs(side)).toEqual(staff);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.locator("aside")).toHaveCSS("width", "240px");
+    await page.screenshot({ path: `artifacts/workspace-staff-${locale}.png` });
+  });
+
+  test(`workout focus can return to Train and resume the same draft in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/train");
+    await page
+      .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
+      .click();
+    await page.getByLabel("kg", { exact: true }).fill("60.5");
+    await page.getByLabel(l("Reps", "التكرارات"), { exact: true }).fill("6");
+    await page
+      .getByRole("link", { name: l("Back to Train", "العودة إلى التدريب"), exact: true })
+      .click();
+    await expect(page.locator("[data-workout-resume]")).toBeVisible();
+    await expect(page).toHaveURL(/view=overview/);
+    await page.reload();
+    await expect(page.locator("[data-workout-resume]")).toBeVisible();
+    await page.getByRole("button", { name: l("History", "السجل"), exact: true }).click();
+    await page
+      .getByRole("button", {
+        name: l("Filter by Workout or Date", "تصفية حسب الجلسة أو التاريخ"),
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByLabel(l("Search workout titles", "البحث في عناوين الجلسات")),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: l("Apply filters", "تطبيق الفلاتر"), exact: true })
+      .click();
+    await expect(page).toHaveURL(/view=overview/);
+    await page.getByRole("button", { name: l("Workout", "تمرين"), exact: true }).click();
+    await page.locator("[data-workout-resume]").getByRole("button").click();
+    await expect(page.getByLabel("kg", { exact: true })).toHaveValue("60.5");
+    await expect(page.getByLabel(l("Reps", "التكرارات"), { exact: true })).toHaveValue("6");
+    expect(backend.tables.workout_sessions).toHaveLength(1);
+    await expect(
+      page.getByRole("navigation", {
+        name: l("Primary navigation", "التنقل الرئيسي"),
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+
+  test(`progress comparison views and phone measurements retain state in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    backend.tables.body_measurements = [
+      {
+        id: crypto.randomUUID(),
+        member_id: userId,
+        measured_on: "2026-11-12",
+        weight_kg: 82,
+        waist_cm: null,
+        body_fat_pct: 18,
+      },
+      {
+        id: crypto.randomUUID(),
+        member_id: userId,
+        measured_on: "2026-10-01",
+        weight_kg: 84,
+        waist_cm: 85,
+        body_fat_pct: null,
+      },
+    ];
+    await page.setViewportSize({ width: 390, height: 850 });
+    await page.goto("/progress?section=photos");
+    await expect(page.locator("[data-photo-side-by-side] figure")).toHaveCount(2);
+    const sliderButton = page.getByRole("button", {
+      name: l("Slider overlay", "شريط المقارنة"),
+      exact: true,
+    });
+    await sliderButton.focus();
+    await page.keyboard.press("Enter");
+    const slider = page.getByRole("slider");
+    await slider.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(slider).toHaveValue("51");
+    await page
+      .getByRole("button", { name: l("Side by side", "جنباً إلى جنب"), exact: true })
+      .click();
+    await expect(page.locator("[data-photo-side-by-side] figure")).toHaveCount(2);
+    await sliderButton.click();
+    await expect(slider).toHaveValue("51");
+    await page
+      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
+      .click();
+    const history = page.getByRole("region", {
+      name: l("Measurement history", "سجل القياسات"),
+      exact: true,
+    });
+    await expect(history.getByRole("listitem")).toHaveCount(2);
+    const latest = history.getByRole("listitem").filter({ hasText: "2026-11-12" });
+    await expect(latest.getByRole("definition").nth(1)).toContainText("—");
+    await page
+      .getByRole("button", { name: l("Add measurements", "إضافة قياسات"), exact: true })
+      .click();
+    await page.getByLabel(l("Weight kg", "الوزن kg"), { exact: true }).fill("81.5");
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: l("Close", "إغلاق"), exact: true })
+      .click();
+    await page.getByRole("button", { name: l("Photos", "الصور"), exact: true }).click();
+    await expect(slider).toHaveValue("51");
+    await page
+      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: l("Add measurements", "إضافة قياسات"), exact: true })
+      .click();
+    await expect(page.getByLabel(l("Weight kg", "الوزن kg"), { exact: true })).toHaveValue("81.5");
+  });
+
+  test(`daily overview layouts retain real status and narrow containment in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { offline: false });
+    await page.setViewportSize({ width: 313, height: 850 });
+    await page.goto("/today");
+    await expect(page.locator("[data-today-rank]")).toContainText(
+      locale === "ar" ? "المستوى" : "Level",
+    );
+    for (const route of ["/today", "/nutrition", "/progress"]) {
+      if (route !== "/today") await page.goto(route);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+    }
+    const metrics = page.locator("[data-stitch-progress-metrics]");
+    await expect(metrics).toContainText(locale === "ar" ? "بما فيه المستورد" : "including imports");
+    await expect(metrics).toContainText(locale === "ar" ? "القاهرة" : "Cairo time");
+  });
+
+  test(`partial nutrition cache never claims a final remaining budget in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale, 14);
+    await trainingFeatures(context, { offline: true });
+    await page.clock.setFixedTime(new Date("2026-11-12T10:00:00Z"));
+    await page.goto("/nutrition");
+    const summary = page.locator("[data-stitch-nutrition-summary]");
+    await expect(summary).toContainText(locale === "ar" ? "متبقية" : "remaining");
+    await expect(summary.locator(".fuel-fill")).toHaveCount(4);
+    await context.setOffline(true);
+    // Travel forward beyond the seven-day window while keeping cached targets.
+    // The public focus/date flow must expose partial records without a false budget.
+    await page.clock.setFixedTime(new Date("2026-11-20T10:00:00Z"));
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      page.getByLabel(locale === "ar" ? "تاريخ السجل" : "Log date", { exact: true }),
+    ).toHaveValue("2026-11-20");
+    await page
+      .getByRole("button", { name: locale === "ar" ? "إضافة طعام" : "Add food", exact: true })
+      .click();
+    await page.getByLabel(locale === "ar" ? "السعرات" : "Calories", { exact: true }).fill("500");
+    await page.getByRole("dialog").locator('button[type="submit"]').click();
+    await expect(summary).toContainText(locale === "ar" ? "إجماليات جزئية" : "partial totals");
+    await expect(summary).toContainText(
+      locale === "ar" ? "المتبقي غير متاح" : "Remaining budget unavailable",
+    );
+    await expect(summary).not.toContainText(/%/);
+    expect(backend.tables.food_logs).toHaveLength(0);
+    await expect(summary.locator(".fuel-fill")).toHaveCount(0);
+    await page.setViewportSize({ width: 313, height: 850 });
+    // Shared selection markers remeasure on the next frame after a resize.
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+  });
+
+  test(`nutrition loading shows placeholders only until totals arrive in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { offline: false });
+    let release!: () => void;
+    const delayed = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await context.route("**/rest/v1/food_logs**", async (route) => {
+      if (route.request().method() === "GET") await delayed;
+      await route.fallback();
+    });
+    try {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/nutrition", { waitUntil: "domcontentloaded" });
+      const text = locale === "ar" ? "جارٍ تحميل إجماليات التغذية…" : "Loading nutrition totals…";
+      const loading = page.getByRole("status").filter({ hasText: text });
+      await expect(loading).toBeVisible();
+      await expect(loading.locator('[aria-hidden="true"]')).toBeVisible();
+      await expect(page.locator("[data-stitch-nutrition-summary]")).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+      release();
+      await expect(loading).toHaveCount(0);
+      await expect(page.locator("[data-stitch-nutrition-summary]")).toBeVisible();
+    } finally {
+      release();
+    }
+  });
+
+  test(`nutrition loading yields to an error and retry in ${locale}`, async ({ page, context }) => {
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { offline: false });
+    let fail = true;
+    await context.route("**/rest/v1/food_logs**", async (route) => {
+      if (fail && route.request().method() === "GET")
+        await route.fulfill({ status: 400, json: { message: "Synthetic read failure" } });
+      else await route.fallback();
+    });
+    await page.goto("/nutrition");
+    const alert = page
+      .getByRole("alert")
+      .filter({ hasText: locale === "ar" ? "تعذر تحديث البيانات" : "Could not refresh data" });
+    await expect(alert).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("status").filter({
+        hasText: locale === "ar" ? "جارٍ تحميل إجماليات التغذية" : "Loading nutrition totals",
+      }),
+    ).toHaveCount(0);
+    fail = false;
+    await alert.getByRole("button").click();
+    await expect(page.locator("[data-stitch-nutrition-summary]")).toBeVisible();
+  });
+
+  test(`Profile disclosures retain password drafts and photo actions in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/profile");
+    const password = page.getByLabel(l("New password", "كلمة المرور الجديدة"), { exact: true });
+    const disclosure = page.locator("[data-profile-password] summary");
+    await expect(password).not.toBeVisible();
+    await disclosure.focus();
+    await page.keyboard.press("Enter");
+    await password.fill("SyntheticDraftOnly1");
+    await disclosure.click();
+    await expect(password).not.toBeVisible();
+    // A collapsed form still belongs to the unsaved-account navigation guard.
+    await page
+      .getByRole("navigation", { name: l("Profile sections", "أقسام الملف") })
+      .getByRole("button", { name: l("App & offline", "التطبيق ودون اتصال"), exact: true })
+      .click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page
+      .getByRole("button", { name: l("Keep editing", "متابعة التعديل"), exact: true })
+      .click();
+    await disclosure.focus();
+    await page.keyboard.press("Space");
+    await expect(password).toHaveValue("SyntheticDraftOnly1");
+    await page.locator("[data-profile-activity] summary").click();
+    await expect(
+      page.getByRole("button", { name: l("Gallery", "المعرض"), exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: l("Take photo", "التقاط صورة"), exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel(l("Take profile photo", "التقاط صورة الملف الشخصي"), { exact: true }),
+    ).toHaveAttribute("capture", "user");
+    await page
+      .getByRole("button", {
+        name: l("Review app & offline", "مراجعة التطبيق ودون اتصال"),
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", { name: l("Discard and continue", "تجاهل ومتابعة"), exact: true })
+      .click();
+    await expect(page).toHaveURL(/section=offline/);
+    await page.getByRole("button", { name: l("Account", "الحساب"), exact: true }).click();
+    await page.locator("[data-profile-password] summary").click();
+    await expect(password).toHaveValue("");
+  });
+
+  test(`staff editor Escape restores its originating keyboard action in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    seedPvReviews(backend);
+    // Tablet retains the modal sheet; desktop has a separate non-modal pane test.
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/admin/pv");
+    const action = page
+      .getByRole("region", {
+        name: locale === "ar" ? "جدول مراجعة الطلبات" : "Claim review table",
+        exact: true,
+      })
+      .getByRole("button")
+      .first();
+    await action.focus();
+    await page.keyboard.press("Enter");
+    const editor = page.getByRole("dialog", {
+      name: locale === "ar" ? "مراجعة الطلب" : "Claim review",
+      exact: true,
+    });
+    await expect(editor.getByRole("heading").first()).toBeFocused();
+    // Traversal in both directions must remain in the modal, including wrap-around.
+    for (const key of ["Tab", "Shift+Tab"])
+      for (let index = 0; index < 12; index++) {
+        await page.keyboard.press(key);
+        await expect
+          .poll(() => editor.evaluate((node) => node.contains(document.activeElement)))
+          .toBe(true);
+      }
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await expect(action).toBeFocused();
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`desktop claim pane preserves queue access and drafts across frames in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    seedPvReviews(backend);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/admin/pv");
+    const table = page.getByRole("region", {
+      name: l("Claim review table", "جدول مراجعة الطلبات"),
+      exact: true,
+    });
+    const actions = table.getByRole("button");
+    const first = actions.first();
+    await first.focus();
+    await page.keyboard.press("Enter");
+    const editor = page.getByRole("dialog", {
+      name: l("Claim review", "مراجعة الطلب"),
+      exact: true,
+    });
+    await expect(editor).toHaveAttribute("aria-modal", "false");
+    await expect(editor.getByRole("heading").first()).toBeFocused();
+    const queueBox = (await table.boundingBox())!,
+      paneBox = (await editor.boundingBox())!;
+    expect(
+      locale === "ar"
+        ? paneBox.x + paneBox.width <= queueBox.x
+        : queueBox.x + queueBox.width <= paneBox.x,
+    ).toBe(true);
+    const reason = editor.getByLabel(l("Decision reason", "سبب القرار"), { exact: true });
+    await reason.fill("Retain this synthetic decision across breakpoints and claims.");
+    const search = page.getByRole("textbox", {
+      name: l("Search claims", "بحث الطلبات"),
+      exact: true,
+    });
+    await search.focus();
+    await expect(search).toBeFocused();
+    await actions.nth(1).click();
+    await expect(reason).toHaveValue("");
+    await expect(editor.getByRole("heading").first()).toBeFocused();
+    await first.click();
+    await expect(reason).toHaveValue(
+      "Retain this synthetic decision across breakpoints and claims.",
+    );
+    // The presentation remounts at the breakpoint; controlled values and retry
+    // state belong to PvClaimEditor and must survive both directions.
+    await page.setViewportSize({ width: 1024, height: 850 });
+    await expect(page.locator("[data-docked-review]")).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    await expect(reason).toHaveValue(
+      "Retain this synthetic decision across breakpoints and claims.",
+    );
+    await expect(editor.getByRole("heading").first()).toBeFocused();
+    for (let index = 0; index < 12; index++) {
+      await page.keyboard.press("Tab");
+      await expect
+        .poll(() => editor.evaluate((node) => node.contains(document.activeElement)))
+        .toBe(true);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await expect(editor).toHaveAttribute("aria-modal", "false");
+    await expect(reason).toHaveValue(
+      "Retain this synthetic decision across breakpoints and claims.",
+    );
+    await editor
+      .getByRole("button", { name: l("Review decision", "مراجعة القرار"), exact: true })
+      .click();
+    const confirmation = page.getByRole("dialog", {
+      name: l("Review PV decision", "مراجعة قرار PV"),
+      exact: true,
+    });
+    await expect(confirmation).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(confirmation).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    expect(backend.tables.pv_ledger).toHaveLength(0);
+    await reason.focus();
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await expect(first).toBeFocused();
+    await first.click();
+    await expect(reason).toHaveValue(
+      "Retain this synthetic decision across breakpoints and claims.",
+    );
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`responsive Pod and claim editors retain keyboard access and drafts in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    seedAdminPods(backend);
+    seedPvReviews(backend);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/admin/pods");
+    const openRoster = page
+      .getByRole("region", {
+        name: locale === "ar" ? "جدول المجموعات" : "Pod directory table",
+        exact: true,
+      })
+      .getByRole("button")
+      .first();
+    await expect(openRoster).toBeVisible();
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await page.screenshot({
+        path: `artifacts/phase6-pod-directory-${locale}.png`,
+        animations: "disabled",
+      });
+    await openRoster.focus();
+    await page.keyboard.press("Enter");
+    const roster = page.getByRole("dialog", {
+      name: locale === "ar" ? "إدارة المجموعة: Test Pod" : "Manage Pod: Test Pod",
+      exact: true,
+    });
+    await expect(roster.getByRole("heading").first()).toBeFocused();
+    const sizes = [
+      [320, 740],
+      [640, 360],
+      [768, 1024],
+      [1280, 800],
+      [1920, 1080],
+    ] as const;
+    const contained = async (dialog: Locator) => {
+      await expect
+        .poll(() =>
+          dialog.evaluate((node) => {
+            const box = node.getBoundingClientRect();
+            return (
+              box.left >= -1 &&
+              box.right <= innerWidth + 1 &&
+              box.top >= -1 &&
+              box.bottom <= innerHeight + 1 &&
+              node.scrollWidth <= node.clientWidth + 1
+            );
+          }),
+        )
+        .toBe(true);
+    };
+    for (const [width, height] of sizes) {
+      await page.setViewportSize({ width, height });
+      await contained(roster);
+    }
+    await page.keyboard.press("Escape");
+    await expect(roster).toHaveCount(0);
+    await page.goto("/admin/pv");
+    const table = page.getByRole("region", {
+      name: locale === "ar" ? "جدول مراجعة الطلبات" : "Claim review table",
+      exact: true,
+    });
+    const openClaim = table.getByRole("button").first();
+    await expect(openClaim).toBeVisible();
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await page.screenshot({
+        path: `artifacts/phase6-claim-queue-${locale}.png`,
+        animations: "disabled",
+      });
+    await openClaim.focus();
+    await page.keyboard.press("Enter");
+    const review = page.getByRole("dialog", {
+      name: locale === "ar" ? "مراجعة الطلب" : "Claim review",
+      exact: true,
+    });
+    await expect(review.getByRole("heading").first()).toBeFocused();
+    const reason = review.getByRole("textbox", {
+      name: locale === "ar" ? "سبب القرار" : "Decision reason",
+      exact: true,
+    });
+    await reason.fill("Retain this review draft while resizing.");
+    for (const [width, height] of sizes) {
+      await page.setViewportSize({ width, height });
+      await contained(review);
+      await expect(reason).toHaveValue("Retain this review draft while resizing.");
+      if (process.env["PW_UI_SCREENSHOTS"] && width === 640)
+        await review.screenshot({
+          path: `artifacts/phase6-claim-landscape-${locale}.png`,
+          animations: "disabled",
+        });
+    }
+    await page.keyboard.press("Escape");
+    await expect(review).toHaveCount(0);
+    await openClaim.click();
+    await expect(reason).toHaveValue("Retain this review draft while resizing.");
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`responsive member and staff route matrix contains content in ${locale}`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    testInfo.setTimeout(180000);
+    const backend = await fakeBackend(context, locale);
+    seedAdminPods(backend);
+    seedPvReviews(backend);
+    await trainingFeatures(context, { guidance: true, cardio: true, social: true, offline: true });
+    await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    backend.tables.pods![0]!.name = "Prime Vanguard " + "Squad".repeat(25);
+    backend.tables.pv_tasks![0]!.title_en = "Training assessment " + "Evidence".repeat(22);
+    backend.tables.pv_tasks![0]!.title_ar = "مراجعة التدريب " + "متابعة".repeat(22);
+    const analyticsRows = backend.tables.profiles!.map((row) => ({
+      ...row,
+      xp: 100,
+      pv: 25,
+      w7: 2,
+      w30: 4,
+    }));
+    await context.route("**/rest/v1/rpc/get_admin_analytics", (route) =>
+      route.fulfill({
+        json: {
+          asOf: "2026-11-11T10:00:00Z",
+          period: { from7: "2026-11-05", from30: "2026-10-13", to: "2026-11-11" },
+          kpi: {
+            members: analyticsRows.length,
+            activeMembers: analyticsRows.length,
+            engaged7: analyticsRows.length,
+            workouts7: analyticsRows.length * 2,
+            workouts30: analyticsRows.length * 4,
+            pvIssued: 200,
+            pendingClaims: 3,
+            pendingRedemptions: 0,
+          },
+          rows: analyticsRows,
+        },
+      }),
+    );
+    const routes = [
+      "/today",
+      "/train",
+      "/train?section=program",
+      "/train?section=history",
+      "/train?section=cardio",
+      "/nutrition",
+      "/progress",
+      "/progress?section=strength",
+      "/progress?section=body",
+      "/progress?section=photos",
+      "/rewards",
+      "/rewards?section=shop",
+      "/rewards?section=journey",
+      "/rewards?section=community",
+      "/profile",
+      "/profile?section=preferences",
+      "/profile?section=offline",
+      "/profile?section=privacy",
+      "/members",
+      "/admin/members",
+      "/admin/programs",
+      "/admin/exercises",
+      "/admin/pods",
+      "/admin/pv",
+      "/admin/pv?section=tasks",
+      "/admin/shop",
+      "/admin/shop?section=catalogue",
+      "/admin/invites",
+      "/admin/targets",
+      "/admin/analytics",
+    ];
+    const sizes = [
+      [320, 740],
+      [390, 844],
+      [640, 480],
+      [768, 1024],
+      [820, 1180],
+      [1024, 768],
+      [1280, 800],
+      [1920, 1080],
+    ] as const;
+    const evidence: { route: string; width: number; height: number; documentWidth: number }[] = [];
+    for (const route of routes) {
+      await page.goto(route);
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      await expect(
+        page.locator('[role="status"]:visible').filter({ hasText: /^(Loading|جارٍ تحميل)/ }),
+      ).toHaveCount(0);
+      // Ensure long-content fixtures arrived before measuring their smallest layout.
+      if (route === "/admin/pods")
+        await expect(
+          page.getByRole("cell", { name: String(backend.tables.pods![0]!.name), exact: true }),
+        ).toBeVisible();
+      if (route === "/admin/pv")
+        await expect(
+          page
+            .getByRole("cell", {
+              name: String(backend.tables.pv_tasks![0]![locale === "ar" ? "title_ar" : "title_en"]),
+              exact: true,
+            })
+            .first(),
+        ).toBeVisible();
+      for (const [width, height] of sizes) {
+        await page.setViewportSize({ width, height });
+        await expect
+          .poll(() => page.evaluate(() => document.documentElement.scrollWidth), {
+            message: `${locale} ${route} at ${width}x${height}`,
+          })
+          .toBeLessThanOrEqual(width + 1);
+        evidence.push({
+          route,
+          width,
+          height,
+          documentWidth: await page.evaluate(() => document.documentElement.scrollWidth),
+        });
+        if (
+          process.env["PW_UI_SCREENSHOTS"] &&
+          width === 1280 &&
+          ["/admin/pods", "/admin/pv", "/nutrition"].includes(route)
+        )
+          await page.screenshot({
+            path: `artifacts/phase6-responsive-${route.split("/").filter(Boolean).join("-")}-${locale}.png`,
+            animations: "disabled",
+          });
+      }
+    }
+    // Store only viewport/route evidence, never member records or screenshots of real accounts.
+    const engine = testInfo.project.name === "mobile-chromium" ? "" : `-${testInfo.project.name}`;
+    writeFileSync(
+      `artifacts/phase6-responsive-${locale}${engine}.json`,
+      JSON.stringify(evidence, null, 2),
+    );
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`progress loading placeholder resolves to real metrics in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    let release!: () => void;
+    const delayed = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await context.route("**/rest/v1/workout_sessions**", async (route) => {
+      if (route.request().method() === "HEAD") await delayed;
+      await route.fallback();
+    });
+    try {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/progress", { waitUntil: "domcontentloaded" });
+      const message = locale === "ar" ? "جارٍ تحميل الملخص…" : "Loading progress summary…";
+      const loading = page.getByRole("status").filter({ hasText: message });
+      await expect(loading).toBeVisible();
+      await expect(loading.locator('[aria-hidden="true"] > div')).toHaveCount(3);
+      await expect(page.locator("[data-stitch-progress-metrics]")).toHaveCount(0);
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+      release();
+      await expect(loading).toHaveCount(0);
+      await expect(page.locator("[data-stitch-progress-metrics]")).toBeVisible();
+    } finally {
+      release();
+    }
+  });
+
+  test(`shared switcher motion follows resize, scrolling and keyboard selection in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { guidance: true });
+    const aligned = async (group: Locator, selected: Locator) => {
+      const indicator = group.locator(":scope > [data-section-slider]");
+      await expect(indicator).toHaveAttribute("data-ready", "true");
+      await expect
+        .poll(async () => {
+          const a = await indicator.boundingBox(),
+            b = await selected.boundingBox();
+          if (!a || !b) return Infinity;
+          return Math.max(
+            Math.abs(a.x - b.x),
+            Math.abs(a.y - b.y),
+            Math.abs(a.width - b.width),
+            Math.abs(a.height - b.height),
+          );
+        })
+        .toBeLessThanOrEqual(1);
+    };
+    await page.goto("/profile");
+    const profile = page.getByRole("navigation", {
+      name: locale === "ar" ? "أقسام الملف" : "Profile sections",
+      exact: true,
+    });
+    const privacy = profile.getByRole("button").last();
+    await privacy.click();
+    for (const width of [320, 1280, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await aligned(profile, privacy);
+    }
+    // CSS text zoom is not native browser zoom, but catches layout-vs-screen pixel mistakes.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    for (const zoom of [1.5, 2]) {
+      await profile.evaluate((node, value) => {
+        node.style.zoom = String(value);
+      }, zoom);
+      await privacy.click();
+      await aligned(profile, privacy);
+      await profile.getByRole("button").first().click();
+      await aligned(profile, profile.getByRole("button").first());
+    }
+    await profile.evaluate((node) => {
+      node.style.zoom = "1";
+    });
+    await profile.getByRole("button").nth(2).click();
+    const sound = page.getByRole("switch", {
+      name: locale === "ar" ? "صوت تسجيل الماء" : "Water logging sound",
+      exact: true,
+    });
+    await sound.focus();
+    await page.keyboard.press("Space");
+    await expect(sound).toHaveAttribute("aria-checked", "true");
+    // The checked thumb must remain inside its track in both layout directions.
+    await expect
+      .poll(async () => {
+        const track = (await sound.boundingBox())!,
+          thumb = (await sound.locator(":scope > span").boundingBox())!;
+        return thumb.x >= track.x && thumb.x + thumb.width <= track.x + track.width;
+      })
+      .toBe(true);
+    await page.goto("/nutrition?entry=quick&meal=lunch");
+    const methods = page.getByRole("navigation", {
+      name: locale === "ar" ? "طرق إضافة الطعام" : "Food entry methods",
+      exact: true,
+    });
+    const method = methods.getByRole("button").last();
+    await method.focus();
+    await page.keyboard.press("Enter");
+    await expect(method).toHaveAttribute("aria-pressed", "true");
+    await aligned(methods, method);
+    // Scroll the strip without changing the selected method or shifting its indicator.
+    await methods.evaluate((node) => {
+      node.scrollLeft = 0;
+    });
+    await aligned(methods, method);
+    const meals = page.getByRole("navigation", {
+      name: locale === "ar" ? "اختيار الوجبة" : "Choose meal",
+      exact: true,
+    });
+    const meal = meals.getByRole("button").last();
+    await meal.click();
+    await aligned(meals, meal);
+    await page.goto("/train");
+    await page
+      .getByRole("button", {
+        name: locale === "ar" ? "ابدأ التمرين" : "Start workout",
+        exact: true,
+      })
+      .click();
+    const tabs = page.getByRole("tablist", {
+      name: locale === "ar" ? "تفاصيل التمرين" : "Exercise details",
+      exact: true,
+    });
+    const first = tabs.getByRole("tab").first(),
+      last = tabs.getByRole("tab").last();
+    await first.focus();
+    await page.keyboard.press("End");
+    await expect(last).toBeFocused();
+    await expect(last).toHaveAttribute("aria-selected", "true");
+    await aligned(tabs, last);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.keyboard.press("Home");
+    await expect(first).toBeFocused();
+    await aligned(tabs, first);
+    await expect(tabs.locator("[data-section-slider]")).toHaveCSS("transition-property", "none");
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await tabs.screenshot({
+        path: `artifacts/switcher-tabs-${locale}.png`,
+        animations: "disabled",
+      });
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`pod leader mobile summaries keep private details closed in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const pod = crypto.randomUUID();
+    backend.tables.user_roles = [{ user_id: userId, role: "pod_leader" }];
+    backend.tables.profiles!.push({
+      ...backend.tables.profiles![0],
+      id: secondExercise,
+      display_name: "Pod athlete",
+      email: "pod@test.invalid",
+    });
+    backend.tables.pods = [{ id: pod, leader_id: userId, name: "Test Pod" }];
+    backend.tables.pod_members = [{ pod_id: pod, member_id: secondExercise }];
+    await page.setViewportSize({ width: 320, height: 850 });
+    await page.goto("/members");
+    const cards = page.getByRole("list", {
+      name: locale === "ar" ? "ملخصات الأعضاء المرتبطين" : "Assigned member summaries",
+      exact: true,
+    });
+    await expect(cards).toContainText("Pod athlete");
+    await expect(cards.getByRole("link")).toHaveCount(0);
+    await expect(cards).toContainText(locale === "ar" ? "ملخص المجموعة فقط" : "Pod summary only");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: `artifacts/phase6-pod-summary-${locale}.png`,
+      animations: "disabled",
+    });
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`staff roster separates overview and reviewed editor in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    backend.tables.user_roles = [{ user_id: userId, role: "admin" }];
+    backend.tables.profiles!.push({
+      ...backend.tables.profiles![0],
+      id: secondExercise,
+      display_name: "Managed member",
+      email: "managed@test.invalid",
+    });
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.goto("/admin/members");
+    const table = page.getByRole("table", {
+      name: locale === "ar" ? "قائمة الأعضاء" : "Member roster",
+    });
+    await expect(table).toBeVisible();
+    await expect(table.getByRole("combobox")).toHaveCount(0);
+    const button = table.getByRole("button", { name: /Managed member/ });
+    await button.click();
+    const editor = page.getByRole("dialog", {
+      name: locale === "ar" ? "إدارة العضو" : "Manage member",
+      exact: true,
+    });
+    await expect(editor.getByRole("combobox")).toBeVisible();
+    await editor.getByRole("button", { name: locale === "ar" ? /^الوصول:/ : /^Access:/ }).click();
+    const review = page.getByRole("dialog", {
+      name: locale === "ar" ? "مراجعة تغييرات العضو" : "Review member changes",
+      exact: true,
+    });
+    await expect(review).toBeVisible();
+    expect(backend.tables.profiles![1]!.access_active).toBe(true);
+    await review
+      .getByRole("button", {
+        name: locale === "ar" ? "متابعة التعديل" : "Keep editing",
+        exact: true,
+      })
+      .click();
+    await expect(editor).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
+    await page.setViewportSize({ width: 320, height: 850 });
+    await expect(table).toBeHidden();
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "Managed member" })
+      .getByRole("button")
+      .click();
+    await expect(editor).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    // Capture the settled drawer, rather than a frame during its entrance transition.
+    await expect
+      .poll(() => editor.evaluate((node) => Math.abs(node.getBoundingClientRect().left) < 1))
+      .toBe(true);
+    await page.screenshot({
+      path: `artifacts/phase6-member-editor-${locale}.png`,
+      animations: "disabled",
+    });
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Phase 5 profile and fallback stay readable in ${locale}`, async ({ page, context }) => {
+    await fakeBackend(context, locale);
+    await page.goto("/profile");
+    await expect(
+      page.getByRole("region", { name: locale === "ar" ? "بيانات الحساب" : "Account credentials" }),
+    ).toBeVisible();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+    }
+    await page.setViewportSize({ width: 390, height: 850 });
+    await page.screenshot({ path: `artifacts/phase5-profile-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", {
+        name: locale === "ar" ? "إدارة التفضيلات" : "Manage preferences",
+        exact: true,
+      })
+      .click();
+    await expect(page).toHaveURL(/section=preferences/);
+    await page.goto("/this-page-does-not-exist");
+    await expect(
+      page.getByRole("heading", {
+        name: locale === "ar" ? "الصفحة غير موجودة" : "Page not found",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name: locale === "ar" ? "الصفحة الرئيسية" : "Go home",
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+}
 
 const userId = "00000000-0000-4000-8000-000000000001";
 const exerciseId = "00000000-0000-4000-8000-000000000002";
@@ -45,7 +1986,7 @@ function postgrestLogic(row: Row, expression: string): boolean {
       ? String(actual) <= value!
       : String(actual) < value!;
 }
-async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") {
+async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", authDays = 1) {
   const tables: Record<string, Row[]> = {
     profiles: [
       {
@@ -173,7 +2114,9 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") 
       sub: userId,
       role: "authenticated",
       aud: "authenticated",
-      exp: Math.floor(Date.now() / 1000) + 86400,
+      // Clock-travel cases opt in to a longer synthetic session. Production auth
+      // and the default fixture lifetime remain unchanged.
+      exp: Math.floor(Date.now() / 1000) + authDays * 86400,
     }),
   ).toString("base64url");
   await context.addInitScript(
@@ -187,8 +2130,8 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") 
       value: JSON.stringify({
         access_token: `eyJhbGciOiJIUzI1NiJ9.${payload}.test`,
         refresh_token: "test",
-        expires_in: 86400,
-        expires_at: Math.floor(Date.now() / 1000) + 86400,
+        expires_in: authDays * 86400,
+        expires_at: Math.floor(Date.now() / 1000) + authDays * 86400,
         token_type: "bearer",
         user,
       }),
@@ -657,13 +2600,310 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en") 
   };
 }
 
+for (const locale of ["en", "ar"] as const) {
+  test(`Stitch media-first workout and shell preserve drafts in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120000);
+    const backend = await fakeBackend(context, locale),
+      version = crypto.randomUUID();
+    await trainingFeatures(context, { guidance: true, logging: true, cardio: true });
+    await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    backend.tables.program_assignments = [
+      { id: crypto.randomUUID(), member_id: userId, program_version_id: version, active: true },
+    ];
+    backend.tables.program_versions = [
+      {
+        id: version,
+        name: "Studio program",
+        version: 1,
+        weeks: 1,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            exercise_id: exerciseId,
+            week: 1,
+            day: 1,
+            position: 0,
+            target_sets: 3,
+            target_reps: "8–12",
+            name_en: "Bench Press",
+            name_ar: "ضغط الصدر",
+            muscle: "chest",
+            equipment: "barbell",
+            logging_mode: "weighted_reps",
+            load_convention: "external_total",
+          },
+        ],
+      },
+    ];
+    const externalFonts: string[] = [];
+    page.on("request", (request) => {
+      if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(request.url()))
+        externalFonts.push(request.url());
+    });
+    await page.goto("/train");
+    const name = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    for (const width of [320, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator("[data-studio-shell]")).toBeVisible();
+      await expectAlignedControls(page);
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({
+        path: `artifacts/studio-shell-${locale}-${width}.png`,
+        fullPage: true,
+      });
+    }
+    expect(externalFonts).toEqual([]);
+    await page.setViewportSize({ width: 393, height: 850 });
+    await page.getByRole("button", { name: name("Cardio", "الكارديو"), exact: true }).click();
+    await expect(page).toHaveURL(/section=cardio/);
+    await expect(
+      page.getByText(name("Cardio & HIIT", "الكارديو وHIIT"), { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: name("Back to workouts", "العودة إلى التمارين"), exact: true })
+      .click();
+    await page.getByRole("button", { name: name("My program", "برنامجي"), exact: true }).click();
+    await page
+      .getByRole("button", { name: name("Start this day", "ابدأ هذا اليوم"), exact: true })
+      .click();
+    const first = page.getByRole("group", {
+      name: name("Planned set 1", "مجموعة مخططة 1"),
+      exact: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const preview = page.locator("[data-exercise-preview]");
+    await expect(preview).toBeVisible();
+    const previewBox = (await preview.boundingBox())!;
+    expect(previewBox.x).toBe(16);
+    expect(previewBox.width).toBe(358);
+    expect(await preview.evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).toBe(
+      "12px",
+    );
+    const mediaBox = (await page.locator("[data-exercise-hero]").boundingBox())!;
+    expect(mediaBox.width / mediaBox.height).toBeCloseTo(1.6, 2);
+    await page.screenshot({ path: `artifacts/stitch-workout-${locale}-390.png`, fullPage: true });
+    await first.getByLabel("kg", { exact: true }).fill("52.5");
+    await first.getByLabel(name("Reps", "التكرارات"), { exact: true }).fill("10");
+    await page
+      .getByRole("button", { name: name("Effort ratings (RPE)", "تقييم الجهد (RPE)"), exact: true })
+      .click();
+    await first.getByLabel("RPE 1–10", { exact: true }).fill("7.5");
+    await page.getByRole("tab", { name: name("History", "السجل"), exact: true }).click();
+    await expect(first).toBeHidden();
+    await page.getByRole("tab", { name: name("Log", "التسجيل"), exact: true }).focus();
+    await page.keyboard.press("Home");
+    await expect(first.getByLabel("kg", { exact: true })).toHaveValue("52.5");
+    await page.setViewportSize({ width: 320, height: 850 });
+    await expectAlignedControls(page);
+    expect((await first.boundingBox())!.height).toBeLessThan(180);
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(first.getByLabel("kg", { exact: true })).toHaveValue("52.5");
+    await expect(first.getByLabel("RPE 1–10", { exact: true })).toHaveValue("7.5");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const hero = page.locator("[data-exercise-hero]");
+    await expect(hero).toBeVisible();
+    expect((await hero.boundingBox())!.y).toBeLessThan((await first.boundingBox())!.y);
+    await page.screenshot({ path: `artifacts/studio-workout-${locale}-320.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: name("Log set 1", "تسجيل المجموعة 1"), exact: true })
+      .click();
+    await context.setOffline(false);
+    await page
+      .getByRole("button", { name: name("Exercise options", "خيارات التمرين"), exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: name("Retry sync", "إعادة المزامنة"), exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
+    expect(backend.tables.set_logs![0]).toMatchObject({ weight_kg: 52.5, reps: 10, rpe: 7.5 });
+  });
+}
+
 async function chooseFromLibrary(page: Page, name: string) {
-  await page
-    .getByRole("dialog")
-    .getByRole("listitem")
-    .filter({ hasText: name })
-    .getByRole("button", { name: "Use", exact: true })
-    .click();
+  const row = page.getByRole("dialog").getByRole("listitem").filter({ hasText: name });
+  const add = row.getByRole("button", { name: "Add", exact: true });
+  if (await add.count()) {
+    await add.click();
+    await page.getByRole("button", { name: "Insert selected exercises", exact: true }).click();
+  } else await row.getByRole("button", { name: "Use", exact: true }).click();
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Train switcher stays stable across sections and viewport sizes in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await page.goto("/train");
+    const navigation = page.getByRole("navigation", {
+      name: locale === "ar" ? "أقسام التدريب" : "Training sections",
+      exact: true,
+    });
+    await expect(navigation).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const slider = navigation.locator("[data-section-slider]");
+    await expect(slider).toBeVisible();
+    await expect(slider).toHaveCSS("transition-property", /transform/);
+    await expect(slider).toHaveCSS("transition-duration", /0.2s/);
+    const labels =
+      locale === "ar" ? ["تمرين", "برنامجي", "السجل"] : ["Workout", "My program", "History"];
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      let baseline: { x: number; y: number; width: number; height: number } | undefined;
+      for (const label of [...labels, labels[0]!]) {
+        const selected = navigation.getByRole("button", { name: label, exact: true });
+        await selected.click();
+        await expect(selected).toHaveAttribute("aria-pressed", "true");
+        await expect(navigation.locator('[aria-pressed="true"]')).toHaveCount(1);
+        await expect
+          .poll(async () => {
+            const indicator = (await slider.boundingBox())!;
+            const button = (await selected.boundingBox())!;
+            return Math.max(
+              Math.abs(indicator.x - button.x),
+              Math.abs(indicator.width - button.width),
+            );
+          })
+          .toBeLessThanOrEqual(1);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const box = (await navigation.boundingBox())!;
+        baseline ??= box;
+        for (const key of ["x", "y", "width", "height"] as const)
+          expect(Math.abs(box[key] - baseline[key])).toBeLessThanOrEqual(1);
+        const buttons = await navigation.getByRole("button").all();
+        const sizes = await Promise.all(buttons.map((button) => button.boundingBox()));
+        for (const size of sizes) {
+          expect(size!.height).toBeGreaterThanOrEqual(44);
+          expect(Math.abs(size!.width - sizes[0]!.width)).toBeLessThanOrEqual(1);
+          expect(size!.x).toBeGreaterThanOrEqual(0);
+          expect(size!.x + size!.width).toBeLessThanOrEqual(width + 1);
+        }
+        if (width === 390)
+          await navigation.screenshot({
+            path: `artifacts/train-switcher-${locale}-${labels.indexOf(label)}.png`,
+          });
+      }
+    }
+    await navigation.getByRole("button", { name: labels[1], exact: true }).click();
+    await page.reload();
+    await expect(navigation.getByRole("button", { name: labels[1], exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await navigation.getByRole("button", { name: labels[2], exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(navigation.getByRole("button", { name: labels[2], exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(slider).toHaveCSS("transition-property", "none");
+    await expect
+      .poll(async () => {
+        const indicator = (await slider.boundingBox())!;
+        const button = (await navigation
+          .getByRole("button", { name: labels[2], exact: true })
+          .boundingBox())!;
+        return Math.abs(indicator.x - button.x);
+      })
+      .toBeLessThanOrEqual(1);
+  });
+
+  test(`Stitch program weeks and day cards retain frozen targets in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const version = crypto.randomUUID();
+    const items = [
+      {
+        id: crypto.randomUUID(),
+        week: 1,
+        day: 1,
+        position: 0,
+        exercise_id: exerciseId,
+        name_en: "Frozen Bench",
+        name_ar: "ضغط الصدر المعتمد",
+        muscle: "chest",
+        equipment: "barbell",
+        target_sets: 3,
+        target_reps: "8–12",
+        logging_mode: "weighted_reps",
+        load_convention: "external_total",
+      },
+      {
+        id: crypto.randomUUID(),
+        week: 1,
+        day: 2,
+        position: 0,
+        exercise_id: secondExercise,
+        name_en: "Frozen Row",
+        name_ar: "سحب معتمد",
+        muscle: "back",
+        equipment: "barbell",
+        target_sets: 4,
+        target_reps: "6–8",
+        logging_mode: "weighted_reps",
+        load_convention: "external_total",
+      },
+      {
+        id: crypto.randomUUID(),
+        week: 2,
+        day: 3,
+        position: 0,
+        exercise_id: exerciseId,
+        name_en: "Frozen Bench",
+        name_ar: "ضغط الصدر المعتمد",
+        muscle: "chest",
+        equipment: "barbell",
+        target_sets: 2,
+        target_reps: "10–12",
+        logging_mode: "weighted_reps",
+        load_convention: "external_total",
+      },
+    ];
+    backend.tables.program_assignments = [
+      { id: crypto.randomUUID(), member_id: userId, program_version_id: version, active: true },
+    ];
+    backend.tables.program_versions = [
+      { id: version, name: "Frozen training block", version: 2, weeks: 2, items },
+    ];
+    const label = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/train?section=program");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator("[data-stitch-program]")).toBeVisible();
+    await expect(page.locator("[data-program-day]")).toHaveCount(2);
+    await expect(page.getByText(label("Frozen Row", "سحب معتمد"), { exact: true })).toBeHidden();
+    await page.locator("[data-program-day]").nth(1).locator("summary").click();
+    await expect(page.getByText(label("Frozen Row", "سحب معتمد"), { exact: true })).toBeVisible();
+    await expectAlignedControls(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/stitch-program-${locale}-390.png`, fullPage: true });
+    await page
+      .getByRole("navigation", { name: label("Program weeks", "أسابيع البرنامج"), exact: true })
+      .getByRole("button")
+      .nth(1)
+      .click();
+    await expect(page.locator("[data-program-day]")).toHaveCount(1);
+    await expect(page.locator("[data-program-day]")).toContainText("2 × 10–12");
+    await page
+      .getByRole("button", { name: label("Start this day", "ابدأ هذا اليوم"), exact: true })
+      .click();
+    await expect(
+      page.getByRole("group", { name: label("Planned set 1", "مجموعة مخططة 1"), exact: true }),
+    ).toBeVisible();
+    expect(backend.tables.program_versions![0]!.items).toEqual(items);
+  });
 }
 
 async function expectAlignedControls(page: Page) {
@@ -715,6 +2955,12 @@ async function expectAlignedControls(page: Page) {
     .toEqual([]);
 }
 
+async function openCardioHistory(page: Page) {
+  const history = page.locator("[data-cardio-history]");
+  await expect(history).toBeVisible();
+  if ((await history.getAttribute("open")) === null) await history.locator("summary").click();
+}
+
 for (const locale of ["en", "ar"] as const) {
   test(`member controls align across narrow mobile and desktop in ${locale}`, async ({
     page,
@@ -743,12 +2989,16 @@ for (const locale of ["en", "ar"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.goto("/train");
       await page
+        .getByRole("button", { name: locale === "ar" ? "الكارديو" : "Cardio", exact: true })
+        .click();
+      await page
         .getByText(locale === "ar" ? "الكارديو وHIIT" : "Cardio & HIIT", { exact: true })
         .click();
       const filter = page.getByRole("combobox", {
         name: locale === "ar" ? "تصفية نشاط السجل" : "History activity filter",
         exact: true,
       });
+      await openCardioHistory(page);
       await expect(filter).toBeVisible();
       await expectAlignedControls(page);
       if (width === 320) {
@@ -874,8 +3124,10 @@ test("exercise picker exposes failed local saves and retries without losing the 
   await picker.getByRole("button", { name: /^Barbell Row/ }).click();
   const detail = page.getByRole("dialog", { name: "Barbell Row", exact: true });
   await detail.getByRole("button", { name: "Use exercise", exact: true }).click();
-  await expect(detail.getByRole("alert")).toContainText("Device storage is full");
-  await detail.getByRole("button", { name: "Use exercise", exact: true }).click();
+  await expect(detail).toBeHidden();
+  await picker.getByRole("button", { name: "Insert selected exercises", exact: true }).click();
+  await expect(picker.getByRole("alert")).toContainText("Device storage is full");
+  await picker.getByRole("button", { name: "Insert selected exercises", exact: true }).click();
   await expect(picker).toHaveCount(0);
   await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
@@ -884,6 +3136,273 @@ test("exercise picker exposes failed local saves and retries without losing the 
   await page.reload();
   await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
 });
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Stitch picker inserts a staged batch atomically across filters and offline retries in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    backend.tables.exercises![0]!.name_ar = "ضغط الصدر";
+    backend.tables.exercises![1]!.name_ar = "سحب بالبار";
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/train");
+    await page
+      .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
+      .click();
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await context.setOffline(true);
+    await page.getByRole("button", { name: l("Add exercise", "إضافة تمرين"), exact: true }).click();
+    const picker = page.getByRole("dialog", {
+      name: l("Add exercise", "إضافة تمرين"),
+      exact: true,
+    });
+    const add = (name: string) =>
+      picker
+        .getByRole("listitem")
+        .filter({ hasText: name })
+        .getByRole("button", { name: l("Add", "أضف"), exact: true });
+    await add(l("Bench Press", "ضغط الصدر")).click();
+    await picker
+      .getByRole("button", { name: l("Browse by muscle", "تصفح حسب العضلة"), exact: true })
+      .click();
+    await picker
+      .getByRole("group", { name: l("Muscle", "العضلة"), exact: true })
+      .getByRole("button", { name: l("Back", "الظهر"), exact: true })
+      .click();
+    await add(l("Barbell Row", "سحب بالبار")).click();
+    await expect(
+      picker.getByRole("button", {
+        name: l("Insert selected exercises", "إدراج التمارين المحددة"),
+        exact: true,
+      }),
+    ).toContainText("2");
+    expect(await page.locator(`[data-exercise-id="${secondExercise}"]`).count()).toBe(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await picker.screenshot({ path: `artifacts/stitch-picker-${locale}-390.png` });
+    await page.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+        if (this.name === "workouts" && (args[0] as { plan?: unknown[] }).plan?.length === 2) {
+          IDBObjectStore.prototype.put = original;
+          throw new DOMException("Device storage is full", "QuotaExceededError");
+        }
+        return original.apply(this, args);
+      };
+    });
+    const insert = picker.getByRole("button", {
+      name: l("Insert selected exercises", "إدراج التمارين المحددة"),
+      exact: true,
+    });
+    await insert.click();
+    await expect(picker.getByRole("alert")).toContainText("Device storage is full");
+    expect(await page.locator(`[data-exercise-id="${secondExercise}"]`).count()).toBe(0);
+    await insert.click();
+    await expect(picker).toBeHidden();
+    await expect(page.locator("[data-exercise-slot]")).toHaveCount(2);
+    const slots = await page
+      .locator("[data-exercise-slot]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-exercise-slot")));
+    expect(new Set(slots).size).toBe(2);
+    await page.reload();
+    await expect(page.locator("[data-exercise-slot]")).toHaveCount(2);
+    expect(
+      await page
+        .locator("[data-exercise-slot]")
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-exercise-slot"))),
+    ).toEqual(slots);
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`advanced configuration saves before returning focus and preserves planned sets offline in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { logging: true });
+    const version = crypto.randomUUID();
+    backend.tables.program_assignments = [
+      { id: crypto.randomUUID(), member_id: userId, program_version_id: version, active: true },
+    ];
+    backend.tables.program_versions = [
+      {
+        id: version,
+        name: "Configuration test plan",
+        version: 1,
+        weeks: 1,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            exercise_id: exerciseId,
+            week: 1,
+            day: 1,
+            position: 0,
+            target_sets: 2,
+            target_reps: "8–12",
+            name_en: "Bench Press",
+            name_ar: "ضغط الصدر",
+            muscle: "chest",
+            equipment: "barbell",
+            logging_mode: "weighted_reps",
+            load_convention: "external_total",
+          },
+        ],
+      },
+    ];
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/train?section=program");
+    await page
+      .getByRole("button", { name: l("Start this day", "ابدأ هذا اليوم"), exact: true })
+      .click();
+    const planned = page.getByRole("group", {
+      name: l("Planned set 1", "مجموعة مخططة 1"),
+      exact: true,
+    });
+    await planned.getByLabel("kg", { exact: true }).fill("50");
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await context.setOffline(true);
+    await page
+      .getByRole("button", { name: l("Exercise options", "خيارات التمرين"), exact: true })
+      .click();
+    const options = page.getByRole("dialog", {
+      name: l("Exercise options", "خيارات التمرين"),
+      exact: true,
+    });
+    await options.getByRole("radio", { name: l("Warm-up", "إحماء"), exact: true }).check();
+    const weight = options.getByLabel(
+      l("Additional set weight (kg)", "وزن المجموعة الإضافية (kg)"),
+      { exact: true },
+    );
+    const reps = options.getByLabel(l("Additional set reps", "تكرارات المجموعة الإضافية"), {
+      exact: true,
+    });
+    await weight.fill("62.5");
+    await reps.fill("9");
+    await options.getByRole("button", { name: "RPE 7.5", exact: true }).click();
+    await expect(options.getByRole("button", { name: "RPE 7.5", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await options.getByRole("button", { name: "RPE 7.5", exact: true }).click();
+    await expect(
+      options.getByLabel(l("Additional-set RPE", "جهد المجموعة الإضافية"), { exact: true }),
+    ).toHaveValue("");
+    await options.getByRole("button", { name: "RPE 7.5", exact: true }).click();
+    const rest = options.getByLabel(
+      l("Additional-set rest seconds", "ثواني راحة المجموعة الإضافية"),
+      { exact: true },
+    );
+    const next = options.getByRole("button", {
+      name: l("Continue to set entry", "المتابعة إلى إدخال المجموعة"),
+      exact: true,
+    });
+    await rest.fill("1000");
+    await next.click();
+    await expect(options.getByRole("alert")).toContainText("600");
+    await expect(options.getByRole("alert")).toBeInViewport();
+    await rest.fill("141");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            new Promise<boolean>((resolve, reject) => {
+              const request = indexedDB.open("prime-fitness-workouts");
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const database = request.result;
+                const read = database.transaction("workouts").objectStore("workouts").getAll();
+                read.onsuccess = () => {
+                  const value = read.result.find(
+                    (workout: {
+                      editor?: {
+                        drafts?: Record<string, { weight: string; reps: string; rpe: string }>;
+                      };
+                    }) =>
+                      Object.values(workout.editor?.drafts ?? {}).some(
+                        (draft) =>
+                          draft.weight === "62.5" && draft.reps === "9" && draft.rpe === "7.5",
+                      ),
+                  );
+                  database.close();
+                  resolve(!!value);
+                };
+                read.onerror = () => {
+                  database.close();
+                  reject(read.error);
+                };
+              };
+            }),
+        ),
+      )
+      .toBe(true);
+    await options.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await options.screenshot({ path: `artifacts/stitch-advanced-ready-${locale}.png` });
+    await page.setViewportSize({ width: 320, height: 420 });
+    await expect(options).toBeVisible();
+    const box = (await options.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(421);
+    expect(
+      await options.evaluate((element) => element.scrollWidth - element.clientWidth),
+    ).toBeLessThanOrEqual(1);
+    await page.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+        if (this.name === "workouts" && JSON.stringify(args[0]).includes('"weight":"62.5"')) {
+          IDBObjectStore.prototype.put = original;
+          throw new DOMException("Device storage is full", "QuotaExceededError");
+        }
+        return original.apply(this, args);
+      };
+    });
+    await next.click();
+    await expect(options.getByRole("alert")).toContainText("Device storage is full");
+    await expect(options.getByRole("alert")).toBeInViewport();
+    await expect(weight).toHaveValue("62.5");
+    expect(backend.tables.set_logs).toHaveLength(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await options.evaluate((element) => element.scrollWidth - element.clientWidth),
+    ).toBeLessThanOrEqual(1);
+    await options.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await options.screenshot({ path: `artifacts/stitch-advanced-config-${locale}.png` });
+    await next.click();
+    await expect(options).toBeHidden();
+    const entry = page.locator("[data-advanced-set-entry]");
+    await expect(entry.getByLabel("kg", { exact: true })).toBeFocused();
+    await expect(entry.getByLabel("kg", { exact: true })).toHaveValue("62.5");
+    await expect(planned.getByLabel("kg", { exact: true })).toHaveValue("50");
+    await expect(
+      page.getByRole("combobox", { name: l("Rest", "الراحة"), exact: true }),
+    ).toHaveValue("141");
+    await page.reload();
+    await page
+      .getByRole("button", {
+        name: l("Additional / advanced set", "مجموعة إضافية / متقدمة"),
+        exact: true,
+      })
+      .click();
+    await expect(entry.getByLabel("kg", { exact: true })).toHaveValue("62.5");
+    await expect(entry.getByLabel("RPE 1–10", { exact: true })).toHaveValue("7.5");
+    await expect(planned.getByLabel("kg", { exact: true })).toHaveValue("50");
+    await entry.getByRole("button", { name: l("Log set", "سجّل"), exact: true }).click();
+    await context.setOffline(false);
+    await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
+    expect(backend.tables.set_logs![0]).toMatchObject({
+      set_role: "warmup",
+      weight_kg: 62.5,
+      reps: 9,
+      rpe: 7.5,
+    });
+  });
+}
 
 test("scanner availability failures have an explicit retry instead of disappearing", async ({
   page,
@@ -955,6 +3474,181 @@ test("label scan review fills the normal food editor without saving unconfirmed 
   });
 });
 
+for (const locale of ["en", "ar"] as const) {
+  test(`Stitch cardio and HIIT retain configuration and recover a paused timer offline in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { cardio: true });
+    const accepted = new Map<string, Row>();
+    await context.route("**/rest/v1/rpc/get_cardio_history", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await context.route("**/rest/v1/rpc/save_cardio_log", (route) => {
+      const body = route.request().postDataJSON();
+      const record = {
+        ...body._data,
+        id: body._id,
+        member_id: userId,
+        revision: body._expected + 1,
+        deleted_at: null,
+      };
+      accepted.set(record.id, record);
+      return route.fulfill({ json: { status: "applied", record, revision: record.revision } });
+    });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/train?section=cardio");
+    const hiit = page.getByRole("region", { name: "HIIT", exact: true });
+    await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("45");
+    await hiit.getByLabel(l("Rest seconds", "ثواني الراحة"), { exact: true }).fill("15");
+    await hiit.getByLabel(l("Rounds", "الجولات"), { exact: true }).fill("12");
+    await hiit.getByLabel(l("Preparation seconds", "ثواني الاستعداد"), { exact: true }).fill("0");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: `artifacts/cardio-reference-ready-${locale}.png`,
+      fullPage: true,
+    });
+    await expect(page.locator("[data-cardio-history]")).not.toHaveAttribute("open", "");
+    await expect(
+      page.getByRole("combobox", {
+        name: l("History activity filter", "تصفية نشاط السجل"),
+        exact: true,
+      }),
+    ).toBeHidden();
+    await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("3");
+    await hiit.getByLabel(l("Rest seconds", "ثواني الراحة"), { exact: true }).fill("1");
+    await hiit.getByLabel(l("Rounds", "الجولات"), { exact: true }).fill("2");
+    await hiit.getByLabel(l("Preparation seconds", "ثواني الاستعداد"), { exact: true }).fill("0");
+    await expect(hiit.locator("[data-interval-clock]")).toContainText("0:03");
+    await page
+      .getByRole("button", { name: l("Steady-state cardio", "كارديو مستمر"), exact: true })
+      .click();
+    await page.getByLabel(l("Duration (minutes)", "المدة (دقائق)"), { exact: true }).fill("6.5");
+    await page.getByRole("button", { name: l("Cycling", "الدراجة"), exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectAlignedControls(page);
+    await page.screenshot({ path: `artifacts/stitch-cardio-log-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: l("HIIT intervals", "فترات HIIT"), exact: true })
+      .click();
+    await expect(hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true })).toHaveValue(
+      "3",
+    );
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expectAlignedControls(page);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    const summaryBox = (await hiit
+      .getByRole("heading", { name: l("Last 7 days", "آخر ٧ أيام"), exact: true })
+      .boundingBox())!;
+    const startBox = (await hiit
+      .getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true })
+      .boundingBox())!;
+    expect(startBox.y).toBeGreaterThan(summaryBox.y + summaryBox.height);
+    expect(startBox.height).toBeGreaterThanOrEqual(48);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/stitch-hiit-ready-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: l("Steady-state cardio", "كارديو مستمر"), exact: true })
+      .click();
+    await expect(
+      page.getByLabel(l("Duration (minutes)", "المدة (دقائق)"), { exact: true }),
+    ).toHaveValue("6.5");
+    await expect(
+      page.getByRole("button", { name: l("Cycling", "الدراجة"), exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page
+      .getByRole("button", { name: l("HIIT intervals", "فترات HIIT"), exact: true })
+      .click();
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await context.setOffline(true);
+    await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("0");
+    await hiit.getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true }).click();
+    await expect(hiit.getByRole("alert")).toContainText(l("24 hours", "٢٤ ساعة"));
+    await expect(hiit.getByRole("alert")).toBeInViewport();
+    await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("3");
+    await page.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+        if (this.name === "members" && JSON.stringify(args[0]).includes('"saved":false')) {
+          IDBObjectStore.prototype.put = original;
+          throw new DOMException("Device storage is full", "QuotaExceededError");
+        }
+        return original.apply(this, args);
+      };
+    });
+    await hiit.getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true }).click();
+    await expect(hiit.getByRole("alert")).toContainText("Device storage is full");
+    await expect(hiit.getByRole("alert")).toBeInViewport();
+    await hiit.getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true }).click();
+    const pause = hiit.getByRole("button", {
+      name: l("Pause intervals", "إيقاف الفترات مؤقتاً"),
+      exact: true,
+    });
+    await expect(pause).toBeInViewport();
+    const configuration = hiit.getByRole("heading", {
+      name: l("Your interval protocol", "بروتوكول الفترات الخاص بك"),
+      exact: true,
+    });
+    expect((await pause.boundingBox())!.y).toBeLessThan((await configuration.boundingBox())!.y);
+    await hiit
+      .getByRole("button", { name: l("Pause intervals", "إيقاف الفترات مؤقتاً"), exact: true })
+      .click();
+    await expect(
+      hiit.getByRole("button", { name: l("Resume intervals", "متابعة الفترات"), exact: true }),
+    ).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/stitch-hiit-paused-${locale}.png`, fullPage: true });
+    await page.reload();
+    await hiit
+      .getByRole("button", { name: l("Resume intervals", "متابعة الفترات"), exact: true })
+      .click();
+    await hiit
+      .getByRole("button", { name: l("Save completed HIIT", "حفظ HIIT المكتمل"), exact: true })
+      .click({ timeout: 12000 });
+    await openCardioHistory(page);
+    await expect(
+      page
+        .locator("[data-cardio-history] li")
+        .getByText("0.1 " + l("min", "د"), { exact: false })
+        .first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: l("Edit", "تعديل"), exact: true }).click();
+    await expect(
+      page.getByLabel(l("Activity date", "تاريخ النشاط"), { exact: true }),
+    ).toBeFocused();
+    await expect(
+      page.getByLabel(l("Duration (minutes)", "المدة (دقائق)"), { exact: true }),
+    ).toBeDisabled();
+    await expect(page.locator("[data-cardio-history]")).not.toHaveAttribute("open", "");
+    await page
+      .getByRole("button", { name: l("Cancel edit", "إلغاء التعديل"), exact: true })
+      .click();
+    await page.reload();
+    await expect(
+      hiit.getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true }),
+    ).toBeVisible();
+    expect(accepted.size).toBe(0);
+    await openCardioHistory(page);
+    await context.setOffline(false);
+    await page
+      .getByRole("button", { name: new RegExp(l("Retry cardio sync", "إعادة مزامنة الكارديو")) })
+      .click();
+    await expect.poll(() => accepted.size).toBe(1);
+    expect([...accepted.values()][0]).toMatchObject({
+      activity: "hiit",
+      duration_seconds: 7,
+      intervals: { rounds: 2, work: 3, rest: 1, prepare: 0 },
+    });
+    expect(backend.tables.set_logs).toHaveLength(0);
+    expect(backend.tables.workout_sessions).toHaveLength(0);
+  });
+}
+
 test("cardio logs remain available after an offline reload and sync with one stable identity", async ({
   page,
   context,
@@ -977,17 +3671,21 @@ test("cardio logs remain available after an offline reload and sync with one sta
     accepted.set(body._id, row);
     return route.fulfill({ json: { status: "applied", record: row, revision: row.revision } });
   });
-  await page.goto("/train");
-  await page.getByText("Cardio & HIIT", { exact: true }).click();
+  await page.goto("/train?section=cardio");
+  await page.getByRole("button", { name: "Steady-state cardio", exact: true }).click();
   await page.getByLabel("Duration (minutes)", { exact: true }).fill("12.5");
   await page.getByLabel("Distance (km)", { exact: true }).fill("2");
   await page.evaluate(() => navigator.serviceWorker.ready);
   await context.setOffline(true);
   await page.getByRole("button", { name: "Save cardio on this device", exact: true }).click();
-  await expect(page.getByText("12.5 min", { exact: false }).first()).toBeVisible();
+  await expect(
+    page.locator("[data-cardio-history] li").getByText("12.5 min", { exact: false }).first(),
+  ).toBeVisible();
   await page.reload();
-  await page.getByText("Cardio & HIIT", { exact: true }).click();
-  await expect(page.getByText("12.5 min", { exact: false }).first()).toBeVisible();
+  await openCardioHistory(page);
+  await expect(
+    page.locator("[data-cardio-history] li").getByText("12.5 min", { exact: false }).first(),
+  ).toBeVisible();
   expect(accepted.size).toBe(0);
   await context.setOffline(false);
   await page.getByRole("button", { name: /Retry cardio sync/ }).click();
@@ -1024,11 +3722,15 @@ test("cardio conflicts show both records and resubmit against the reviewed serve
           : { status: "applied", record: row, revision: 4 },
     });
   });
-  await page.goto("/train");
-  await page.getByText("Cardio & HIIT", { exact: true }).click();
+  await page.goto("/train?section=cardio");
+  await page.getByRole("button", { name: "Steady-state cardio", exact: true }).click();
   await page.getByLabel("Duration (minutes)", { exact: true }).fill("12");
   await page.getByLabel("Notes", { exact: true }).fill("My cardio note");
   await page.getByRole("button", { name: "Save cardio on this device", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Review cardio sync", exact: true })).toBeVisible();
+  await page.locator("[data-cardio-history] > summary").click();
+  await expect(page.getByRole("heading", { name: "Server version", exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Review cardio sync", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Your device version", exact: true }),
   ).toBeVisible();
@@ -1075,6 +3777,7 @@ test("member-code discovery is opt-in and a reviewed friend request uses the soc
     return route.fulfill({ json: state });
   });
   await page.goto("/rewards?section=community");
+  await page.getByRole("button", { name: "Friends", exact: true }).click();
   await expect(page.getByText("PF-1234567890ABCDEF", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Find member", exact: true })).toBeDisabled();
   await page.getByLabel("Allow exact-code discovery and friend requests", { exact: true }).check();
@@ -1135,8 +3838,16 @@ test("drop segments keep their working root after refresh and root deletion Undo
   await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
   const root = backend.tables.set_logs![0]!.id;
   await page.getByRole("button", { name: "Exercise options", exact: true }).click();
-  await page.getByRole("combobox", { name: "Set type", exact: true }).selectOption("drop");
+  await page.getByRole("radio", { name: "Working set", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("radio", { name: "Warm-up", exact: true })).toBeChecked();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("radio", { name: "Drop segment", exact: true })).toBeChecked();
   await page.getByRole("combobox", { name: "Root working set", exact: true }).selectOption(root);
+  await page
+    .getByRole("dialog", { name: "Exercise options", exact: true })
+    .screenshot({ path: "artifacts/stitch-advanced-set-options.png" });
+  await page.getByRole("button", { name: "Continue to set entry", exact: true }).click();
   for (const [weight, reps] of [
     [50, 5],
     [40, 4],
@@ -1152,7 +3863,7 @@ test("drop segments keep their working root after refresh and root deletion Undo
   expect(segments.map((row) => row.segment_index)).toEqual([1, 2]);
   await page.reload();
   await page.getByRole("button", { name: "Exercise options", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Set type", exact: true })).toHaveValue("drop");
+  await expect(page.getByRole("radio", { name: "Drop segment", exact: true })).toBeChecked();
   await expect(page.getByRole("combobox", { name: "Root working set", exact: true })).toHaveValue(
     root,
   );
@@ -1161,6 +3872,7 @@ test("drop segments keep their working root after refresh and root deletion Undo
     page.getByRole("combobox", { name: "Root working set", exact: true }).getByRole("option"),
   ).toHaveCount(1);
   await page.getByRole("combobox", { name: "Side", exact: true }).selectOption("bilateral");
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Delete set 1", exact: true }).click();
   await expect.poll(() => backend.tables.set_logs!.length).toBe(0);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
@@ -1206,17 +3918,20 @@ test("unilateral pairing resumes after refresh and Arabic workout controls fit a
   await page.getByRole("button", { name: "Start workout", exact: true }).click();
   await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("combobox", { name: "Side", exact: true }).selectOption("left");
+  await page.keyboard.press("Escape");
   await page.getByLabel("Reps", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
   await page.reload();
   await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Side", exact: true })).toHaveValue("right");
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Same as left", exact: true }).click();
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect.poll(() => backend.tables.set_logs!.length).toBe(2);
   expect(backend.tables.set_logs![0]!.pair_id).toBe(backend.tables.set_logs![1]!.pair_id);
   expect(backend.tables.set_logs!.map((r) => r.side)).toEqual(["left", "right"]);
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("combobox", { name: "Side", exact: true }).selectOption("right");
   await trainingFeatures(context, { logging: false });
   await page.reload();
@@ -1297,6 +4012,7 @@ test("planned rows keep distinct values and pair repeated exercise slots with in
   await page
     .getByLabel("Superset partner", { exact: true })
     .selectOption(JSON.stringify([exerciseId, `${version}:${second}`]));
+  await page.keyboard.press("Escape");
   await expect(a.getByText("A1 · Superset", { exact: true })).toBeVisible();
   await page.evaluate(() => {
     const original = IDBObjectStore.prototype.put;
@@ -1333,6 +4049,12 @@ test("planned rows keep distinct values and pair repeated exercise slots with in
   });
   await expect(one.getByLabel("kg", { exact: true })).toHaveValue("50");
   await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+  // The final-seconds treatment follows the actual deadline after adjustments.
+  const shorten = page.getByRole("button", { name: "Shorten rest 15 seconds" });
+  for (let i = 0; i < 3; i++) await shorten.click();
+  await expect(page.locator("[data-rest-final]")).toBeVisible({ timeout: 8000 });
+  await page.getByRole("button", { name: "Extend rest 15 seconds" }).click();
+  await expect(page.locator("[data-rest-final]")).toHaveCount(0);
   await page.reload();
   await expect(a.getByText("A1 · Superset", { exact: true })).toBeVisible();
   await expect(b.getByText("A2 · Superset", { exact: true })).toBeVisible();
@@ -1732,6 +4454,14 @@ test("history details retain all sets and frozen labels with catalogue visuals o
   await expect(bench.locator('img[src*="/images/0025-"]')).toBeVisible();
   await expect(page.getByRole("region", { name: "Old hold", exact: true })).toContainText("35 sec");
   await expect(page.getByText("88888", { exact: false })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(
+    (await page
+      .getByRole("button", { name: "View workout details: Imported training", exact: true })
+      .boundingBox())!.width,
+  ).toBeGreaterThan(300);
+  await page.screenshot({ path: "artifacts/stitch-history-expanded-390.png" });
   expect(gifRequests).toBe(0);
   await bench
     .getByRole("button", { name: "View exercise demonstration: Old Bench", exact: true })
@@ -1768,15 +4498,23 @@ test("logs offline, survives refresh, syncs retry IDs once, then finishes", asyn
   await page.getByLabel("kg", { exact: true }).fill("100");
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect(page.getByText(/On device/)).toBeVisible();
+  await expect(page.locator('[data-workout-sync-state="pending"]')).toContainText(
+    "Offline · Saved on device · waiting to sync",
+  );
   await page.reload();
   await expect(page.getByText(/On device/)).toBeVisible();
+  await expect(page.locator('[data-workout-sync-state="pending"]')).toBeVisible();
   backend.loseSetResponse();
   await context.setOffline(false);
   await expect.poll(() => backend.setPosts()).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("button", { name: "Retry sync" }).click();
+  await page.keyboard.press("Escape");
   await expect(page.getByText("Synced", { exact: true })).toBeVisible();
   expect(backend.tables.set_logs).toHaveLength(1);
   await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await expect(page.locator("[data-stitch-workout-review]")).toContainText("500 kg");
+  await page.screenshot({ path: "artifacts/stitch-finish-review.png", fullPage: true });
   await page.getByRole("button", { name: "Save workout", exact: true }).click();
   await expect(page.getByRole("button", { name: "Start workout", exact: true })).toBeVisible();
   expect(backend.tables.workout_sessions![0]!.finished_at).toBeTruthy();
@@ -1797,6 +4535,10 @@ test("calculator warm-up role survives refresh with advanced logging disabled", 
   await page.getByRole("button", { name: "Generate warm-up sets" }).click();
   await page.getByRole("button", { name: "50 kg × 5", exact: true }).click();
   await page.keyboard.press("Escape");
+  await page
+    .getByRole("dialog", { name: "Exercise options", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await expect(page.getByLabel("kg", { exact: true })).toHaveValue("50");
   await page.reload();
   await expect(page.getByLabel("kg", { exact: true })).toHaveValue("50");
@@ -1805,6 +4547,73 @@ test("calculator warm-up role survives refresh with advanced logging disabled", 
   expect(backend.tables.set_logs![0]!.set_role).toBe("warmup");
   expect(backend.tables.set_logs![0]!.weight_kg).toBe(50);
   expect(backend.tables.set_logs![0]!.reps).toBe(5);
+});
+
+test("exercise options stays responsive with the full catalogue and searches every superset partner", async ({
+  page,
+  context,
+}, testInfo) => {
+  const backend = await fakeBackend(context);
+  backend.tables.exercises!.push(
+    ...Array.from({ length: 3000 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      name_en: `Catalogue ${String(index).padStart(4, "0")}`,
+      name_ar: `تمرين ${index}`,
+      muscle: "back",
+      equipment: "barbell",
+      active: true,
+    })),
+  );
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  const client = await context.newCDPSession(page);
+  await client.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  const started = Date.now();
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Exercise options", exact: true });
+  await expect(dialog).toBeVisible({ timeout: 5000 });
+  const elapsed = Date.now() - started;
+  const partner = dialog.getByLabel("Superset partner", { exact: true });
+  await expect(partner.getByRole("option")).toHaveCount(101);
+  await dialog.getByLabel("Find superset partner", { exact: true }).fill("Catalogue 2999");
+  await expect(partner.getByRole("option")).toHaveCount(2);
+  await partner.selectOption({ label: "Catalogue 2999" });
+  await expect(partner).not.toHaveValue("");
+  // Clearing the filter must retain a selected choice outside the first 100.
+  await dialog.getByLabel("Find superset partner", { exact: true }).fill("");
+  await expect(partner.locator("option:checked")).toHaveText("Catalogue 2999");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByLabel("kg", { exact: true }).fill("62.5");
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await client.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  await client.detach();
+  await page.reload();
+  await expect(page.getByLabel("kg", { exact: true })).toHaveValue("62.5");
+  await testInfo.attach("exercise-options-performance", {
+    body: JSON.stringify({
+      catalogueSize: backend.tables.exercises!.length,
+      cpuSlowdown: 4,
+      openMilliseconds: elapsed,
+      initiallyRenderedChoices: 100,
+    }),
+    contentType: "application/json",
+  });
+  writeFileSync(
+    "artifacts/exercise-options-performance.json",
+    JSON.stringify(
+      {
+        catalogueSize: backend.tables.exercises!.length,
+        cpuSlowdown: 4,
+        openMilliseconds: elapsed,
+        initiallyRenderedChoices: 100,
+      },
+      null,
+      2,
+    ),
+  );
 });
 
 test("plate math, warmups, swapping and shared superset rest", async ({ page, context }) => {
@@ -1820,6 +4629,10 @@ test("plate math, warmups, swapping and shared superset rest", async ({ page, co
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("kg", { exact: true })).toHaveValue("50");
   await page.getByLabel("Superset partner").selectOption({ label: "Barbell Row" });
+  await page
+    .getByRole("dialog", { name: "Exercise options", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Barbell Row/ }).first()).toHaveAttribute(
     "aria-expanded",
@@ -1833,6 +4646,7 @@ test("plate math, warmups, swapping and shared superset rest", async ({ page, co
     "true",
   );
   await expect(page.getByText("1:30", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("button", { name: "Swap exercise", exact: true }).click();
   await chooseFromLibrary(page, "Barbell Row");
   await expect(page.getByRole("button", { name: /^Barbell Row/ }).first()).toHaveAttribute(
@@ -2002,9 +4816,13 @@ test("portions save consumed totals once and offline water Undo survives sync an
   await page.getByLabel("Calories", { exact: true }).fill("200");
   await page.getByLabel("Protein", { exact: true }).fill("10");
   await page.getByLabel("Portion multiplier", { exact: true }).fill("2");
-  await expect(page.getByRole("dialog")).toContainText("Total to save: 400 kcal");
+  const portionSummary = page
+    .getByRole("dialog")
+    .getByRole("status")
+    .filter({ hasText: "Total to save" });
+  await expect(portionSummary).toContainText("400 kcal");
   await page.getByLabel("Portion multiplier", { exact: true }).fill("1.5");
-  await expect(page.getByRole("dialog")).toContainText("Total to save: 300 kcal");
+  await expect(portionSummary).toContainText("300 kcal");
   if (process.env["PW_UI_SCREENSHOTS"])
     await page.screenshot({ path: "artifacts/nutrition-portions-mobile.png" });
   await page.getByRole("dialog").getByRole("button", { name: "Add food", exact: true }).click();
@@ -2107,6 +4925,7 @@ test("measurement sheets retain dates and drafts and reconcile a lost native ack
 }) => {
   const backend = await fakeBackend(context),
     day = "2026-10-20";
+  await page.setViewportSize({ width: 390, height: 850 });
   await page.goto("/progress?section=body");
   await expect(page.getByLabel("Weight kg", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Add measurements", exact: true }).click();
@@ -2126,7 +4945,9 @@ test("measurement sheets retain dates and drafts and reconcile a lost native ack
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(backend.tables.body_measurements).toHaveLength(1);
   expect(backend.tables.body_measurements[0]).toMatchObject({ measured_on: day, weight_kg: 81.5 });
-  await expect(page.getByRole("table")).toContainText(day);
+  await expect(
+    page.getByRole("region", { name: "Measurement history", exact: true }),
+  ).toContainText(day);
   await page.getByRole("button", { name: "Add measurements", exact: true }).click();
   await page.getByLabel("Weight kg", { exact: true }).fill("82");
   const preferences = await context.newPage();
@@ -2148,6 +4969,463 @@ test("measurement sheets retain dates and drafts and reconcile a lost native ack
       animations: "disabled",
     });
   }
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Phase 3 and 4 enhancements convert servings and preserve community drafts in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale),
+      l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await trainingFeatures(context, { social: true });
+    backend.tables.foods = [
+      {
+        id: crypto.randomUUID(),
+        name_en: "Metric oats",
+        name_ar: "شوفان",
+        serving: "100 g",
+        calories: 200,
+        protein_g: 10,
+        carbs_g: 30,
+        fat_g: 5,
+        active: true,
+      },
+    ];
+    backend.tables.member_pv_totals = [{ member_id: userId, points: 100 }];
+    backend.tables.rewards = [
+      {
+        id: crypto.randomUUID(),
+        title_en: "Affordable reward",
+        title_ar: "مكافأة متاحة",
+        cost_pv: 50,
+        stock: 2,
+        active: true,
+      },
+      {
+        id: crypto.randomUUID(),
+        title_en: "Expensive reward",
+        title_ar: "مكافأة مرتفعة",
+        cost_pv: 200,
+        stock: 2,
+        active: true,
+      },
+    ];
+    await context.route("**/rest/v1/rpc/social_action", (route) =>
+      route.fulfill({
+        json: {
+          account: {
+            member_id: userId,
+            code: "PF-1234567890ABCDEF",
+            discoverable: true,
+            sharing: true,
+          },
+          friends: [],
+          blocked: [],
+          challenges: [],
+        },
+      }),
+    );
+    await page.goto("/nutrition");
+    await page.getByRole("button", { name: l("Add food", "إضافة طعام"), exact: true }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByRole("button", { name: l("Search", "بحث"), exact: true }).click();
+    await sheet
+      .getByRole("textbox", { name: l("Search foods…", "ابحث عن طعام…"), exact: true })
+      .fill("Metric");
+    await sheet.getByRole("button", { name: /Metric oats|شوفان/ }).click();
+    await sheet.getByLabel(l("Amount unit", "وحدة الكمية"), { exact: true }).selectOption("g");
+    await sheet.getByLabel(l("Amount (g)", "الكمية (g)"), { exact: true }).fill("50");
+    await sheet.screenshot({ path: `artifacts/phase34-food-entry-${locale}.png` });
+    await sheet.getByRole("button", { name: l("Add food", "إضافة طعام"), exact: true }).click();
+    await expect.poll(() => backend.tables.food_logs.length).toBe(1);
+    expect(backend.tables.food_logs[0]!.calories).toBe(100);
+    await page.getByRole("button", { name: l("Add food", "إضافة طعام"), exact: true }).click();
+    await expect(
+      page.getByRole("region", { name: l("Quick recent foods", "أطعمة حديثة سريعة") }),
+    ).toContainText("100 kcal");
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: l("Close", "إغلاق"), exact: true })
+      .click();
+    await page.goto("/rewards?section=shop");
+    await page.getByLabel(l("Within my PV balance", "ضمن رصيدي من PV"), { exact: true }).check();
+    await expect(
+      page.getByText(l("Expensive reward", "مكافأة مرتفعة"), { exact: true }),
+    ).toHaveCount(0);
+    await page.getByLabel(l("Find a reward", "البحث عن مكافأة"), { exact: true }).fill("no-match");
+    await expect(
+      page.getByRole("button", {
+        name: l("Clear reward filters", "مسح فلاتر المكافآت"),
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: l("Community", "المجتمع"), exact: true }).click();
+    await page.getByRole("button", { name: l("Challenges", "التحديات"), exact: true }).click();
+    await page
+      .getByLabel(l("Challenge title", "عنوان التحدي"), { exact: true })
+      .fill("Unfinished challenge");
+    await page.getByRole("button", { name: l("Friends", "الأصدقاء"), exact: true }).click();
+    await expect(
+      page.getByLabel(l("Challenge title", "عنوان التحدي"), { exact: true }),
+    ).toBeHidden();
+    await page.goBack();
+    await expect(
+      page.getByLabel(l("Challenge title", "عنوان التحدي"), { exact: true }),
+    ).toHaveValue("Unfinished challenge");
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expectAlignedControls(page);
+    await page.screenshot({ path: `artifacts/phase34-community-${locale}.png`, fullPage: true });
+  });
+}
+
+test("Phase 3 meal copy reviews first and retries stable IDs after a lost native acknowledgement", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const day = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+  backend.tables.food_logs = [
+    {
+      id: crypto.randomUUID(),
+      member_id: userId,
+      log_date: "2026-10-01",
+      meal: "breakfast",
+      name: "Source oats",
+      calories: 400,
+      protein_g: 20,
+      carbs_g: 60,
+      fat_g: 10,
+    },
+  ];
+  let fail = true;
+  const sent: string[][] = [];
+  await context.route("**/rest/v1/food_logs**", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const rows = route.request().postDataJSON() as Row[];
+    sent.push(rows.map((row) => String(row.id)));
+    for (const row of rows)
+      if (!backend.tables.food_logs.some((saved) => saved.id === row.id))
+        backend.tables.food_logs.push(row);
+    return fail ? route.abort("failed") : route.fulfill({ json: rows });
+  });
+  await page.goto("/nutrition");
+  await page.getByRole("button", { name: "Copy a previous meal", exact: true }).click();
+  const review = page.getByRole("dialog", { name: "Review meal copy", exact: true });
+  await review.getByLabel("Source date", { exact: true }).fill("2026-10-01");
+  await review.getByRole("button", { name: "Preview meal", exact: true }).click();
+  await expect(review.getByText("Source oats · 400 kcal", { exact: true })).toBeVisible();
+  expect(sent).toHaveLength(0);
+  await review.getByLabel("Copy portion multiplier", { exact: true }).fill("0.5");
+  await review.screenshot({ path: "artifacts/phase34-meal-copy.png" });
+  await review.getByRole("button", { name: "Confirm meal copy", exact: true }).click();
+  await expect(review.getByRole("button", { name: "Retry saved copy", exact: true })).toBeVisible();
+  fail = false;
+  await page.reload();
+  const recovered = page.getByRole("dialog", { name: "Review meal copy", exact: true });
+  await recovered.getByRole("button", { name: "Retry saved copy", exact: true }).click();
+  await expect(recovered).toBeHidden();
+  expect(sent.length).toBeGreaterThanOrEqual(2);
+  expect(sent.every((ids) => JSON.stringify(ids) === JSON.stringify(sent[0]))).toBe(true);
+  const copies = backend.tables.food_logs.filter((row) => row.log_date === day);
+  expect(copies).toHaveLength(1);
+  expect(copies[0]!.calories).toBe(200);
+  expect(copies[0]!.id).not.toBe(backend.tables.food_logs[0]!.id);
+});
+
+test("Phase 3 copied meals remain atomic across offline reload and sync", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await trainingFeatures(context, { offline: true });
+  const day = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+  backend.tables.food_logs = [
+    {
+      id: crypto.randomUUID(),
+      member_id: userId,
+      log_date: day,
+      meal: "breakfast",
+      name: "Cached meal",
+      calories: 400,
+      protein_g: 20,
+      carbs_g: 60,
+      fat_g: 10,
+      revision: 1,
+    },
+  ];
+  await page.goto("/nutrition");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect(page.getByText("Cached meal", { exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Copy a previous meal", exact: true }).click();
+  const review = page.getByRole("dialog", { name: "Review meal copy", exact: true });
+  await review.getByLabel("Source date", { exact: true }).fill(day);
+  await review.getByRole("button", { name: "Preview meal", exact: true }).click();
+  await review.getByLabel("Copy portion multiplier", { exact: true }).fill("0.5");
+  await review.getByRole("button", { name: "Confirm meal copy", exact: true }).click();
+  await expect(review).toBeHidden();
+  await page.reload();
+  await expect(page.locator("[data-stitch-nutrition-summary]")).toContainText("600");
+  await expect(
+    page.locator("[data-food-save-state]").filter({ hasText: "waiting to sync" }),
+  ).toHaveCount(1);
+  expect(backend.tables.food_logs).toHaveLength(1);
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect.poll(() => backend.tables.food_logs.length, { timeout: 20000 }).toBe(2);
+  expect(new Set(backend.tables.food_logs.map((row) => row.id)).size).toBe(2);
+});
+
+test("Phase 4 muscle starting points preview guidance and respect equipment filters", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await trainingFeatures(context, { guidance: true, logging: true });
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.getByRole("button", { name: "Add exercise", exact: true }).click();
+  const picker = page.locator("[data-stitch-exercise-picker]");
+  await picker.getByRole("button", { name: "Browse by muscle", exact: true }).click();
+  await picker
+    .getByRole("group", { name: "Muscle", exact: true })
+    .getByRole("button", { name: "Chest", exact: true })
+    .click();
+  const suggestions = picker.getByRole("region", { name: "Muscle starting points", exact: true });
+  await expect(suggestions.getByRole("button", { name: "Bench Press", exact: true })).toBeVisible();
+  await suggestions.getByRole("button", { name: "Bench Press", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bench Press", exact: true })).toBeVisible();
+  await page.getByRole("dialog").last().getByRole("button", { name: "Close", exact: true }).click();
+  await picker
+    .getByRole("group", { name: "Equipment", exact: true })
+    .getByRole("button", { name: "Barbell", exact: true })
+    .click();
+  await expect(suggestions.getByRole("button", { name: "Bench Press", exact: true })).toBeVisible();
+  await picker
+    .getByRole("searchbox", { name: "Search exercises", exact: true })
+    .fill("Barbell Row");
+  await expect(suggestions).toHaveCount(0);
+  await page.screenshot({ path: "artifacts/phase4-muscle-discovery.png" });
+  expect(backend.tables.set_logs).toHaveLength(0);
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Phase 4 progress rewards and community remain accurate and responsive in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { social: true });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    backend.tables.member_pv_totals = [{ member_id: userId, points: 125 }];
+    backend.tables.body_measurements = [
+      {
+        id: crypto.randomUUID(),
+        member_id: userId,
+        measured_on: "2026-11-01",
+        weight_kg: 80,
+        waist_cm: null,
+        body_fat_pct: null,
+      },
+    ];
+    backend.tables.rewards = [
+      {
+        id: crypto.randomUUID(),
+        title_en: "Recovery session",
+        title_ar: "جلسة تعافٍ",
+        cost_pv: 50,
+        stock: 2,
+        active: true,
+      },
+    ];
+    backend.tables.badges = [
+      {
+        code: "first",
+        title_en: "First session",
+        title_ar: "الجلسة الأولى",
+        description_en: "Complete a workout",
+        description_ar: "أكمل تمريناً",
+        xp_bonus: 100,
+        position: 1,
+      },
+    ];
+    const ops: string[] = [];
+    await context.route("**/rest/v1/rpc/social_action", (route) => {
+      ops.push(route.request().postDataJSON()._op);
+      return route.fulfill({
+        json: {
+          account: {
+            member_id: userId,
+            code: "PF-1234567890ABCDEF",
+            discoverable: false,
+            sharing: false,
+          },
+          friends: [],
+          blocked: [],
+          challenges: [],
+        },
+      });
+    });
+    await page.goto("/progress");
+    await expect(page.locator("[data-stitch-progress-metrics] dd").first()).toHaveText(l("0", "٠"));
+    await expect(
+      page.getByText(l("Front view", "الواجهة الأمامية"), { exact: true }),
+    ).toBeVisible();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expectAlignedControls(page);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `artifacts/phase4-progress-${locale}.png`, fullPage: true });
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      const spacing = await page.locator("[data-stitch-muscle-volume]").evaluate((section) => {
+        const disclosure = section
+          .querySelector("[data-muscle-breakdown]")!
+          .getBoundingClientRect();
+        const controls = section.querySelector("[data-muscle-controls]")!;
+        const style = getComputedStyle(controls);
+        return {
+          vertical: controls.getBoundingClientRect().top - disclosure.bottom,
+          row: parseFloat(style.rowGap),
+          column: parseFloat(style.columnGap),
+        };
+      });
+      expect(spacing.vertical).toBeGreaterThanOrEqual(16);
+      expect(spacing.row).toBeGreaterThanOrEqual(12);
+      expect(spacing.column).toBeGreaterThanOrEqual(12);
+      await expectAlignedControls(page);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("[data-stitch-muscle-volume]").screenshot({
+      path: `artifacts/spacing-muscle-volume-${locale}.png`,
+      // Exclude fixed navigation from the stitched component-only review capture.
+      style:
+        '[data-studio-shell] > a[href="#main-content"], [data-studio-shell] > nav { visibility: hidden !important; }',
+    });
+    const session = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    backend.tables.workout_sessions = [
+      {
+        id: session,
+        member_id: userId,
+        title: "Imported strength",
+        started_at: timestamp,
+        finished_at: timestamp,
+        origin: "import",
+      },
+    ];
+    backend.tables.set_logs = [
+      {
+        id: crypto.randomUUID(),
+        member_id: userId,
+        session_id: session,
+        exercise_id: exerciseId,
+        reps: 5,
+        weight_kg: 100,
+        load_convention: "external_total",
+        logging_mode: "weighted_reps",
+        set_role: "working",
+        side: "bilateral",
+        created_at: timestamp,
+      },
+    ];
+    await page.getByRole("button", { name: l("Strength", "القوة"), exact: true }).click();
+    await expect(page.getByText("100 kg × 5", { exact: true })).toBeVisible();
+    await expectAlignedControls(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/phase4-strength-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
+      .click();
+    await expect(page.locator("[data-stitch-body-metrics]")).toContainText("80");
+    await expect(page.locator("[data-stitch-body-metrics]")).toContainText(
+      l("Not recorded", "لم يُسجّل"),
+    );
+    await expectAlignedControls(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/phase4-body-${locale}.png`, fullPage: true });
+    await page.goto("/rewards");
+    await expect(page.locator("[data-stitch-reward-summary]")).toContainText(
+      (125).toLocaleString(locale),
+    );
+    await expect(
+      page.getByRole("button", { name: l("Level 91 Locked", "المستوى 91 مقفل"), exact: true }),
+    ).toBeVisible();
+    await expectAlignedControls(page);
+    await page.screenshot({ path: `artifacts/phase4-journey-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: l("Reward shop", "متجر المكافآت"), exact: true })
+      .click();
+    await expect(
+      page.getByText(l("Recovery session", "جلسة تعافٍ"), { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: l("Redeem", "استبدال"), exact: true }),
+    ).toBeEnabled();
+    await page.screenshot({ path: `artifacts/phase4-shop-${locale}.png`, fullPage: true });
+    await page.getByRole("button", { name: l("Community", "المجتمع"), exact: true }).click();
+    await expect(
+      page.getByRole("navigation", { name: l("Community destinations", "وجهات المجتمع") }),
+    ).toBeVisible();
+    await page
+      .getByRole("combobox", {
+        name: l("Leaderboard & activity by Pod", "الصدارة والنشاط حسب المجموعة"),
+      })
+      .selectOption("pod");
+    await expect(page.getByText("Coach Tarek", { exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/phase4-community-${locale}.png`, fullPage: true });
+    await page.getByRole("button", { name: l("Friends", "الأصدقاء"), exact: true }).click();
+    await expect(page.getByText("PF-1234567890ABCDEF", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: l("Challenges", "التحديات"), exact: true }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: l("Create a shared challenge", "إنشاء تحدٍ مشترك"),
+        exact: true,
+      }),
+    ).toBeVisible();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expectAlignedControls(page);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/phase4-challenges-${locale}.png`, fullPage: true });
+    expect(ops.every((op) => op === "state")).toBe(true);
+    expect(backend.tables.redemptions ?? []).toHaveLength(0);
+  });
+}
+
+test("Phase 4 unavailable reward and Pod reads never claim maximum rank or empty membership", async ({
+  page,
+  context,
+}) => {
+  await fakeBackend(context);
+  await context.route("**/rest/v1/member_xp_totals**", (route) =>
+    route.fulfill({ status: 503, json: { message: "Totals unavailable" } }),
+  );
+  let fail = true;
+  await context.route("**/rest/v1/pods**", (route) =>
+    fail ? route.fulfill({ status: 403, json: { message: "Pods unavailable" } }) : route.fallback(),
+  );
+  await page.goto("/rewards?section=community");
+  await expect(page.locator("[data-stitch-reward-summary]")).toContainText("Progress unavailable");
+  await expect(page.locator("[data-stitch-reward-summary]")).not.toContainText("Max level");
+  await expect(page.getByRole("button", { name: "Retry Pod activity", exact: true })).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(
+    page.getByText("Your leader will assign you to a Pod.", { exact: true }),
+  ).toHaveCount(0);
+  fail = false;
+  await page.getByRole("button", { name: "Retry Pod activity", exact: true }).click();
+  await expect(
+    page
+      .getByRole("combobox", { name: "Leaderboard & activity by Pod" })
+      .getByRole("option", { name: "Test Pod", exact: true }),
+  ).toHaveCount(1);
 });
 
 test("strength metrics separate load conventions and show imported source sets", async ({
@@ -2206,11 +5484,18 @@ test("strength metrics separate load conventions and show imported source sets",
     },
   ];
   await page.goto("/progress?section=strength");
+  await page.getByText("More strength filters", { exact: true }).click();
   await page.getByLabel("Record load convention", { exact: true }).selectOption("external_total");
   await expect(page.getByText("100 kg × 5", { exact: true })).toBeVisible();
   await page.getByLabel("Record load convention", { exact: true }).selectOption("per_hand");
   await expect(page.getByText("30 kg × 8", { exact: true })).toBeVisible();
   await expect(page.getByText("100 kg × 5", { exact: true })).toHaveCount(0);
+  const exerciseSearch = page.getByLabel("Search strength exercises", { exact: true });
+  await exerciseSearch.fill("No matching exercise");
+  await expect(exerciseSearch).toBeFocused();
+  await exerciseSearch.pressSequentially(" still typing");
+  await expect(exerciseSearch).toHaveValue("No matching exercise still typing");
+  await exerciseSearch.fill("");
   await page.getByText("Review source sets (2)", { exact: true }).click();
   await expect(page.getByText("Imported · no rewards", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Imported dumbbells", exact: true })).toHaveAttribute(
@@ -2281,7 +5566,8 @@ test("coach sections defer private reads, expand every set and block former coac
     page.getByRole("navigation", { name: "Member workspace sections", exact: true }),
   ).toBeVisible();
   expect(privateReads).toEqual([]);
-  await page.getByRole("button", { name: "Training", exact: true }).click();
+  await page.screenshot({ path: "artifacts/phase6-member-overview.png", animations: "disabled" });
+  await page.getByRole("button", { name: "Review training history", exact: true }).click();
   await page.getByRole("button", { name: "View sets · Complete leg day", exact: true }).click();
   await expect(page.getByText("Frozen exercise 8", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Nutrition", exact: true }).click();
@@ -2374,9 +5660,9 @@ test("coach roster searches beyond REST caps and reads complete XP and visible w
   ).toBeVisible();
   await page.getByLabel("Search members", { exact: true }).fill("Zed Target");
   await page.getByRole("button", { name: "Apply member search", exact: true }).click();
-  const row = page.getByRole("row").filter({ hasText: "Zed Target" });
+  const row = page.getByRole("listitem").filter({ hasText: "Zed Target" });
   await expect(row).toContainText("900000 XP");
-  await expect(row.getByRole("cell").last()).toHaveText("1005");
+  await expect(row.getByRole("definition").filter({ hasText: /^1005$/ })).toBeVisible();
   await expect(row).toContainText(day);
   expect(sessionReads.every((url) => new URL(url).searchParams.get("limit") === "1")).toBe(true);
   await page.reload();
@@ -2384,7 +5670,9 @@ test("coach roster searches beyond REST caps and reads complete XP and visible w
   await page.getByRole("combobox", { name: "Relationship", exact: true }).selectOption("pod");
   await expect(page.getByText("No members match these filters.", { exact: true })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole("row").filter({ hasText: "Zed Target" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Zed Target" })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 850 });
+  await expect(page.getByRole("row").filter({ hasText: "Zed Target" })).toContainText("900000 XP");
   if (process.env["PW_UI_SCREENSHOTS"])
     await page.screenshot({ path: "artifacts/coach-roster-mobile.png" });
 });
@@ -2587,6 +5875,7 @@ test("member sections restore URLs and profile navigation protects unsaved prefe
   await page.getByLabel("Weight kg", { exact: true }).fill("79");
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Photos", exact: true }).click();
+  await page.getByRole("button", { name: "Slider overlay", exact: true }).click();
   await expect(page.getByLabel("Drag to reveal · Before / After")).toBeVisible();
   await page.goBack();
   await page.getByRole("button", { name: "Add measurements", exact: true }).click();
@@ -2626,6 +5915,7 @@ test("member sections restore URLs and profile navigation protects unsaved prefe
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Account", exact: true }).click();
+  await page.locator("[data-profile-password] summary").click();
   await page.getByLabel("New password", { exact: true }).fill("TemporaryPassword1");
   await page.getByRole("button", { name: "Show password", exact: true }).first().click();
   await expect(page.getByLabel("New password", { exact: true })).toHaveAttribute("type", "text");
@@ -2673,6 +5963,7 @@ test("history filters use Cairo dates and URL state survives refresh, Back and l
     },
   ];
   await page.goto("/train?section=history");
+  await page.getByRole("button", { name: "Filter by Workout or Date", exact: true }).click();
   await page.getByLabel("From date", { exact: true }).fill("2026-10-30");
   await page.getByLabel("To date", { exact: true }).fill("2026-10-30");
   await page.getByRole("button", { name: "Apply filters", exact: true }).click();
@@ -2706,6 +5997,107 @@ test("history filters use Cairo dates and URL state survives refresh, Back and l
   await page.goto(`/train?section=history&session=${crypto.randomUUID()}`);
   await expect(page.getByRole("alert")).toContainText("unavailable for your account");
 });
+
+for (const locale of ["en", "ar"] as const) {
+  test(`Phase 3 Today and Nutrition preserve scheduled targets and offline fuel in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { scheduling: true, guidance: true, offline: true });
+    const assignment = crypto.randomUUID(),
+      version = crypto.randomUUID();
+    const day = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+    backend.tables.program_assignments = [
+      { id: assignment, member_id: userId, program_version_id: version, active: true },
+    ];
+    backend.tables.program_versions = [
+      {
+        id: version,
+        name: "Foundation strength",
+        version: 1,
+        weeks: 1,
+        items: [
+          {
+            id: crypto.randomUUID(),
+            exercise_id: exerciseId,
+            week: 1,
+            day: 1,
+            position: 0,
+            target_sets: 3,
+            target_reps: "8–12",
+            name_en: "Frozen press",
+            name_ar: "ضغط معتمد",
+            muscle: "chest",
+            equipment: "barbell",
+            logging_mode: "weighted_reps",
+            load_convention: "external_total",
+          },
+        ],
+      },
+    ];
+    backend.tables.program_schedules = [
+      { assignment_id: assignment, mode: "rotation", start_date: day },
+    ];
+    backend.tables.session_occurrences = [
+      {
+        id: crypto.randomUUID(),
+        assignment_id: assignment,
+        ordinal: 1,
+        week: 1,
+        day: 1,
+        status: "scheduled",
+        due_date: day,
+      },
+    ];
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.goto("/today");
+    const hero = page.locator("[data-stitch-today-session]");
+    await expect(
+      hero.getByRole("heading", { name: "Foundation strength", exact: true }),
+    ).toBeVisible();
+    await expect(hero).toContainText(l("Frozen press", "ضغط معتمد"));
+    await expect(hero).toContainText("3 × 8–12");
+    await expect(
+      page.getByRole("link", { name: l("Start workout", "ابدأ التمرين"), exact: true }),
+    ).toHaveCount(1);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expectAlignedControls(page);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: `artifacts/phase3-today-${locale}.png`, fullPage: true });
+    await page.goto("/nutrition");
+    await expect(page.locator("[data-stitch-nutrition-summary]")).toBeVisible();
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await context.setOffline(true);
+    await page.getByRole("button", { name: l("Add food", "إضافة طعام"), exact: true }).click();
+    const sheet = page.getByRole("dialog");
+    await sheet.getByLabel(l("Calories", "السعرات"), { exact: true }).fill("450");
+    await sheet.getByLabel(l("Protein", "البروتين"), { exact: true }).fill("35");
+    await sheet.getByLabel(l("Carbs", "الكربوهيدرات"), { exact: true }).fill("40");
+    await sheet.getByLabel(l("Fat", "الدهون"), { exact: true }).fill("12");
+    await sheet
+      .getByRole("navigation", { name: l("Choose meal", "اختيار الوجبة"), exact: true })
+      .getByRole("button", { name: l("Lunch", "الغداء"), exact: true })
+      .click();
+    await expectAlignedControls(page);
+    await sheet.screenshot({ path: `artifacts/phase3-food-sheet-${locale}.png` });
+    await sheet.getByRole("button", { name: l("Add food", "إضافة طعام"), exact: true }).click();
+    await expect(sheet).toBeHidden();
+    await page.getByRole("button", { name: "+750 ml", exact: true }).click();
+    await expect(page.getByText("750 / 2500 ml", { exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `artifacts/phase3-nutrition-${locale}.png`, fullPage: true });
+    await page.reload();
+    await expect(page.getByText("750 / 2500 ml", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-stitch-meals]")).toContainText("450 kcal");
+    await page.goto("/today");
+    await expect(page.getByText("450 / 2200 kcal", { exact: true })).toBeVisible();
+    expect(backend.tables.food_logs).toHaveLength(0);
+    expect(backend.tables.water_logs).toHaveLength(0);
+  });
+}
 
 test("Today uses the same pending offline food and water totals as Nutrition", async ({
   page,
@@ -2852,6 +6244,14 @@ test("million XP guide preserves Prime Legend at level 91 and max level at 100",
     page.getByRole("heading", { name: "Level 91 · Prime Legend", exact: true }),
   ).toBeVisible();
   const guide = page.getByRole("region", { name: "Earn your next level", exact: true });
+  await page.getByRole("button", { name: "Jump to my level", exact: true }).click();
+  await expect(page.locator('button[aria-current="step"]')).toBeFocused();
+  expect(
+    await page
+      .getByLabel("100-level journey map", { exact: true })
+      .evaluate((element) => element.scrollTop),
+  ).toBeGreaterThan(0);
+  await page.getByText("XP earning rules", { exact: true }).click();
   await expect(guide.getByText("+3,500 XP", { exact: true })).toBeVisible();
   await expect(guide.getByText("+650 XP", { exact: true })).toBeVisible();
   await expect(guide.getByText("+600 XP", { exact: true })).toBeVisible();
@@ -2860,13 +6260,13 @@ test("million XP guide preserves Prime Legend at level 91 and max level at 100",
   await page.screenshot({ path: "test-results/xp-guide.png", fullPage: true });
   backend.tables.member_xp_totals![0]!.xp = 1000000;
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Level 100 · Prime Legend", exact: true }),
-  ).toBeVisible();
   await page
     .getByRole("dialog", { name: "Level up!", exact: true })
     .getByRole("button", { name: "Keep going", exact: true })
     .click();
+  await expect(
+    page.getByRole("heading", { name: "Level 100 · Prime Legend", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Level 100", exact: true })).toHaveAttribute(
     "aria-current",
     "step",
@@ -2934,7 +6334,10 @@ test("coach reassignment uses one RPC, preserves failures and can reactivate a p
   });
   await page.goto("/admin/members");
   const row = page.getByRole("listitem").filter({ hasText: "Review Member" });
-  const select = row.getByRole("combobox");
+  await row.getByRole("button", { name: /Manage member/ }).click();
+  const select = page
+    .getByRole("dialog", { name: "Manage member", exact: true })
+    .getByRole("combobox");
   await expect(select).toHaveValue(coachA);
   await select.selectOption(coachB);
   const review = page.getByRole("dialog", { name: "Review member changes" });
@@ -3008,6 +6411,167 @@ test("photo deletion retains a retry entry through failure and reload", async ({
   expect(order).toEqual(["file", "file", "metadata"]);
 });
 
+for (const locale of ["en", "ar"] as const) {
+  test(`Phase 3 photo controls crop locally and retry confirmed uploads in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    const sent: Buffer[] = [];
+    const existingPhotoCount = backend.tables.progress_photos!.length;
+    let fail = true;
+    await context.route("**/storage/v1/object/progress-photos/**", async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      sent.push(route.request().postDataBuffer()!);
+      await route.fulfill(
+        fail
+          ? { status: 503, json: { message: "Upload unavailable" } }
+          : { json: { Id: "file-id", Key: "progress-photos/avatar.jpg" } },
+      );
+    });
+    await page.goto("/profile");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByLabel(l("Take profile photo", "التقاط صورة الملف الشخصي"), { exact: true }),
+    ).toHaveAttribute("capture", "user");
+    const source = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800;
+      canvas.height = 400;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#ff0000";
+      context.fillRect(0, 0, 400, 400);
+      context.fillStyle = "#0000ff";
+      context.fillRect(400, 0, 400, 400);
+      return canvas.toDataURL("image/png").split(",")[1]!;
+    });
+    const photo = {
+      name: "synthetic-portrait.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(source, "base64"),
+    };
+    await page.locator("[data-profile-activity] summary").click();
+    const input = page.getByLabel(l("Choose profile photo", "اختر صورة الملف الشخصي"), {
+      exact: true,
+    });
+    await input.setInputFiles(photo);
+    const dialog = page.getByRole("dialog", {
+      name: l("Crop profile photo", "قص صورة الملف الشخصي"),
+      exact: true,
+    });
+    await expect(dialog.locator("[data-avatar-crop-preview]")).toBeVisible();
+    expect(sent).toHaveLength(0);
+    const preview = dialog.locator("[data-avatar-crop-preview]");
+    const box = (await preview.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
+    await page.mouse.up();
+    await expect
+      .poll(async () =>
+        Number(
+          await dialog
+            .getByLabel(l("Horizontal framing", "الإطار الأفقي"), { exact: true })
+            .inputValue(),
+        ),
+      )
+      .toBeLessThan(50);
+    await dialog
+      .getByRole("button", { name: l("Reset crop", "إعادة ضبط القص"), exact: true })
+      .click();
+    await expect(
+      dialog.getByLabel(l("Horizontal framing", "الإطار الأفقي"), { exact: true }),
+    ).toHaveValue("50");
+    await preview.scrollIntoViewIfNeeded();
+    const touchBox = (await preview.boundingBox())!;
+    const cdp = await context.newCDPSession(page);
+    const centerX = touchBox.x + touchBox.width / 2,
+      centerY = touchBox.y + touchBox.height / 2;
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { x: centerX - 30, y: centerY, id: 1 },
+        { x: centerX + 30, y: centerY, id: 2 },
+      ],
+    });
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: centerX - 60, y: centerY, id: 1 },
+        { x: centerX + 60, y: centerY, id: 2 },
+      ],
+    });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect
+      .poll(async () =>
+        Number(await dialog.getByLabel(l("Zoom", "التكبير"), { exact: true }).inputValue()),
+      )
+      .toBeGreaterThan(1.5);
+    await cdp.detach();
+    await dialog
+      .getByRole("button", { name: l("Reset crop", "إعادة ضبط القص"), exact: true })
+      .click();
+    await dialog.getByRole("button", { name: l("Cancel", "إلغاء"), exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(sent).toHaveLength(0);
+    await input.setInputFiles(photo);
+    await expect(dialog.locator("[data-avatar-crop-preview]")).toBeVisible();
+    await dialog.getByLabel(l("Zoom", "التكبير"), { exact: true }).focus();
+    await page.keyboard.press("Home");
+    for (let step = 0; step < 20; step++) await page.keyboard.press("ArrowRight");
+    await expect(dialog.getByLabel(l("Zoom", "التكبير"), { exact: true })).toHaveValue("2");
+    await dialog.getByLabel(l("Horizontal framing", "الإطار الأفقي"), { exact: true }).focus();
+    await page.keyboard.press("End");
+    await dialog.screenshot({ path: `artifacts/phase3-avatar-crop-${locale}.png` });
+    expect(sent).toHaveLength(0);
+    await dialog
+      .getByRole("button", { name: l("Use photo & upload", "استخدام الصورة ورفعها"), exact: true })
+      .click();
+    await expect(dialog.getByRole("alert")).toBeVisible();
+    await expect(dialog.getByLabel(l("Zoom", "التكبير"), { exact: true })).toHaveValue("2");
+    expect(sent).toHaveLength(1);
+    fail = false;
+    await dialog
+      .getByRole("button", { name: l("Use photo & upload", "استخدام الصورة ورفعها"), exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    expect(sent).toHaveLength(2);
+    const body = sent[1]!;
+    const start = body.indexOf(Buffer.from([255, 216])),
+      end = body.lastIndexOf(Buffer.from([255, 217])) + 2;
+    expect(start).toBeGreaterThanOrEqual(0);
+    const result = await page.evaluate(
+      async (bytes) => {
+        const image = await createImageBitmap(
+          new Blob([new Uint8Array(bytes)], { type: "image/jpeg" }),
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext("2d")!;
+        context.drawImage(image, 0, 0);
+        const pixel = [...context.getImageData(256, 256, 1, 1).data];
+        const result = { width: image.width, height: image.height, pixel };
+        image.close();
+        return result;
+      },
+      [...body.subarray(start, end)],
+    );
+    expect(result.width).toBe(512);
+    expect(result.height).toBe(512);
+    expect(result.pixel[0]).toBeLessThan(30);
+    expect(result.pixel[2]).toBeGreaterThan(200);
+    expect(String(backend.tables.profiles![0]!.avatar_url)).toContain(`${userId}/avatar-`);
+    await page.goto("/progress?section=photos");
+    const camera = page.getByLabel(l("Take progress photo", "التقاط صورة التقدم"), { exact: true });
+    await expect(camera).toHaveAttribute("capture", "environment");
+    await camera.setInputFiles(photo);
+    await expect.poll(() => sent.length).toBe(3);
+    await expect.poll(() => backend.tables.progress_photos!.length).toBe(existingPhotoCount + 1);
+  });
+}
+
 test("new progress uploads normalize to JPEG and retain a cleanup reference on failure", async ({
   page,
   context,
@@ -3070,7 +6634,8 @@ test("profile sign-out clears other tabs and a new identity cannot render cached
     { user_id: b, role: "member" },
   ];
   await page.goto("/admin/members");
-  await expect(page.getByText("Sensitive Victim", { exact: true })).toBeVisible();
+  // Select the visible mobile heading, not text duplicated in the desktop table and action labels.
+  await expect(page.getByRole("heading", { name: "Sensitive Victim", exact: true })).toBeVisible();
   const original = await page.evaluate(() => {
     const key = Object.keys(localStorage).find(
       (key) => key.startsWith("sb-") && key.endsWith("-auth-token"),
@@ -3275,6 +6840,10 @@ test("analytics filters retain URL state, defer audit and export all members wit
   await page.getByRole("textbox", { name: "Search analytics members", exact: true }).fill("Paused");
   await page.getByRole("combobox", { name: "Access filter", exact: true }).selectOption("paused");
   await page.getByRole("combobox", { name: "Member sort", exact: true }).selectOption("workouts");
+  // Member-list filters must not rewrite the organization-wide snapshot totals.
+  await expect(
+    page.getByLabel("Operations metrics", { exact: true }).getByRole("definition").first(),
+  ).toHaveText("2");
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Search analytics members", exact: true }),
@@ -3344,9 +6913,20 @@ test("member management searches beyond the REST cap while paging the displayed 
   });
   await page.goto("/admin/members");
   await expect(page.getByRole("listitem")).toHaveCount(50);
+  // Summary totals describe the full roster, even while the list is paginated.
+  const rosterSummary = page.getByRole("definition").filter({ hasText: /^1105$/ });
+  await expect(rosterSummary).toHaveCount(3);
   await page.getByRole("textbox").fill("Member 1105");
-  await expect(page.getByText("Member 1105", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Member 1105", exact: true })).toBeVisible();
   await expect(page.getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByRole("definition").filter({ hasText: /^1105$/ })).toHaveCount(2);
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 850 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
+  await page.screenshot({ path: "artifacts/phase6-roster-en.png", fullPage: true });
   expect(reads).toBeGreaterThan(10);
 });
 
@@ -3420,14 +7000,23 @@ test("target drafts survive member switching, stale refresh and acknowledgement 
   await page.goto("/admin/targets");
   const picker = page.getByRole("combobox", { name: /^member$/i });
   const editor = page.getByRole("region", { name: "Daily targets editor" });
+  await expect(
+    page.getByRole("status").filter({ hasText: "Select a member to view their saved targets" }),
+  ).toBeVisible();
   await picker.selectOption(userId);
+  await expect(editor.getByRole("group", { name: "Energy & macros", exact: true })).toBeVisible();
+  await expect(editor.getByRole("group", { name: "Hydration", exact: true })).toBeVisible();
   await expect(editor.getByLabel("kcal", { exact: true })).toHaveValue("2200");
   await editor.getByLabel("kcal", { exact: true }).fill("2400");
   await picker.selectOption(other);
   await expect(editor.getByLabel("kcal", { exact: true })).toHaveValue("1800");
   await picker.selectOption(userId);
   await expect(editor.getByLabel("kcal", { exact: true })).toHaveValue("2400");
-  await page.getByRole("link", { name: "Today", exact: true }).first().click();
+  // Staff navigation uses Dashboard; exercise the real route-exit draft guard.
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: "Dashboard", exact: true })
+    .click();
   const blocker = page.getByRole("alertdialog", { name: "Unsaved target drafts" });
   await expect(blocker).toBeVisible();
   await blocker.getByRole("button", { name: "Keep editing" }).click();
@@ -3457,6 +7046,11 @@ test("target drafts survive member switching, stale refresh and acknowledgement 
   await expect(editor.getByLabel("kcal", { exact: true })).toHaveValue("2500");
   if (process.env["PW_UI_SCREENSHOTS"])
     await page.screenshot({ path: "artifacts/admin-targets-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(editor.getByLabel("kcal", { exact: true })).toHaveValue("2500");
+  if (process.env["PW_UI_SCREENSHOTS"])
+    await page.screenshot({ path: "artifacts/phase6-targets-desktop.png", animations: "disabled" });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("button", { name: "العربية", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -3506,25 +7100,36 @@ test("member role and access review retains denied writes and filters accepted c
   });
   await page.goto("/admin/members");
   const row = page.getByRole("listitem").filter({ hasText: "Managed member" });
-  await row.getByRole("button", { name: /^Access:/ }).click();
+  await row.getByRole("button", { name: /Manage member/ }).click();
+  const editor = page.getByRole("dialog", { name: "Manage member", exact: true });
+  await editor.getByRole("button", { name: /^Access:/ }).click();
   const review = page.getByRole("dialog", { name: "Review member changes" });
   expect(writes).toBe(0);
   await review.getByRole("button", { name: "Confirm changes" }).click();
   await expect(review.getByRole("alert")).toContainText("not confirmed");
   await review.getByRole("button", { name: "Confirm changes" }).click();
   await expect(review).toHaveCount(0);
-  await expect(row.getByRole("button", { name: /^Access:/ })).toContainText("Paused");
+  await expect(editor.getByRole("button", { name: /^Access:/ })).toContainText("Paused");
+  await editor.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("combobox", { name: "Access filter" }).selectOption("paused");
-  await expect(page.getByRole("listitem")).toHaveCount(1);
-  await row.getByRole("button", { name: "Coach", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Member roster", exact: true }).getByRole("listitem"),
+  ).toHaveCount(1);
+  await row.getByRole("button", { name: /Manage member/ }).click();
+  await editor.getByRole("button", { name: "Coach", exact: true }).click();
   await review.getByRole("button", { name: "Confirm changes" }).click();
   await expect(review).toHaveCount(0);
+  await editor.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("combobox", { name: "Role filter" }).selectOption("coach");
   await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "Coach", exact: true }).click();
+  await row.getByRole("button", { name: /Manage member/ }).click();
+  await editor.getByRole("button", { name: "Coach", exact: true }).click();
   await review.getByRole("button", { name: "Confirm changes" }).click();
   await expect(review).toHaveCount(0);
-  await expect(page.getByRole("listitem")).toHaveCount(0);
+  await editor.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Member roster", exact: true }).getByRole("listitem"),
+  ).toHaveCount(0);
   expect(writes).toBe(2);
   await page.getByRole("combobox", { name: "Role filter" }).selectOption("all");
   await page.getByRole("button", { name: "Menu", exact: true }).click();
@@ -3804,7 +7409,11 @@ test("Pod creation retains a stable request and stale leader and membership revi
   await removal.getByRole("button", { name: "Keep editing" }).click();
   await leader.selectOption(fixture.leaderB);
   await roster.getByRole("button", { name: "Close roster" }).click();
-  await page.getByRole("link", { name: "Today", exact: true }).first().click();
+  // Stay within staff navigation when checking protection for unsaved Pod drafts.
+  await page
+    .getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("link", { name: "Dashboard", exact: true })
+    .click();
   await expect(page.getByRole("alertdialog", { name: "Unsaved Pod drafts" })).toBeVisible();
   await page.getByRole("alertdialog").getByRole("button", { name: "Keep editing" }).click();
   await page
@@ -3935,11 +7544,18 @@ test("invitations search complete history, retain uncertain creation and confirm
   });
   await page.goto("/admin/invites");
   await expect(page.getByRole("listitem")).toHaveCount(25);
+  // Complete-read totals must survive page and search changes.
+  const inviteTotals = page
+    .getByLabel("Invitation overview", { exact: true })
+    .getByRole("definition");
+  await expect(inviteTotals.first()).toHaveText("1005");
   await page
     .getByRole("searchbox", { name: "Search invitations" })
     .fill("invited-1004@test.invalid");
   await expect(page.getByRole("listitem")).toHaveCount(1);
   await expect(page.getByRole("listitem")).toContainText("Pending");
+  await expect(inviteTotals.first()).toHaveText("1005");
+  await expect(inviteTotals.nth(2)).toHaveText("1");
   await page.getByRole("combobox", { name: "Invitation status" }).selectOption("accepted");
   await expect(page.getByText("No invitations match these filters.")).toBeVisible();
   await page.getByRole("combobox", { name: "Invitation status" }).selectOption("pending");
@@ -4027,10 +7643,17 @@ test("invitation failures and fresh privilege checks retain drafts and block acc
   });
   await page.goto("/admin/invites");
   await expect(page.getByRole("alert")).toContainText("could not be loaded completely");
+  await expect(
+    page.getByLabel("Invitation overview", { exact: true }).getByRole("definition").first(),
+  ).toHaveText("—");
   await expect(page.getByText("No invitations match these filters.")).toHaveCount(0);
   fail = false;
   await page.getByRole("button", { name: "Retry invitations" }).click();
-  await page.getByRole("listitem").getByRole("button", { name: "Revoke", exact: true }).click();
+  // Exercise the desktop action against the same stale-record guard as phone cards.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const inviteTable = page.getByRole("table", { name: "Invitations", exact: true });
+  await expect(inviteTable.getByRole("row")).toHaveCount(2);
+  await inviteTable.getByRole("button", { name: "Revoke", exact: true }).click();
   invitation.accepted_at = new Date().toISOString();
   const revocation = page.getByRole("dialog", {
     name: "Review invitation revocation",
@@ -4132,8 +7755,13 @@ test("PV queue searches complete history and approval retries confirm one server
   });
   await page.goto("/admin/pv");
   await expect(page.getByRole("listitem")).toHaveCount(25);
+  // Overview totals cover the complete status read, independently of paging/search.
+  const overview = page.getByRole("definition");
+  await expect(overview.first()).toHaveText("1006");
   await page.getByRole("textbox", { name: "Search claims" }).fill("PV Member 1005");
   await expect(page.getByRole("listitem")).toHaveCount(1);
+  await expect(overview.first()).toHaveText("1006");
+  await expect(overview.nth(1)).toHaveText("1");
   await page.getByRole("button", { name: "Open claim" }).click();
   const editor = page.getByRole("dialog", { name: "Claim review", exact: true });
   await expect(editor.getByLabel("Decision reason", { exact: true })).toBeEnabled();
@@ -4592,6 +8220,12 @@ test("shop queue finds old requests and lost rejection responses never refund tw
   });
   await page.goto("/admin/shop");
   await page.getByRole("textbox", { name: "Search shop", exact: true }).fill("Late queue member");
+  // Search narrows the cards, not the complete status-scoped queue total.
+  const queueTotal = page
+    .getByLabel("Shop overview", { exact: true })
+    .getByRole("definition")
+    .nth(2);
+  await expect(queueTotal).toHaveText("1006");
   await page
     .getByRole("listitem")
     .filter({ hasText: "Late queue member" })
@@ -4605,6 +8239,7 @@ test("shop queue finds old requests and lost rejection responses never refund tw
   failQueue = true;
   await page.getByRole("button", { name: "Refresh shop", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Complete shop records could not be loaded");
+  await expect(queueTotal).toHaveText("—");
   await expect(
     page
       .getByRole("listitem")
@@ -4671,6 +8306,15 @@ test("shop queue finds old requests and lost rejection responses never refund tw
       fullPage: true,
       animations: "disabled",
     });
+  // Desktop rows retain the original charged price and open the same reviewed record.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const queueTable = page.getByRole("table", { name: "طلبات التسليم", exact: true });
+  await expect(queueTable.getByRole("row")).toHaveCount(2);
+  await expect(queueTable.getByRole("cell", { name: "50", exact: true })).toBeVisible();
+  await queueTable.getByRole("button", { name: "مراجعة الطلب", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "طلب التسليم", exact: true })).toContainText(
+    "Stock unavailable",
+  );
 });
 
 test("shop catalogue creation validates stock, retains uncertain requests and guards visibility", async ({
@@ -4744,6 +8388,16 @@ test("shop catalogue creation validates stock, retains uncertain requests and gu
       fullPage: true,
       animations: "disabled",
     });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const catalogueTable = page.getByRole("table", { name: "Reward catalogue", exact: true });
+  await expect(catalogueTable.getByRole("row")).toHaveCount(2);
+  await catalogueTable.getByRole("button", { name: "Show reward", exact: true }).click();
+  await expect(visibility).toContainText("Show for new requests");
+  await visibility.getByRole("button", { name: "Keep editing" }).click();
+  expect(backend.tables.rewards![0]!.active).toBe(false);
+  await page.getByRole("heading", { name: "Reward shop", exact: true }).click();
+  if (process.env["PW_UI_SCREENSHOTS"])
+    await page.screenshot({ path: "artifacts/phase6-shop-desktop.png", animations: "disabled" });
 });
 
 test("program sessions retain row drafts and review copy, publication and assignment retries", async ({
@@ -4770,9 +8424,16 @@ test("program sessions retain row drafts and review copy, publication and assign
   const builder = page.getByRole("region", { name: "Program builder", exact: true });
   await catalogueRead;
   await expect(builder).toBeVisible();
+  // An incomplete session read is unavailable, not an empty session with zero sets.
+  const sessionCount = builder
+    .getByText("Session exercises", { exact: true })
+    .locator("..")
+    .getByRole("definition");
+  await expect(sessionCount).toHaveText("—");
   await expect(builder.getByText("Loading exercise library…", { exact: true })).toHaveCount(0);
   releaseSessions();
   await expect(builder.getByText("Bench Press", { exact: true })).toBeVisible();
+  await expect(sessionCount).toHaveText("1");
   await builder.getByRole("button", { name: "Edit exercise row", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "Edit session exercise", exact: true });
   await editor.getByLabel("Working sets", { exact: true }).fill("٤");
@@ -5194,6 +8855,7 @@ test("older photos page independently and comparison pins photos across history 
       });
   });
   await page.goto("/progress?section=photos");
+  await page.getByRole("button", { name: "Slider overlay", exact: true }).click();
   await expect(page.getByRole("slider")).toBeVisible();
   expect(batches.every((b) => b.length <= 30)).toBe(true);
   expect(batches.flat()).not.toContain(photos[30]!.path);
@@ -5208,6 +8870,7 @@ test("older photos page independently and comparison pins photos across history 
   await expect(page.getByAltText(`After: ${photos[0]!.taken_on}`, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Newer comparison photos", exact: true }).click();
   await expect(page.getByLabel("Before photo", { exact: true })).toHaveValue(photos[49]!.id);
+  await page.locator("[data-photo-comparison-filters] summary").click();
   await page.getByLabel("Photos through", { exact: true }).fill("2026-09-30");
   await expect(page.getByLabel("Before photo", { exact: true })).toHaveValue(photos[49]!.id);
 });
@@ -5233,6 +8896,7 @@ test("photo query failures show persistent retry controls instead of an empty ga
   fail = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await page.getByRole("button", { name: "Retry photo history", exact: true }).click();
+  await page.getByRole("button", { name: "Slider overlay", exact: true }).click();
   await expect(page.getByRole("slider")).toBeVisible();
   await expect(
     page.getByRole("alert").filter({ hasText: "Photos could not be loaded." }),
@@ -5257,6 +8921,7 @@ test("offline caching retains complete older body history while online", async (
     },
   ];
   await page.goto("/progress?section=body");
+  await page.setViewportSize({ width: 1024, height: 850 });
   await expect(page.getByRole("columnheader", { name: "Weight (kg)", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "2026-09-01" })).toContainText("70");
 });
@@ -5413,21 +9078,286 @@ test("full exercise catalogue can page, search Arabic and keep cardio out of str
   const library = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Exercise library", exact: true }) });
-  await expect(library.locator("li")).toHaveCount(60);
+  await library
+    .getByRole("navigation", { name: "Exercise views", exact: true })
+    .getByRole("button", { name: "All", exact: true })
+    .click();
+  await expect(
+    library.getByRole("list", { name: "Exercise results", exact: true }).locator(":scope > li"),
+  ).toHaveCount(12);
   await library.getByRole("button", { name: /Show more exercises/ }).click();
-  await expect(library.locator("li")).toHaveCount(120);
+  await expect(
+    library.getByRole("list", { name: "Exercise results", exact: true }).locator(":scope > li"),
+  ).toHaveCount(24);
   const last = arabic.exercises.at(-1)!;
-  await library.getByRole("textbox", { name: "Search exercises", exact: true }).fill(last.name_ar);
+  await library
+    .getByRole("searchbox", { name: "Search exercises", exact: true })
+    .fill(last.name_ar);
   await expect(
     library.getByRole("button", { name: new RegExp(`^${reference.exercises.at(-1)!.name}`) }),
   ).toBeVisible();
   await library
-    .getByRole("textbox", { name: "Search exercises", exact: true })
+    .getByRole("searchbox", { name: "Search exercises", exact: true })
     .fill("stationary bike walk");
-  await expect(library.getByRole("button", { name: "Cardio", exact: true })).toBeDisabled();
-  await library.getByRole("button", { name: /^stationary bike walk/ }).click();
-  await expect(page.getByText(/Reference activity: use Train/)).toBeVisible();
+  await expect(
+    library.getByRole("list", { name: "Exercise results", exact: true }).getByRole("listitem"),
+  ).toHaveCount(0);
+  await expect(
+    library.getByRole("button", { name: "Insert selected exercises", exact: true }),
+  ).toBeDisabled();
+  await expect(library.getByText(/Cardio activities are logged separately/)).toBeVisible();
   expect(backend.tables.set_logs).toHaveLength(0);
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`guidance and finish actions stay reachable on small screens in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    await trainingFeatures(context, { guidance: true, logging: true });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    backend.tables.exercises![0] = {
+      ...backend.tables.exercises![0],
+      editorial_status: "reviewed",
+      guidance: {
+        steps_en: Array.from(
+          { length: 24 },
+          (_, i) => `Step ${i + 1}: follow the written setup.`,
+        ).join("\n"),
+        steps_ar: Array.from({ length: 24 }, (_, i) => `خطوة ${i + 1}: اتبع تعليمات الإعداد.`).join(
+          "\n",
+        ),
+        cues_en: "Keep a controlled movement.",
+        cues_ar: "تحكم في الحركة.",
+        mistakes_en: "Avoid rushing.",
+        mistakes_ar: "تجنب التسرع.",
+      },
+    };
+    let alternativesAvailable = false;
+    await context.route("**/rest/v1/exercise_alternatives?*", (route) =>
+      route.fulfill(
+        alternativesAvailable ? { json: [] } : { status: 400, json: { message: "Unavailable" } },
+      ),
+    );
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.goto("/train");
+    await page
+      .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: l("Exercise options", "خيارات التمرين"), exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: l("Instructions", "طريقة الأداء"), exact: true })
+      .click();
+    const guidance = page.locator("[data-stitch-exercise-detail]");
+    const back = guidance.getByRole("button", {
+      name: l("Return to workout", "العودة إلى التمرين"),
+      exact: true,
+    });
+    await expect(back).toBeInViewport();
+    await guidance.locator("[data-exercise-guidance-scroll]").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const retry = guidance.getByRole("button", {
+      name: l("Retry alternatives", "إعادة تحميل البدائل"),
+      exact: true,
+    });
+    await expect(retry).toBeVisible({ timeout: 15000 });
+    alternativesAvailable = true;
+    await retry.click();
+    await expect(guidance).toContainText(
+      l("No coach-approved alternatives listed.", "لا توجد بدائل معتمدة حالياً."),
+    );
+    await expect(
+      guidance.getByRole("heading", { name: l("Execution cues", "إرشادات الأداء"), exact: true }),
+    ).toBeVisible();
+    await expect(back).toBeInViewport();
+    expect(
+      await guidance.evaluate((element) => element.scrollWidth - element.clientWidth),
+    ).toBeLessThanOrEqual(1);
+    await guidance.screenshot({ path: `artifacts/guidance-small-${locale}.png` });
+    await back.click();
+    await page.getByLabel("kg", { exact: true }).fill("25.5");
+    await page.getByLabel(l("Reps", "التكرارات"), { exact: true }).fill("8");
+    await page.getByRole("button", { name: l("Log set", "سجّل"), exact: true }).click();
+    await page
+      .getByRole("button", { name: l("Finish workout", "إنهاء التمرين"), exact: true })
+      .click();
+    const review = page.getByRole("dialog");
+    const save = review.getByRole("button", {
+      name: l("Save workout", "حفظ التمرين"),
+      exact: true,
+    });
+    await expect(save).toBeInViewport();
+    await review.locator("[data-workout-review-scroll]").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(save).toBeInViewport();
+    await expect(review).toContainText("204 kg");
+    expect(
+      await review.evaluate((element) => element.scrollWidth - element.clientWidth),
+    ).toBeLessThanOrEqual(1);
+    await review.screenshot({ path: `artifacts/finish-small-${locale}.png` });
+    await review.getByRole("button", { name: l("Cancel", "تراجع"), exact: true }).click();
+    await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
+    expect(backend.tables.workout_sessions![0]!.finished_at).toBeFalsy();
+    // A failed local finish must retain both the review and the original logged set.
+    await page.evaluate(() => {
+      const original = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+        if (this.name === "workouts" && args[0]?.phase === "finishing") {
+          IDBObjectStore.prototype.put = original;
+          throw new DOMException("Device storage is full", "QuotaExceededError");
+        }
+        return original.apply(this, args);
+      };
+    });
+    await page
+      .getByRole("button", { name: l("Finish workout", "إنهاء التمرين"), exact: true })
+      .click();
+    await save.click();
+    await expect(review.getByRole("alert")).toContainText("Device storage is full");
+    await expect(review.getByRole("alert")).toBeInViewport();
+    expect(backend.tables.workout_sessions![0]!.finished_at).toBeFalsy();
+    await save.click();
+    await expect(
+      page.getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true }),
+    ).toBeVisible();
+    expect(backend.tables.set_logs).toHaveLength(1);
+    expect(backend.tables.workout_sessions![0]!.finished_at).toBeTruthy();
+    const complete = page.locator("[data-workout-complete]");
+    await expect(complete).toContainText("204 kg");
+    await expect(complete).toContainText(
+      l("Workout complete · synced", "اكتمل التمرين · تمت المزامنة"),
+    );
+    await page.reload();
+    await expect(complete).toContainText("204 kg");
+    for (const size of [
+      { width: 320, height: 420 },
+      { width: 390, height: 844 },
+      { width: 1280, height: 900 },
+    ]) {
+      await page.setViewportSize(size);
+      expect(
+        await complete.evaluate((element) => element.scrollWidth - element.clientWidth),
+      ).toBeLessThanOrEqual(1);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await complete.screenshot({ path: `artifacts/workout-complete-${locale}.png` });
+    await complete
+      .getByRole("link", { name: l("View completed workout", "عرض التمرين المكتمل"), exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`session=${backend.tables.workout_sessions![0]!.id}`));
+    await page.goto("/train");
+    await complete
+      .getByRole("button", { name: l("Dismiss summary", "إغلاق الملخص"), exact: true })
+      .click();
+    await page.reload();
+    await expect(complete).toHaveCount(0);
+    expect(backend.tables.set_logs).toHaveLength(1);
+  });
+}
+
+test("program completion stays visible without changing the selected training section", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const version = crypto.randomUUID();
+  backend.tables.program_assignments = [
+    { id: crypto.randomUUID(), member_id: userId, program_version_id: version, active: true },
+  ];
+  backend.tables.program_versions = [
+    {
+      id: version,
+      name: "Completion regression",
+      version: 1,
+      weeks: 1,
+      items: [
+        {
+          id: crypto.randomUUID(),
+          exercise_id: exerciseId,
+          week: 1,
+          day: 1,
+          position: 0,
+          target_sets: 1,
+          target_reps: "8",
+          name_en: "Bench Press",
+          name_ar: "ضغط الصدر",
+          muscle: "chest",
+          equipment: "barbell",
+          logging_mode: "weighted_reps",
+          load_convention: "external_total",
+        },
+      ],
+    },
+  ];
+  await page.goto("/train?section=program");
+  await page.getByRole("button", { name: "Start this day", exact: true }).click();
+  const row = page.getByRole("group", { name: "Planned set 1", exact: true });
+  await row.getByLabel("kg", { exact: true }).fill("50");
+  await row.getByLabel("Reps", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Log set 1", exact: true }).click();
+  await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await page.getByRole("button", { name: "Save workout", exact: true }).click();
+  const complete = page.locator("[data-workout-complete]");
+  await expect(complete).toContainText("400 kg");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Training sections", exact: true })
+      .getByRole("button", { name: "My program", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(complete).toContainText("400 kg");
+  const explanation = complete.locator("details");
+  await expect(explanation).not.toHaveAttribute("open", "");
+  await explanation.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(explanation).toHaveAttribute("open", "");
+  await expect(explanation.getByText(/Volume includes working and drop segments/)).toBeVisible();
+  expect(backend.tables.workout_sessions).toHaveLength(1);
+  expect(backend.tables.set_logs).toHaveLength(1);
+});
+
+test("offline finish waits for server acceptance before showing the durable completion summary", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await context.setOffline(true);
+  await page.getByLabel("kg", { exact: true }).fill("100");
+  await page.getByLabel("Reps", { exact: true }).fill("5");
+  await page.getByRole("button", { name: "Log set", exact: true }).click();
+  await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await page.getByRole("button", { name: "Save workout", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Workout saved. Waiting for the server to confirm. Rewards update after confirmation.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.locator("[data-workout-complete]")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("[data-workout-complete]")).toHaveCount(0);
+  expect(backend.tables.set_logs).toHaveLength(0);
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(page.locator("[data-workout-complete]")).toContainText("500 kg");
+  await expect
+    .poll(() => backend.tables.workout_sessions!.filter((row) => row.finished_at).length)
+    .toBe(1);
+  const id = backend.tables.workout_sessions![0]!.id;
+  await page.reload();
+  await expect(page.locator("[data-workout-complete]")).toContainText("500 kg");
+  expect(backend.tables.set_logs).toHaveLength(1);
+  expect(backend.tables.workout_sessions).toHaveLength(1);
+  expect(backend.tables.workout_sessions![0]!.id).toBe(id);
 });
 
 test("exercise guidance and timed working sets survive reload", async ({ page, context }) => {
@@ -5450,6 +9380,7 @@ test("exercise guidance and timed working sets survive reload", async ({ page, c
   await page.getByRole("button", { name: "Start workout", exact: true }).click();
   await page.getByRole("button", { name: "Add exercise", exact: true }).click();
   await chooseFromLibrary(page, "Plank");
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("button", { name: "Instructions", exact: true }).click();
   await expect(page.getByText("Breathe normally.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
@@ -5833,6 +9764,26 @@ test("coach configures progression and rotation without rewriting a frozen plan"
   });
   expect(backend.tables.program_versions![0]!.items).toEqual([item]);
   await page.goto("/train");
+  await expect(
+    page.getByRole("navigation", { name: "Training sections", exact: true }).getByRole("button"),
+  ).toHaveCount(3);
+  await expect(page.locator("[data-scheduled-preview] [data-exercise-hero]")).toBeVisible();
+  await expect(page.locator("[data-scheduled-preview]")).toContainText(item.name_en);
+  await expect(page.locator("[data-scheduled-preview] [data-session-exercises] > li")).toHaveCount(
+    1,
+  );
+  await expect(page.getByRole("button", { name: "Start session", exact: true })).toHaveCount(1);
+  const agenda = page.getByRole("button", { name: "View agenda", exact: true });
+  await agenda.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Hide agenda", exact: true })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(page.getByRole("button", { name: "Move W1 D1", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Hide agenda", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Start session", exact: true })).toHaveCount(1);
+  await page.screenshot({ path: "artifacts/stitch-scheduled-preview.png", fullPage: true });
   await page.getByRole("button", { name: "Start session", exact: true }).click();
   await expect.poll(() => backend.tables.workout_sessions!.length).toBe(1);
   expect(backend.tables.workout_sessions![0]!.occurrence_id).toBe(occurrence);
@@ -5869,9 +9820,108 @@ test("two tabs preserve both sets and failed local writes are never reported as 
   await expect(page.getByText("Device storage is full", { exact: true })).toBeVisible();
   expect(backend.tables.set_logs).toHaveLength(2);
   await page.getByRole("button", { name: "Log set", exact: true }).click();
+  await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("button", { name: "Retry sync" }).click();
+  await page.keyboard.press("Escape");
   await expect.poll(() => backend.tables.set_logs!.length).toBe(3);
 });
+
+for (const locale of ["en", "ar"] as const) {
+  test(`measurement cards distinguish loading failure and empty history in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await trainingFeatures(context, { offline: false });
+    let release!: () => void;
+    const delayed = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let fail = true;
+    await context.route("**/rest/v1/body_measurements**", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await delayed;
+      if (fail) await route.fulfill({ status: 400, json: { message: "Synthetic read failure" } });
+      else await route.fallback();
+    });
+    try {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/progress?section=body", { waitUntil: "domcontentloaded" });
+      const body = page.locator("[data-stitch-body-workspace]");
+      await expect(
+        body
+          .getByRole("status")
+          .filter({ hasText: locale === "ar" ? "جارٍ تحميل القياسات…" : "Loading measurements…" }),
+      ).toBeVisible();
+      await expect(body.locator("[data-stitch-body-metrics]")).toHaveCount(0);
+      release();
+      const retry = body.getByRole("button", {
+        name: locale === "ar" ? "إعادة تحميل القياسات" : "Retry measurements",
+      });
+      await expect(retry).toBeVisible({ timeout: 15000 });
+      await expect(
+        body.getByText(
+          locale === "ar" ? "غير متاح في السجل المحمّل" : "Not available in loaded history",
+        ),
+      ).toHaveCount(3);
+      await expect(
+        body.getByText(locale === "ar" ? "لم يُسجّل" : "Not recorded", { exact: true }),
+      ).toHaveCount(0);
+      fail = false;
+      await retry.click();
+      await expect(
+        body.getByText(locale === "ar" ? "لم يُسجّل" : "Not recorded", { exact: true }),
+      ).toHaveCount(3);
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+    } finally {
+      release();
+    }
+  });
+
+  test(`muscle volume retries failed reads and retains the selected view in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    let fail = true;
+    await context.route("**/rest/v1/set_logs**", async (route) => {
+      const select = new URL(route.request().url()).searchParams.get("select") ?? "";
+      if (
+        fail &&
+        route.request().method() === "GET" &&
+        select.includes("workout_exercises(snapshot)")
+      )
+        await route.fulfill({ status: 400, json: { message: "Synthetic read failure" } });
+      else await route.fallback();
+    });
+    await page.goto("/progress");
+    const volume = page.locator("[data-stitch-muscle-volume]");
+    const retry = volume.getByRole("button", {
+      name: locale === "ar" ? "إعادة تحميل حجم التدريب" : "Retry weekly volume",
+    });
+    await expect(retry).toBeVisible({ timeout: 15000 });
+    await expect(volume.locator("[data-muscle-controls]")).toHaveCount(0);
+    fail = false;
+    await retry.click();
+    const back = volume.getByRole("button", { name: locale === "ar" ? /^الظهر/ : /^Back/ });
+    await back.click();
+    await expect(back).toHaveAttribute("aria-pressed", "true");
+    fail = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+    await expect(volume.getByRole("alert")).toContainText(
+      locale === "ar" ? "آخر النتائج" : "last loaded results",
+      { timeout: 15000 },
+    );
+    await expect(back).toHaveAttribute("aria-pressed", "true");
+    fail = false;
+    await retry.click();
+    await expect(volume.getByRole("alert")).toHaveCount(0);
+    await expect(back).toHaveAttribute("aria-pressed", "true");
+  });
+}
 
 test("photo comparison has keyboard slider and mobile layouts fit in both languages", async ({
   page,
@@ -5883,6 +9933,7 @@ test("photo comparison has keyboard slider and mobile layouts fit in both langua
     await route.fulfill({ path: "public/icon-512.png", contentType: "image/png" });
   });
   await page.goto("/progress?section=photos");
+  await page.getByRole("button", { name: "Slider overlay", exact: true }).click();
   await page.getByLabel("Drag to reveal · Before / After").focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByLabel("Drag to reveal · Before / After")).toHaveValue("51");
@@ -5935,6 +9986,10 @@ test("imperial logger stores kg and shows lb plate tools", async ({ page, contex
   await page.getByRole("button", { name: "Plates & warm-up" }).click();
   await expect(page.getByText("45 + 2 \u00d7 90 = 225 lb")).toBeVisible();
   await page.keyboard.press("Escape");
+  await page
+    .getByRole("dialog", { name: "Exercise options", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect.poll(() => backend.tables.set_logs?.[0]?.weight_kg).toBe(102.06);
 });
@@ -5974,12 +10029,14 @@ test("complete progress includes the PR after the first thousand sets", async ({
     created_at: new Date().toISOString(),
   });
   await page.goto("/progress");
+  // Assert the real metric value with its current accessible card and number format.
   await expect(
     page
-      .getByText("Logged set entries", { exact: true })
-      .locator("..")
-      .getByText("1105", { exact: true }),
-  ).toBeVisible();
+      .locator("[data-stitch-progress-metrics] > div")
+      .filter({ hasText: "Logged set entries" })
+      .getByRole("definition")
+      .first(),
+  ).toHaveText("1,105");
   await page.getByRole("button", { name: "Strength", exact: true }).click();
   await expect(page.getByText("150 kg \u00d7 5", { exact: true })).toBeVisible();
 });
@@ -5993,9 +10050,8 @@ test("streak includes more than sixty days", async ({ page, context }) => {
     activity_date: new Date(start - i * 86400000).toISOString().slice(0, 10),
   }));
   await page.goto("/today");
-  await expect(
-    page.getByText("Day streak", { exact: true }).locator("..").getByText("90", { exact: true }),
-  ).toBeVisible();
+  // The redesigned streak presents its count and label as one heading.
+  await expect(page.getByRole("heading", { name: "90 · Day streak", exact: true })).toBeVisible();
 });
 
 test("backup preview restores missing logs and rejects another owner", async ({
@@ -6103,7 +10159,8 @@ test("assigned program retains its frozen exercises after reload", async ({ page
   ];
   await page.goto("/train");
   await page.getByRole("button", { name: "My program", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Frozen Routine v7" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Frozen Routine", exact: true })).toBeVisible();
+  await expect(page.getByText("Program version 7", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Start this day", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Frozen Bench/ })).toHaveAttribute(
     "aria-expanded",
@@ -6193,6 +10250,297 @@ test("approved rank emblems cache offline and appear in the exported story", asy
   await context.setOffline(false);
 });
 
+for (const locale of ["en", "ar"] as const) {
+  test(`onboarding setup remains responsive through review in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    Object.assign(backend.tables.profiles[0], { onboarding_completed: false, display_name: "" });
+    const ar = locale === "ar";
+    await page.setViewportSize({ width: 393, height: 1067 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/onboarding");
+    await expect(page.locator("[data-onboarding-welcome]")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({
+        path: `artifacts/onboarding-${process.env["PW_ONBOARDING_CAPTURE"]}-${locale}-welcome.png`,
+        fullPage: true,
+      });
+    await page
+      .getByRole("button", { name: ar ? "بدء الإعداد" : "Begin setup", exact: true })
+      .click();
+    await page
+      .getByLabel(ar ? "الاسم الظاهر" : "Display name", { exact: true })
+      .fill("Test Athlete");
+    await page.getByRole("button", { name: ar ? "رجوع" : "Back", exact: true }).click();
+    await expect(page.locator("[data-onboarding-welcome]")).toBeVisible();
+    await page
+      .getByRole("button", { name: ar ? "بدء الإعداد" : "Begin setup", exact: true })
+      .click();
+    await expect(
+      page.getByLabel(ar ? "الاسم الظاهر" : "Display name", { exact: true }),
+    ).toHaveValue("Test Athlete");
+    for (const width of [320, 768, 1280]) {
+      await page.setViewportSize({ width, height: 1067 });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+    }
+    await page.setViewportSize({ width: 393, height: 1067 });
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({
+        path: `artifacts/onboarding-${process.env["PW_ONBOARDING_CAPTURE"]}-${locale}-profile.png`,
+        fullPage: true,
+      });
+    await page.getByRole("button", { name: ar ? "متابعة" : "Continue", exact: true }).click();
+    const preferences = page.locator("[data-onboarding-training-preferences]");
+    await expect(preferences).toBeVisible();
+    const imperial = preferences.locator('input[value="imperial"]');
+    await imperial.check();
+    await expect(preferences.locator('[aria-live="polite"]')).toContainText("132.28 lb");
+    const effort = preferences.locator("summary");
+    await effort.focus();
+    await page.keyboard.press("Enter");
+    await expect(preferences.locator("details")).toHaveAttribute("open", "");
+    for (const width of [320, 393, 768, 1280]) {
+      await page.setViewportSize({ width, height: 1067 });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+    }
+    await page.setViewportSize({ width: 393, height: 1067 });
+    // ResizeObserver updates the decorative marker on the next animation frame.
+    // Wait for its real bounds before using a full-page image as visual evidence.
+    await expect
+      .poll(async () =>
+        preferences.locator("[data-section-slider]").evaluate((marker) => {
+          const selected = marker.parentElement?.querySelector("label:has(input:checked)");
+          return (
+            !!selected &&
+            Math.abs(
+              marker.getBoundingClientRect().width - selected.getBoundingClientRect().width,
+            ) < 1
+          );
+        }),
+      )
+      .toBe(true);
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({
+        path: `artifacts/onboarding-training-${locale}.png`,
+        fullPage: true,
+      });
+    await page.getByRole("button", { name: ar ? "رجوع" : "Back", exact: true }).click();
+    await page.getByRole("button", { name: ar ? "متابعة" : "Continue", exact: true }).click();
+    await expect(preferences.locator('input[value="imperial"]')).toBeChecked();
+    await page.getByRole("button", { name: ar ? "متابعة" : "Continue", exact: true }).click();
+    const heading = page.getByRole("heading", {
+      name: ar ? "المراجعة والموافقة" : "Review & consent",
+    });
+    await expect(heading).toBeFocused();
+    await expect(
+      page.getByRole("button", {
+        name: ar ? "ادخل Prime Fitness" : "Enter Prime Fitness",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({
+        path: `artifacts/onboarding-${process.env["PW_ONBOARDING_CAPTURE"]}-${locale}-consent.png`,
+        fullPage: true,
+      });
+    await page
+      .getByRole("checkbox", { name: ar ? "أفهم وأوافق" : "I understand and agree" })
+      .check();
+    await expect(
+      page.getByRole("button", {
+        name: ar ? "ادخل Prime Fitness" : "Enter Prime Fitness",
+        exact: true,
+      }),
+    ).toBeEnabled();
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`optional onboarding device setup handles install outcomes in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    const ar = locale === "ar";
+    await page.setViewportSize({ width: 393, height: 850 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/onboarding");
+    await expect(
+      page.getByRole("heading", { name: ar ? "اكتمل إعداد حسابك" : "Your setup is complete" }),
+    ).toBeFocused();
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({ path: `artifacts/onboarding-ready-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", { name: ar ? "التطبيق والإشعارات" : "App & notifications", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    await expect(
+      page.getByText(
+        ar
+          ? "تنبيهات الدفع في الخلفية والتذكيرات المجدولة غير متاحة بعد."
+          : "Background push alerts and scheduled reminders are not available yet.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    const installation = page.getByRole("region", {
+      name: ar ? "تثبيت التطبيق" : "App installation",
+      exact: true,
+    });
+    await expect(installation.getByRole("button")).toHaveCount(0);
+    for (const width of [320, 393, 768, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+    }
+    await page.setViewportSize({ width: 393, height: 850 });
+    if (process.env["PW_ONBOARDING_CAPTURE"])
+      await page.screenshot({ path: `artifacts/onboarding-device-${locale}.png`, fullPage: true });
+    for (const outcome of ["dismissed", "failed", "accepted"]) {
+      await page.evaluate((outcome) => {
+        const event = new Event("beforeinstallprompt", { cancelable: true });
+        Object.assign(event, {
+          prompt: async () => {
+            if (outcome === "failed") throw new Error("Synthetic prompt failure");
+          },
+          userChoice: Promise.resolve({ outcome }),
+        });
+        window.dispatchEvent(event);
+      }, outcome);
+      await installation
+        .getByRole("button", {
+          name: ar ? "تثبيت برايم فيتنس" : "Install Prime Fitness",
+          exact: true,
+        })
+        .click();
+      if (outcome === "failed") await expect(installation.getByRole("alert")).toBeVisible();
+      else
+        await expect(installation.getByRole("status")).toContainText(
+          outcome === "accepted"
+            ? ar
+              ? "تم طلب التثبيت"
+              : "Installation requested"
+            : ar
+              ? "تم تخطي التثبيت"
+              : "Installation skipped",
+        );
+      await expect(
+        installation.getByText(ar ? "يعمل كتطبيق مثبت" : "Running as an installed app", {
+          exact: true,
+        }),
+      ).toHaveCount(0);
+    }
+    await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
+    await expect(installation.getByRole("status")).toContainText(
+      ar ? "يعمل كتطبيق مثبت" : "Running as an installed app",
+    );
+    await page
+      .getByRole("button", {
+        name: ar ? "العودة إلى شاشة الاستعداد" : "Return to ready screen",
+        exact: true,
+      })
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    await expect(
+      page.getByRole("link", { name: ar ? "الانتقال إلى اليوم" : "Go to Today", exact: true }),
+    ).toBeVisible();
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test(`full onboarding persists coaching context and reaches the app in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    Object.assign(backend.tables.profiles[0], { onboarding_completed: false, display_name: "" });
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.goto("/onboarding");
+    await page.getByRole("button", { name: l("Begin setup", "بدء الإعداد"), exact: true }).click();
+    await page
+      .getByLabel(l("Display name", "الاسم الظاهر"), { exact: true })
+      .fill("Synthetic Athlete");
+    await page.getByRole("button", { name: l("Continue", "متابعة"), exact: true }).click();
+    await page.getByRole("checkbox", { name: l("Strength", "القوة"), exact: true }).check();
+    await page
+      .getByRole("radio", { name: l("Novice (0–1 year)", "مبتدئ (٠–١ سنة)"), exact: true })
+      .check();
+    await page
+      .getByLabel(l("Available training days per week", "أيام التدريب المتاحة أسبوعياً"))
+      .selectOption("3");
+    await page.getByRole("checkbox", { name: l("Dumbbells", "دمبل"), exact: true }).check();
+    await page.getByRole("button", { name: l("Continue", "متابعة"), exact: true }).click();
+    await expect(
+      page.getByRole("region", {
+        name: l("Saved training preferences", "تفضيلات التدريب المحفوظة"),
+      }),
+    ).toContainText(l("Strength", "القوة"));
+    await page.getByRole("checkbox", { name: l("I understand and agree", "أفهم وأوافق") }).check();
+    await page
+      .getByRole("button", { name: l("Enter Prime Fitness", "ادخل Prime Fitness"), exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: l("Your setup is complete", "اكتمل إعداد حسابك") }),
+    ).toBeVisible();
+    expect(backend.tables.profiles[0].training_preferences).toEqual({
+      goals: ["strength"],
+      experience: "novice",
+      weekly_days: 3,
+      equipment: ["dumbbells"],
+    });
+    expect(backend.tables.profiles[0].onboarding_completed).toBe(true);
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await page.screenshot({
+        path: `artifacts/onboarding-full-ready-${locale}.png`,
+        fullPage: true,
+      });
+    await page.reload();
+    await expect(
+      page.getByRole("region", {
+        name: l("Saved training preferences", "تفضيلات التدريب المحفوظة"),
+      }),
+    ).toContainText(l("Dumbbells", "دمبل"));
+    await page
+      .getByRole("button", { name: l("Prime Vanguard apps", "تطبيقات برايم فانجارد"), exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: l("Your Prime Vanguard apps", "تطبيقات برايم فانجارد") }),
+    ).toBeFocused();
+    await page
+      .getByRole("button", {
+        name: l("Continue to device setup", "متابعة إلى إعداد الجهاز"),
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: l("Return to ready screen", "العودة إلى شاشة الاستعداد"),
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    await page
+      .getByRole("link", { name: l("Go to Today", "الانتقال إلى اليوم"), exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/today/);
+  });
+}
+
 test("onboarding retains choices, reviews consent and recovers a lost save receipt", async ({
   page,
   context,
@@ -6208,6 +10556,7 @@ test("onboarding retains choices, reviews consent and recovers a lost save recei
   });
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/onboarding");
+  await page.getByRole("button", { name: "Begin setup", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByLabel("Display name", { exact: true })).toBeFocused();
   await page.getByLabel("Display name", { exact: true }).fill("New Athlete");
@@ -6283,6 +10632,12 @@ test("onboarding language radios keep keyboard focus and assigned members get a 
   ];
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/onboarding");
+  await page.getByRole("radio", { name: "English", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator('input[name="welcome-language"][value="ar"]')).toBeChecked();
+  await expect(page.locator("main")).toHaveAttribute("dir", "rtl");
+  await page.getByRole("button", { name: "بدء الإعداد", exact: true }).click();
+  await page.locator('input[name="setup-language"][value="en"]').check();
   const english = page.getByRole("radio", { name: "English", exact: true });
   await english.focus();
   await english.press("ArrowLeft");
@@ -6602,3 +10957,192 @@ test("accepted member sync refreshes writer and peer rewards without waiting for
   expect(mutationCalls).toBe(1);
   await peer.close();
 });
+
+test("motion feedback follows persisted nutrition changes and respects reduced motion", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const id = crypto.randomUUID();
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(new Date());
+  backend.tables.food_logs = [
+    {
+      id,
+      member_id: userId,
+      log_date: day,
+      meal: "breakfast",
+      name: "Oats",
+      calories: 200,
+      protein_g: 10,
+      carbs_g: 30,
+      fat_g: 5,
+      revision: 1,
+    },
+  ];
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.addInitScript(() => {
+    const original = Element.prototype.animate;
+    Object.defineProperty(window, "recordFlashes", { value: [], configurable: true });
+    Element.prototype.animate = function (...args) {
+      if (this.hasAttribute("data-feedback-record")) {
+        (window as unknown as { recordFlashes: string[] }).recordFlashes.push(
+          this.getAttribute("data-feedback-record")!,
+        );
+      }
+      return original.apply(this, args);
+    };
+  });
+  const flashes = () =>
+    page.evaluate(() => (window as unknown as { recordFlashes: string[] }).recordFlashes);
+  await page.goto("/nutrition");
+  await expect(page.locator("[data-food-save-state]")).toHaveText("Synced");
+  expect(await flashes()).toEqual([]);
+  await page.getByRole("button", { name: "Edit Oats", exact: true }).click();
+  await page.getByLabel("Calories", { exact: true }).fill("bad");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  expect(backend.tables.food_logs![0]!.calories).toBe(200);
+  expect(await flashes()).toEqual([]);
+  await page.getByLabel("Calories", { exact: true }).fill("350");
+  expect(await flashes()).toEqual([]);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(flashes).toContain(id);
+  expect(backend.tables.food_logs![0]!.calories).toBe(350);
+  const count = (await flashes()).length;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      page
+        .locator(`[data-feedback-record="${id}"]`)
+        .evaluate((node) => node.getAnimations().length),
+    )
+    .toBe(0);
+  await page.getByRole("button", { name: "Edit Oats", exact: true }).click();
+  await page.getByLabel("Calories", { exact: true }).fill("400");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => backend.tables.food_logs![0]!.calories).toBe(400);
+  expect((await flashes()).length).toBe(count);
+  await page.reload();
+  await expect(page.locator("[data-food-save-state]")).toHaveText("Synced");
+  expect(await flashes()).toEqual([]);
+});
+
+test("crest reveal requires a new server level and never repeats on refresh", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  backend.tables.member_xp_totals![0]!.xp = 0;
+  await page.goto("/today");
+  await expect
+    .poll(() => page.evaluate((id) => localStorage.getItem(`pf-level-${id}`), userId))
+    .toBe("1");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  backend.tables.member_xp_totals![0]!.xp = 1000000;
+  await page.reload();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".crest-reveal")).toBeVisible();
+  await page.getByRole("button", { name: "Keep going", exact: true }).click();
+  await page.reload();
+  await expect
+    .poll(() => page.evaluate((id) => localStorage.getItem(`pf-level-${id}`), userId))
+    .toBe("100");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+for (const locale of ["en", "ar"] as const) {
+  test(`six rank auras stay distinct static and within their footprint in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await fakeBackend(context, locale);
+    await page.goto("/rewards");
+    await page
+      .getByRole("button", { name: locale === "ar" ? "الرحلة" : "Journey", exact: true })
+      .click();
+    const ranks = ["Recruit", "Seeker", "Forged", "Guardian", "Vanguard", "Prime Legend"];
+    // The labeled map retains keyboard-accessible levels beside the decorative auras.
+    const crests = page
+      .getByLabel(locale === "ar" ? "خريطة رحلة المئة مستوى" : "100-level journey map", {
+        exact: true,
+      })
+      .locator(".rank-crest");
+    await expect(crests).toHaveCount(6);
+    const blooms: number[] = [];
+    for (let i = 0; i < ranks.length; i++) {
+      const crest = crests.nth(i);
+      await expect(crest).toHaveAttribute("data-rank", ranks[i]!);
+      await expect(crest.getByRole("img")).toHaveAttribute("alt", /.+/);
+      const state = await crest.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return {
+          width: rect.width,
+          height: rect.height,
+          bloom: Number(style.getPropertyValue("--crest-bloom")),
+          before: getComputedStyle(node, "::before").animationName,
+          after: getComputedStyle(node, "::after").animationName,
+          loaded: (node.querySelector("img") as HTMLImageElement).naturalWidth > 0,
+        };
+      });
+      expect(state).toMatchObject({
+        width: 48,
+        height: 48,
+        before: "none",
+        after: "none",
+        loaded: true,
+      });
+      blooms.push(state.bloom);
+    }
+    expect(blooms.every((bloom, i) => i === 0 || bloom > blooms[i - 1]!)).toBe(true);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(
+      await crests.evaluateAll((nodes) =>
+        nodes.every((node) => node.getAnimations({ subtree: true }).length === 0),
+      ),
+    ).toBe(true);
+    await page.emulateMedia({ forcedColors: "active" });
+    expect(
+      await crests.first().evaluate((node) => getComputedStyle(node, "::before").display),
+    ).toBe("none");
+    await page.emulateMedia({ forcedColors: "none" });
+    if (locale === "en") {
+      // Synthetic review board uses the actual component DOM/CSS at celebration size.
+      await crests.evaluateAll((nodes) => {
+        const board = document.createElement("section");
+        board.id = "rank-aura-review";
+        board.style.cssText =
+          "display:grid;grid-template-columns:repeat(3,1fr);gap:32px;padding:40px;background:#0f172a;width:960px;color:#f1f5f9";
+        for (const node of nodes) {
+          const cell = document.createElement("div");
+          cell.style.cssText =
+            "display:grid;justify-items:center;gap:16px;padding:24px;background:#1e293b;border-radius:16px";
+          const crest = node.cloneNode(true) as HTMLElement;
+          crest.style.cssText = "--crest-size:160px;width:160px;height:160px";
+          const img = crest.querySelector("img")!;
+          img.width = 160;
+          img.height = 160;
+          img.sizes = "160px";
+          const label = document.createElement("p");
+          label.textContent = node.getAttribute("data-rank");
+          cell.append(crest, label);
+          board.append(cell);
+        }
+        document.body.prepend(board);
+      });
+      await page
+        .locator("#rank-aura-review img")
+        .evaluateAll((images) =>
+          Promise.all(images.map((image) => (image as HTMLImageElement).decode())),
+        );
+      await page.locator("#rank-aura-review").screenshot({ path: "artifacts/six-rank-auras.png" });
+    }
+  });
+}

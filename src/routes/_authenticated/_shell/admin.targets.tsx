@@ -86,7 +86,16 @@ function Targets() {
   if (me && !allowed) return <p className="mt-10 text-muted-foreground">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("targets")} />
+      <PageHeader
+        eyebrow={locale === "ar" ? "مساحة التغذية" : "Nutrition workspace"}
+        eyebrowTone="accent"
+        title={t("targets")}
+      />
+      <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
+        {locale === "ar"
+          ? "اختر عضواً، وعدّل أهدافه اليومية، ثم راجع القيم المحفوظة والمقترحة قبل التأكيد."
+          : "Choose a member, adjust their daily targets, then review the saved and proposed values before confirming."}
+      </p>
       <div className="mt-6 max-w-3xl space-y-5 rounded-xl border border-border bg-card p-4 sm:p-6">
         {members.isPending && (
           <p role="status">{locale === "ar" ? "جارٍ تحميل الأعضاء…" : "Loading members…"}</p>
@@ -99,16 +108,29 @@ function Targets() {
             </Button>
           </div>
         )}
-        <AdminPersonPicker
-          label={t("member")}
-          people={members.data ?? []}
-          value={memberId}
-          disabled={!allowed || !!members.error}
-          onChange={(id) => {
-            setMemberId(id);
-            if (id) setVisited((old) => (old.includes(id) ? old : [...old, id]));
-          }}
-        />
+        <div className="rounded-xl border border-border bg-background p-4">
+          <AdminPersonPicker
+            label={t("member")}
+            people={members.data ?? []}
+            value={memberId}
+            disabled={!allowed || !!members.error}
+            onChange={(id) => {
+              setMemberId(id);
+              if (id) setVisited((old) => (old.includes(id) ? old : [...old, id]));
+            }}
+          />
+        </div>
+        {!memberId && !members.isPending && !members.error && (
+          <p
+            role="status"
+            className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground"
+          >
+            {locale === "ar"
+              ? "اختر عضواً لعرض أهدافه المحفوظة. لن تتغير أي قيم حتى مراجعتها وتأكيدها."
+              : "Select a member to view their saved targets. Values change only after review and confirmation."}
+          </p>
+        )}
+        {/* Visited editors stay mounted so switching members never replaces a draft. */}
         {visited.map((id) => (
           <div key={id} hidden={id !== memberId}>
             <TargetEditor
@@ -124,7 +146,9 @@ function Targets() {
             />
           </div>
         ))}
-        <p className="text-xs text-muted-foreground">{t("nutritionSafety")}</p>
+        <p className="rounded-lg border border-border bg-background p-4 text-xs text-muted-foreground">
+          {t("nutritionSafety")}
+        </p>
       </div>
       <AlertDialog
         open={blocker.status === "blocked"}
@@ -311,29 +335,45 @@ function TargetEditor({
               "أهداف يومية. الحقول الفارغة غير محددة. تبقى المسودات متاحة عند التبديل بين الأعضاء هنا.",
             )}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {fields.map(([key, label]) => (
-              <label key={key} className="text-sm">
-                {label}
-                <Input
-                  className="mt-1"
-                  aria-label={label}
-                  inputMode="numeric"
-                  disabled={!!review || !enabled || reloading || !!current.error}
-                  value={draft.form[key]}
-                  onChange={(event) => {
-                    setDraft({ ...draft, form: { ...draft.form, [key]: event.target.value } });
-                    setSaved(false);
-                    setError("");
-                  }}
-                />
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {l("Saved", "المحفوظ")}:{" "}
-                  <bdi>{draft.baseline?.[key] ?? l("Not set", "غير محدد")}</bdi>
-                </span>
-              </label>
-            ))}
-          </div>
+          {/* Group fields without changing their canonical units or numeric validation. */}
+          {([false, true] as const).map((hydration) => (
+            <fieldset
+              key={String(hydration)}
+              className="rounded-xl border border-border bg-background p-4 sm:p-5"
+            >
+              <legend className="px-2 text-sm font-semibold">
+                {hydration ? l("Hydration", "الترطيب") : l("Energy & macros", "الطاقة والمغذيات")}
+              </legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {fields
+                  .filter(([key]) => (key === "water_ml") === hydration)
+                  .map(([key, label]) => (
+                    <label key={key} className="min-w-0 text-sm">
+                      {label}
+                      <Input
+                        className="mt-1"
+                        aria-label={label}
+                        inputMode="numeric"
+                        disabled={!!review || !enabled || reloading || !!current.error}
+                        value={draft.form[key]}
+                        onChange={(event) => {
+                          setDraft({
+                            ...draft,
+                            form: { ...draft.form, [key]: event.target.value },
+                          });
+                          setSaved(false);
+                          setError("");
+                        }}
+                      />
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {l("Saved", "المحفوظ")}:{" "}
+                        <bdi>{draft.baseline?.[key] ?? l("Not set", "غير محدد")}</bdi>
+                      </span>
+                    </label>
+                  ))}
+              </div>
+            </fieldset>
+          ))}
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -344,7 +384,7 @@ function TargetEditor({
               {l("Daily targets saved.", "تم حفظ الأهداف اليومية.")}
             </p>
           )}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 border-t border-border pt-5">
             <Button
               type="submit"
               disabled={!dirty || !enabled || reloading || !!review || !!current.error}

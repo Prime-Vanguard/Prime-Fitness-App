@@ -278,6 +278,50 @@ test("successful login preserves an internal destination and blocks external one
   await expect(page).toHaveURL(/\/today$/);
 });
 
+for (const locale of ["en", "ar"] as const) {
+  test(`Stitch access and invitation panels remain usable in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    await backend(context);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 393, height: 850 });
+    await page.goto("/auth");
+    if (locale === "ar") await page.getByRole("button", { name: "العربية", exact: true }).click();
+    const ar = locale === "ar";
+    await expect(page.locator("main")).toHaveAttribute("dir", ar ? "rtl" : "ltr");
+    await expect(
+      page.getByLabel(ar ? "البريد الإلكتروني" : "Email", { exact: true }),
+    ).toHaveAttribute("dir", "ltr");
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await page.screenshot({ path: `artifacts/stitch-access-${locale}.png`, fullPage: true });
+    await page
+      .getByRole("button", {
+        name: ar ? "لديك دعوة؟ فعّلها" : "Have an invitation? Activate it",
+        exact: true,
+      })
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    await expect(page.getByLabel(ar ? "الاسم" : "Display name", { exact: true })).toBeVisible();
+    for (const width of [320, 393, 768, 1280]) {
+      await page.setViewportSize({ width, height: 850 });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+        .toBe(true);
+      const submit = page.getByRole("button", {
+        name: ar ? "تفعيل الحساب" : "Activate account",
+        exact: true,
+      });
+      await submit.scrollIntoViewIfNeeded();
+      const box = await submit.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.setViewportSize({ width: 393, height: 850 });
+    if (process.env["PW_UI_SCREENSHOTS"])
+      await page.screenshot({ path: `artifacts/stitch-invitation-${locale}.png`, fullPage: true });
+  });
+}
+
 test("authentication modes retain email, clear secrets and fit a short phone screen", async ({
   page,
   context,

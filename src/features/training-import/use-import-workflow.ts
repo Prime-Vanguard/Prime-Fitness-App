@@ -12,6 +12,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { useI18n } from "@/lib/i18n";
 import { useImportReview } from "./use-import-review";
 import { prepareImportChunks } from "./prepare-import";
+// Coordinate local CSV parsing, member review, chunked submission and recovery.
 export function useImportWorkflow(userId: string, enabled: boolean) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
@@ -43,6 +44,7 @@ export function useImportWorkflow(userId: string, enabled: boolean) {
     [fileName, setFileName] = useState("");
   const [attempted, setAttempted] = useState(false),
     [receipt, setReceipt] = useState<ReturnType<typeof importReceipt> | null>(null);
+  // Epochs invalidate stale worker results; a stable batch ID makes retries identifiable.
   const dispatchLock = useRef(false),
     parseEpoch = useRef(0);
   const mappingTouched = useRef(false);

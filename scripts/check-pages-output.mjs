@@ -19,6 +19,7 @@ async function check(directory) {
     if (entry.isDirectory()) await check(file);
     else {
       count++;
+      if (file.endsWith(".map")) throw new Error(`Source map published in static output: ${file}`);
       if (/\.(html|js|json|webmanifest|css)$/.test(file)) {
         const text = await readFile(file, "utf8");
         if (file.endsWith(".js"))
@@ -26,7 +27,7 @@ async function check(directory) {
             compiled[index] ||= !!value && text.includes(value);
           });
         if (
-          /sb_secret_[A-Za-z0-9_-]{15,}|SUPABASE_SERVICE_ROLE_KEY|-----BEGIN (?:RSA )?PRIVATE KEY-----/.test(
+          /sb_secret_[A-Za-z0-9_-]{15,}|SUPABASE_SERVICE_ROLE_KEY|SENTRY_AUTH_TOKEN|sntry[su]_[A-Za-z0-9+/=_-]{20,}|-----BEGIN (?:RSA )?PRIVATE KEY-----/.test(
             text,
           )
         ) {

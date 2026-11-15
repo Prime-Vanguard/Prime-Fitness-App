@@ -17,17 +17,16 @@ import {
 } from "@/lib/nutrition-entries";
 import { supabase } from "@/integrations/supabase/client";
 import { queueMemberWrites, syncMemberEntries, type MemberRecord } from "@/lib/member-store";
-import { addDays } from "@/lib/dates";
 import { haptic, primeAudio, waterSound } from "@/lib/device-feedback";
 import type { FoodDraft, FoodPick, NutritionSearch } from "./contracts";
 
 /** Owns form drafts and serialized writes; storage protocols remain in domain services. */
+// Coordinates food and water actions with the existing online and offline paths.
 export function useNutritionWorkflow({
   userId,
   day,
   search,
   offline,
-  localFood,
   refresh,
   navigate,
 }: {
@@ -35,7 +34,6 @@ export function useNutritionWorkflow({
   day: string;
   search: NutritionSearch;
   offline: boolean;
-  localFood: MemberRecord[];
   refresh: () => Promise<unknown>;
   navigate: (options: { search: NutritionSearch; replace?: boolean }) => unknown;
 }) {
@@ -111,36 +109,7 @@ export function useNutritionWorkflow({
     });
     void navigate({ search: { ...search, entry: "quick" }, replace: true });
   }
-  async function copyYesterday() {
-    const y = addDays(day, -1);
-    const { data: rows, error } =
-      offline && !navigator.onLine
-        ? {
-            data: localFood.filter((r) => r.log_date === y) as FoodEntry[],
-            error: null,
-          }
-        : await supabase
-            .from("food_logs")
-            .select("meal,name,calories,protein_g,carbs_g,fat_g")
-            .eq("member_id", userId)
-            .eq("log_date", y);
-    if (error) return void toast.error(error.message);
-    if (!rows.length) return void toast.error(t("nothingYesterday"));
-    const ins = offline
-      ? await writeLocal(
-          rows.map((r) => ({
-            entity: "food_logs",
-            op: "put",
-            record: { ...r, id: crypto.randomUUID(), log_date: day },
-          })),
-        )
-      : await supabase
-          .from("food_logs")
-          .insert(rows.map((r) => ({ ...r, member_id: userId, log_date: day })));
-    if (ins.error) return void toast.error(ins.error.message);
-    toast.success(t("saved"));
-    refresh();
-  }
+  // Serialize entry actions so repeated taps cannot start overlapping writes.
   async function entryAction(action: () => Promise<void>) {
     if (mutationLock.current) return;
     mutationLock.current = true;
@@ -317,7 +286,6 @@ export function useNutritionWorkflow({
     changeMeal,
     closeEntry,
     choose,
-    copyYesterday,
     add,
     onLogged,
   };

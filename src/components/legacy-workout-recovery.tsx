@@ -3,6 +3,7 @@ import { readLegacyWorkout, adoptLegacyWorkout } from "@/lib/workout-store";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "./ui/button";
 import { supabase } from "@/integrations/supabase/client";
+// Old drafts lack project provenance, so the member must review their destination.
 export function LegacyWorkoutRecovery({ userId }: { userId: string }) {
   const { locale } = useI18n(),
     l = (en: string, ar: string) => (locale === "ar" ? ar : en);

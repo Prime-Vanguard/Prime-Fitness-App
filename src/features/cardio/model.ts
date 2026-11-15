@@ -20,9 +20,11 @@ export const intervalPlan = z
   .strict()
   .refine((p) => intervalTotal(p) <= 86400, "HIIT is limited to 24 hours");
 export type IntervalPlan = { work: number; rest: number; rounds: number; prepare: number };
+// Preparation runs once and there is no rest interval after the final round.
 export function intervalTotal(p: IntervalPlan) {
   return p.prepare + p.work * p.rounds + p.rest * (p.rounds - 1);
 }
+// Derive the current phase from elapsed time so missed timer ticks do not drift.
 export function intervalPosition(p: IntervalPlan, elapsed: number) {
   const time = Math.max(0, Math.floor(elapsed));
   if (time >= intervalTotal(p)) return { phase: "done" as const, round: p.rounds, remaining: 0 };
@@ -70,6 +72,7 @@ export const intervalTimer = z.object({
   saved: z.boolean().default(false),
 });
 export type IntervalTimer = z.output<typeof intervalTimer>;
+// Account for accumulated time and the current running segment across backgrounding.
 export function timerElapsed(timer: IntervalTimer, now = Date.now()) {
   return Math.min(
     intervalTotal(timer.plan),

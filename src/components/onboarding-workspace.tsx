@@ -1,3 +1,4 @@
+import { SelectionIndicator } from "./selection-indicator";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +7,14 @@ import { useI18n, type Locale } from "@/lib/i18n";
 import { completeOnboarding, onboardingErrorText, type OnboardingDraft } from "@/lib/onboarding";
 import { supabase } from "@/integrations/supabase/client";
 import { BrandShell } from "./brand-shell";
+import { OnboardingShell } from "./onboarding-shell";
+import { OnboardingWelcome } from "./onboarding-welcome";
+import { OnboardingDeviceSetup } from "./onboarding-device-setup";
+import { OnboardingTrainingPreferences } from "./onboarding-training-preferences";
+import { OnboardingSystemSetup } from "./onboarding-system-setup";
+import { TrainingPreferencesSummary } from "./training-preferences-summary";
+import { emptyTrainingPreferences, trainingPreferenceSchema } from "@/lib/onboarding-preferences";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { Database } from "@/integrations/supabase/types";
@@ -73,6 +82,13 @@ function SetupForm({
     qc = useQueryClient(),
     l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [step, setStep] = useState(0),
+    [welcome, setWelcome] = useState(true),
+    [deviceSetup, setDeviceSetup] = useState(false),
+    [systemSetup, setSystemSetup] = useState(false),
+    [training, setTraining] = useState(() => {
+      const p = trainingPreferenceSchema.safeParse(profile.training_preferences);
+      return p.success ? p.data : emptyTrainingPreferences();
+    }),
     [name, setName] = useState(profile.display_name ?? ""),
     [units, setUnits] = useState<"metric" | "imperial">(
       profile.units === "imperial" ? "imperial" : "metric",
@@ -87,6 +103,9 @@ function SetupForm({
     heading = useRef<HTMLHeadingElement>(null),
     previousStep = useRef(0);
   const complete = !!saved || profile.onboarding_completed;
+  useEffect(() => {
+    if (!welcome) heading.current?.focus({ preventScroll: true });
+  }, [welcome]);
   const assignment = useQuery({
     queryKey: ["onboarding-next-program", actor],
     enabled: complete,
@@ -148,6 +167,7 @@ function SetupForm({
       name,
       locale,
       units,
+      training,
       consent_at: new Date().toISOString(),
     };
     request.current = payload;
@@ -180,22 +200,41 @@ function SetupForm({
       </Button>
     </div>
   );
+  if (complete && systemSetup)
+    return (
+      <OnboardingSystemSetup
+        onBack={() => setSystemSetup(false)}
+        onContinue={() => {
+          setSystemSetup(false);
+          setDeviceSetup(true);
+        }}
+      />
+    );
+  if (complete && deviceSetup)
+    return <OnboardingDeviceSetup onDone={() => setDeviceSetup(false)} />;
   if (complete)
     return (
-      <BrandShell
+      <OnboardingShell
         title={l("Your setup is complete", "اكتمل إعداد حسابك")}
         focusKey="setup-complete"
         subtitle={l("Choose your next step", "اختر خطوتك التالية")}
       >
         <section className="space-y-4" aria-label={l("Setup completion", "اكتمال الإعداد")}>
           {refreshNotice}
-          <p>
+          <div
+            aria-hidden
+            className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-raised text-gold"
+          >
+            <ShieldCheck className="size-8" />
+          </div>
+          <p className="text-center text-sm leading-relaxed text-muted-foreground">
             {l(
-              "Your account preferences are saved. You can review or change them from Profile.",
-              "تفضيلات حسابك محفوظة. يمكنك مراجعتها أو تغييرها من الملف الشخصي.",
+              "Your preferences are saved. Review them in Profile; language and units can be changed there. Discuss training changes with your coach.",
+              "تفضيلاتك محفوظة ويمكن مراجعتها في الملف الشخصي وتغيير اللغة والوحدات هناك. ناقش تغييرات التدريب مع مدربك.",
             )}
           </p>
-          <dl className="grid grid-cols-2 gap-3 text-sm">
+          <TrainingPreferencesSummary value={saved?.training ?? profile.training_preferences} />
+          <dl className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 text-sm">
             <div>
               <dt className="text-muted-foreground">{t("displayName")}</dt>
               <dd className="break-words">{saved?.name.trim() ?? profile.display_name}</dd>
@@ -205,71 +244,102 @@ function SetupForm({
               <dd>{t((saved?.units ?? profile.units) === "imperial" ? "imperial" : "metric")}</dd>
             </div>
           </dl>
-          {assignment.isPending ? (
-            <p role="status">{l("Checking your assigned program…", "جارٍ فحص برنامجك المعين…")}</p>
-          ) : assignment.error ? (
-            <div role="alert">
+          <section
+            className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+            aria-label={l("Your training plan", "خطتك التدريبية")}
+          >
+            <h2 className="font-heading text-lg font-semibold">
+              {l("Your training plan", "خطتك التدريبية")}
+            </h2>
+            {assignment.isPending ? (
+              <p role="status">
+                {l("Checking your assigned program…", "جارٍ فحص برنامجك المعين…")}
+              </p>
+            ) : assignment.error ? (
+              <div role="alert">
+                <p>
+                  {l(
+                    "Program availability could not be checked. Your setup remains saved.",
+                    "تعذر فحص توفر البرنامج. يبقى إعداد حسابك محفوظاً.",
+                  )}
+                </p>
+                <Button variant="outline" onClick={() => void assignment.refetch()}>
+                  {l("Retry program check", "إعادة فحص البرنامج")}
+                </Button>
+              </div>
+            ) : assignment.data ? (
+              <>
+                <p>
+                  {l(
+                    "Your coach has assigned a program. Preview the next session before starting.",
+                    "عيّن مدربك برنامجاً لك. عاين الجلسة القادمة قبل البدء.",
+                  )}
+                </p>
+                <Button asChild className="w-full">
+                  <Link to="/train" search={{ section: "program" }}>
+                    {l("View my program", "عرض برنامجي")}
+                  </Link>
+                </Button>
+              </>
+            ) : (
               <p>
                 {l(
-                  "Program availability could not be checked. Your setup remains saved.",
-                  "تعذر فحص توفر البرنامج. يبقى إعداد حسابك محفوظاً.",
+                  "No active program is assigned yet. Open Today for daily actions and contact your coach about your training plan.",
+                  "لا يوجد برنامج نشط معين بعد. افتح اليوم للمهام اليومية وتواصل مع مدربك بشأن خطتك.",
                 )}
               </p>
-              <Button variant="outline" onClick={() => void assignment.refetch()}>
-                {l("Retry program check", "إعادة فحص البرنامج")}
-              </Button>
-            </div>
-          ) : assignment.data ? (
-            <>
-              <p>
-                {l(
-                  "Your coach has assigned a program. Preview the next session before starting.",
-                  "عيّن مدربك برنامجاً لك. عاين الجلسة القادمة قبل البدء.",
-                )}
-              </p>
-              <Button asChild className="w-full">
-                <Link to="/train" search={{ section: "program" }}>
-                  {l("View my program", "عرض برنامجي")}
-                </Link>
-              </Button>
-            </>
-          ) : (
-            <p>
-              {l(
-                "No active program is assigned yet. Open Today for daily actions and contact your coach about your training plan.",
-                "لا يوجد برنامج نشط معين بعد. افتح اليوم للمهام اليومية وتواصل مع مدربك بشأن خطتك.",
-              )}
-            </p>
-          )}
-          <Button variant="outline" asChild className="w-full">
+            )}
+          </section>
+          <Button asChild className="min-h-[50px] w-full">
             <Link to="/today">{l("Go to Today", "الانتقال إلى اليوم")}</Link>
           </Button>
+          <Button
+            variant="outline"
+            className="min-h-12 w-full"
+            onClick={() => setDeviceSetup(true)}
+          >
+            {l("App & notifications", "التطبيق والإشعارات")}
+          </Button>
+          <Button variant="ghost" className="min-h-11 w-full" onClick={() => setSystemSetup(true)}>
+            {l("Prime Vanguard apps", "تطبيقات برايم فانجارد")}
+          </Button>
         </section>
-      </BrandShell>
+      </OnboardingShell>
     );
+  if (welcome) return <OnboardingWelcome onContinue={() => setWelcome(false)} />;
   return (
-    <BrandShell
+    <OnboardingShell
       title={t("onboardingTitle")}
+      setup
       languageLocked={busy || !!request.current}
       subtitle={`${t("step")} ${step + 1} ${t("of")} 3 · ${labels[step]}`}
     >
       {refreshNotice}
       <ol
         aria-label={l("Setup steps", "خطوات الإعداد")}
-        className="mb-5 grid grid-cols-3 gap-2 text-xs"
+        className="mb-5 grid grid-cols-3 gap-3 text-xs"
       >
         {labels.map((label, i) => (
           <li
             key={label}
             aria-current={i === step ? "step" : undefined}
-            className={`rounded-lg border p-2 ${i === step ? "border-gold text-gold" : "border-border text-muted-foreground"}`}
+            className={`space-y-2 py-2 ${i === step ? "font-semibold text-gold" : "text-muted-foreground"}`}
           >
             <span>{i + 1}. </span>
+            {/* Show the three real setup steps, rather than copying unsupported mock steps. */}
+            <span
+              aria-hidden
+              className={`block h-1 rounded-full ${i <= step ? "bg-gold" : "bg-border"}`}
+            />
             {label}
           </li>
         ))}
       </ol>
-      <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-semibold focus:outline-none">
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        className="mb-4 font-heading text-[30px] font-extrabold leading-tight focus:outline-none"
+      >
         {labels[step]}
       </h2>
       <form onSubmit={finish} aria-busy={busy} className="space-y-4">
@@ -278,7 +348,9 @@ function SetupForm({
             <>
               <fieldset className="space-y-2">
                 <legend className="mb-2 text-sm font-medium">{t("language")}</legend>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="sliding-selection grid grid-cols-2 gap-2">
+                  {/* Native radios retain their focus and arrow-key semantics. */}
+                  <SelectionIndicator />
                   {(["ar", "en"] as Locale[]).map((value) => (
                     <label key={value} className={option}>
                       <input
@@ -294,7 +366,7 @@ function SetupForm({
                   ))}
                 </div>
               </fieldset>
-              <div className="space-y-2">
+              <div className="space-y-3 rounded-xl border border-border bg-card p-4">
                 <label htmlFor="onboarding-name" className="text-sm font-medium">
                   {t("displayName")}
                 </label>
@@ -325,37 +397,17 @@ function SetupForm({
             </>
           )}
           {step === 1 && (
-            <fieldset className="space-y-3">
-              <legend className="mb-2 text-sm font-medium">{t("units")}</legend>
-              {(["metric", "imperial"] as const).map((value) => (
-                <label key={value} className={option}>
-                  <input
-                    type="radio"
-                    name="setup-units"
-                    value={value}
-                    checked={units === value}
-                    onChange={() => setUnits(value)}
-                    className="h-5 w-5 accent-[var(--gold)]"
-                  />
-                  <span>
-                    {t(value)}
-                    <span className="mt-1 block text-xs text-muted-foreground" dir="ltr">
-                      {value === "metric" ? "kg · cm" : "lb · in"}
-                    </span>
-                  </span>
-                </label>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                {l(
-                  "This changes display/input preferences. Stored training measurements keep their canonical units.",
-                  "هذا يغير تفضيلات العرض والإدخال. تحتفظ القياسات المخزنة بوحداتها الأساسية.",
-                )}
-              </p>
-            </fieldset>
+            <OnboardingTrainingPreferences
+              units={units}
+              onChange={setUnits}
+              preferences={training}
+              onPreferences={setTraining}
+            />
           )}
           {step === 2 && (
             <>
-              <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border p-3 text-sm">
+              <TrainingPreferencesSummary value={training} />
+              <dl className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 text-sm">
                 <div>
                   <dt className="text-muted-foreground">{t("displayName")}</dt>
                   <dd className="break-words">{name.trim()}</dd>
@@ -369,17 +421,26 @@ function SetupForm({
                   <dd>{t(units)}</dd>
                 </div>
               </dl>
-              <h3 className="font-medium">{t("consentTitle")}</h3>
-              <p className="text-sm text-muted-foreground">{t("consentText")}</p>
-              <label className="flex min-h-11 items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-5 w-5 accent-[var(--gold)]"
-                  checked={agree}
-                  onChange={(e) => setAgree(e.target.checked)}
-                />
-                {t("consentAgree")}
-              </label>
+              {/* Keep the actual consent text and single required choice intact;
+                  the reference's additional agreements are not implemented. */}
+              <section
+                className="space-y-3 rounded-xl border border-border bg-card p-4"
+                aria-labelledby="setup-consent-title"
+              >
+                <h3 id="setup-consent-title" className="font-heading font-semibold">
+                  {t("consentTitle")}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{t("consentText")}</p>
+                <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-border bg-background p-3 text-sm focus-within:ring-2 focus-within:ring-gold">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--gold)]"
+                    checked={agree}
+                    onChange={(e) => setAgree(e.target.checked)}
+                  />
+                  {t("consentAgree")}
+                </label>
+              </section>
             </>
           )}
         </fieldset>
@@ -404,24 +465,29 @@ function SetupForm({
             {l("Saving your setup…", "جارٍ حفظ إعدادك…")}
           </p>
         )}
-        <div className="flex flex-wrap justify-between gap-2">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
           <Button
             type="button"
             variant="ghost"
-            disabled={busy || step === 0 || !!request.current}
+            disabled={busy || !!request.current}
             onClick={() => {
-              setStep(step - 1);
+              if (step === 0) setWelcome(true);
+              else setStep(step - 1);
               setError("");
             }}
           >
             {t("back")}
           </Button>
           {step < 2 ? (
-            <Button type="button" onClick={next}>
+            <Button type="button" className="min-h-[50px] w-full sm:w-auto" onClick={next}>
               {t("next")}
             </Button>
           ) : (
-            <Button type="submit" disabled={busy || !agree}>
+            <Button
+              type="submit"
+              className="min-h-[50px] w-full sm:w-auto"
+              disabled={busy || !agree}
+            >
               {busy ? l("Saving…", "جارٍ الحفظ…") : t("finish")}
             </Button>
           )}
@@ -433,6 +499,6 @@ function SetupForm({
           )}
         </p>
       </form>
-    </BrandShell>
+    </OnboardingShell>
   );
 }

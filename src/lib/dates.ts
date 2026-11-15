@@ -1,4 +1,5 @@
 export const TRAINING_ZONE = "Africa/Cairo";
+// Activity dates follow Cairo even when the device is in another time zone.
 export function activityDay(value: string | number | Date = Date.now()): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) throw new Error("Invalid activity timestamp.");
@@ -9,6 +10,7 @@ export function activityDay(value: string | number | Date = Date.now()): string 
     day: "2-digit",
   }).format(date);
 }
+// Calendar-date arithmetic uses UTC noon rather than the device's local midnight.
 export function addDays(day: string, count: number): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Invalid activity date.");
   const date = new Date(`${day}T12:00:00Z`);

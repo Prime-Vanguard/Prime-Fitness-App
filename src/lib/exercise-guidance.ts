@@ -31,6 +31,7 @@ export type ExerciseGuidance = Exercise & {
   } | null;
   editorial_status?: string;
 };
+// Normalize Arabic letter variants and diacritics for bilingual catalogue search.
 export const normalizeExercise = (text: string) =>
   text
     .normalize("NFKC")
@@ -93,6 +94,16 @@ export function historicalExerciseLabel(
     (locale === "ar" ? "تمرين سابق" : "Historical exercise")
   );
 }
+/** Legacy catalogue rows may have an empty normalized tag array. */
+export function exerciseEquipment(
+  exercise: Pick<ExerciseGuidance, "equipment_tags" | "equipment">,
+): string[] {
+  return exercise.equipment_tags?.length
+    ? exercise.equipment_tags
+    : exercise.equipment
+      ? [exercise.equipment]
+      : [];
+}
 export function discoverExercises(
   exercises: ExerciseGuidance[],
   query: string,
@@ -103,7 +114,7 @@ export function discoverExercises(
     .filter(
       (e) =>
         e.active !== false &&
-        (!filters.equipment || (e.equipment_tags ?? [e.equipment]).includes(filters.equipment)) &&
+        (!filters.equipment || exerciseEquipment(e).includes(filters.equipment)) &&
         (!filters.muscle || e.muscle === filters.muscle) &&
         (!filters.mode || (e.logging_mode ?? "weighted_reps") === filters.mode),
     )

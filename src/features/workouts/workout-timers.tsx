@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/
 import { restSound, primeAudio } from "@/lib/device-feedback";
 import { RestAlertSettings } from "./rest-alert-settings";
 import { toast } from "sonner";
-import { Settings2 } from "lucide-react";
+import { Hourglass } from "lucide-react";
 import { inputNumber } from "@/lib/numeric-input";
 function useClock() {
   const [now, setNow] = useState(Date.now());
@@ -21,7 +21,11 @@ export function SessionTime({ started }: { started: string }) {
   const now = useClock();
   return (
     <span className="tabular-nums">
-      {Math.max(0, Math.floor((now - new Date(started).getTime()) / 60000))} min
+      {String(Math.floor(Math.max(0, now - new Date(started).getTime()) / 60000)).padStart(2, "0")}:
+      {String(Math.floor(Math.max(0, now - new Date(started).getTime()) / 1000) % 60).padStart(
+        2,
+        "0",
+      )}
     </span>
   );
 }
@@ -72,11 +76,12 @@ export function RestTimer({
   if (locked) return null;
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-sidebar px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:inset-x-auto md:bottom-4 md:w-[min(48rem,calc(100%-4rem))] md:rounded-xl md:border">
+      <div
+        data-rest-dock
+        className="fixed inset-x-0 bottom-0 z-30 bg-card px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:inset-x-auto md:end-6 md:bottom-4 md:w-[min(48rem,calc(100%-8rem))] md:rounded-xl"
+      >
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2">
-          <label
-            className={`text-xs text-muted-foreground ${remaining > 0 ? "hidden min-[380px]:block" : ""}`}
-          >
+          <label className={`text-xs text-muted-foreground ${remaining > 0 ? "hidden" : ""}`}>
             <span className="sr-only">{locale === "ar" ? "الراحة" : "Rest"}</span>
             <NativeSelect
               value={seconds}
@@ -113,17 +118,26 @@ export function RestTimer({
               setSettings(true);
             }}
           >
-            <Settings2 />
+            <Hourglass className="text-gold" />
           </Button>
           {remaining > 0 ? (
             <>
-              <strong className="text-xl tabular-nums text-gold">
-                {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
-              </strong>
+              <div className="me-auto" data-rest-final={remaining <= 10 || undefined}>
+                <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {locale === "ar" ? "فترة الراحة" : "Rest interval"}
+                </span>
+                <strong
+                  dir="ltr"
+                  className={`font-heading text-xl font-extrabold leading-6 tabular-nums transition-colors ${remaining <= 10 ? "text-gold" : "text-foreground"}`}
+                >
+                  {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+                </strong>
+              </div>
               <div className="flex gap-1">
                 <Button
                   variant="outline"
                   size="icon"
+                  className="border-transparent bg-background text-muted-foreground"
                   aria-label={locale === "ar" ? "تقليل الراحة ١٥ ثانية" : "Shorten rest 15 seconds"}
                   onClick={() => onChange(Math.max(now, end - 15000))}
                 >
@@ -132,12 +146,13 @@ export function RestTimer({
                 <Button
                   variant="outline"
                   size="icon"
+                  className="border-transparent bg-background text-muted-foreground"
                   aria-label={locale === "ar" ? "زيادة الراحة ١٥ ثانية" : "Extend rest 15 seconds"}
                   onClick={() => onChange(end + 15000)}
                 >
                   +15
                 </Button>
-                <Button variant="ghost" className="px-2" onClick={() => onChange(0)}>
+                <Button variant="ghost" className="bg-raised px-2" onClick={() => onChange(0)}>
                   {t("skip")}
                 </Button>
               </div>

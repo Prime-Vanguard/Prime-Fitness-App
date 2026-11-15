@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/use-me";
 import { useI18n } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
+import { StaffSummary } from "@/components/staff-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdminChangeReview, type AdminReview } from "@/components/admin-change-review";
@@ -165,17 +166,57 @@ function Invites() {
       },
     });
   }
+  // Both responsive layouts use the same snapshot and privileged-role review gate.
+  const revokeAction = (row: Invitation) =>
+    !row.accepted_at &&
+    !row.revoked_at && (
+      <Button
+        variant="outline"
+        disabled={
+          !!invitations.error ||
+          !!review ||
+          (!me?.isSuperAdmin && (row.role === "admin" || row.role === "super_admin"))
+        }
+        onClick={() => reviewRevoke(row)}
+      >
+        {t("revoke")}
+      </Button>
+    );
   if (me && !allowed) return <p className="mt-10 text-muted-foreground">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("invites")} />
+      <PageHeader
+        eyebrow={l("Access workspace", "مساحة إدارة الوصول")}
+        eyebrowTone="accent"
+        title={t("invites")}
+      />
       <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
         {l(
           "Manage signup invitations and their status. Dates use Cairo time. Email delivery is not tracked on this page.",
           "أدر دعوات التسجيل وحالتها. التواريخ بتوقيت القاهرة. لا تُتابع هذه الصفحة تسليم البريد الإلكتروني.",
         )}
       </p>
-      <div className="mt-6 flex flex-wrap items-end gap-4">
+      {/* Pending is derived from the current clock; totals cover the complete read, not one page. */}
+      <StaffSummary
+        label={l("Invitation overview", "ملخص الدعوات")}
+        items={[
+          {
+            label: l("Total invitations", "إجمالي الدعوات"),
+            value: invitations.error ? undefined : invitations.data?.length,
+          },
+          {
+            label: l("Pending invitations", "الدعوات المعلقة"),
+            value: invitations.error
+              ? undefined
+              : invitations.data?.filter((row) => inviteStatus(row, now) === "pending").length,
+          },
+          {
+            label: l("Matching invitations", "الدعوات المطابقة"),
+            value: invitations.data && !invitations.error ? rows.length : undefined,
+          },
+        ]}
+      />
+      <div className="mt-6 flex flex-wrap items-end gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
         <label className="w-full max-w-sm text-sm">
           {l("Search invitations", "بحث الدعوات")}
           <Input
@@ -261,7 +302,7 @@ function Invites() {
           {l("No invitations match these filters.", "لا توجد دعوات تطابق هذه التصفية.")}
         </p>
       )}
-      <ul className="mt-6 grid gap-4 lg:grid-cols-2">
+      <ul className="mt-6 grid gap-4 md:hidden">
         {rows.slice((page - 1) * 25, page * 25).map((row) => (
           <li
             key={row.id}
@@ -280,7 +321,7 @@ function Invites() {
                 {statusName(inviteStatus(row, now))}
               </span>
             </div>
-            <dl className="space-y-2 text-xs text-muted-foreground">
+            <dl className="space-y-3 rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground">
               {[
                 [l("Created", "أُنشئت"), row.created_at],
                 [l("Expires", "تنتهي"), row.expires_at],
@@ -295,19 +336,7 @@ function Invites() {
                 </div>
               ))}
             </dl>
-            {!row.accepted_at && !row.revoked_at && (
-              <Button
-                variant="outline"
-                disabled={
-                  !!invitations.error ||
-                  !!review ||
-                  (!me?.isSuperAdmin && (row.role === "admin" || row.role === "super_admin"))
-                }
-                onClick={() => reviewRevoke(row)}
-              >
-                {t("revoke")}
-              </Button>
-            )}
+            <div className="[&_button]:w-full">{revokeAction(row)}</div>
             {!me?.isSuperAdmin && (row.role === "admin" || row.role === "super_admin") && (
               <p className="text-xs text-muted-foreground">
                 {l(
@@ -319,6 +348,72 @@ function Invites() {
           </li>
         ))}
       </ul>
+      <div className="mt-6 hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+        <table aria-label={l("Invitations", "الدعوات")} className="w-full text-sm">
+          <thead className="bg-background text-xs text-muted-foreground [&_th]:px-4 [&_th]:py-3 [&_th]:text-start">
+            <tr>
+              {[
+                t("email"),
+                t("role"),
+                l("Status", "الحالة"),
+                l("Created", "أُنشئت"),
+                l("Expires", "تنتهي"),
+                l("Action", "الإجراء"),
+              ].map((label) => (
+                <th scope="col" key={label}>
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border [&_td]:px-4 [&_td]:py-4">
+            {rows.slice((page - 1) * 25, page * 25).map((row) => (
+              <tr key={row.id}>
+                <td className="max-w-64 break-all font-medium">
+                  <bdi dir="ltr">{row.email}</bdi>
+                </td>
+                <td>{roleName(row.role)}</td>
+                <td>
+                  <span
+                    className={
+                      inviteStatus(row, now) === "pending" ? "text-gold" : "text-muted-foreground"
+                    }
+                  >
+                    {statusName(inviteStatus(row, now))}
+                  </span>
+                  {row.accepted_at && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      <bdi>{adminDate(row.accepted_at, locale)}</bdi>
+                    </p>
+                  )}
+                  {row.revoked_at && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      <bdi>{adminDate(row.revoked_at, locale)}</bdi>
+                    </p>
+                  )}
+                </td>
+                <td className="text-xs text-muted-foreground">
+                  <bdi>{adminDate(row.created_at, locale)}</bdi>
+                </td>
+                <td className="text-xs text-muted-foreground">
+                  <bdi>{adminDate(row.expires_at, locale)}</bdi>
+                </td>
+                <td>
+                  {revokeAction(row)}
+                  {!me?.isSuperAdmin && (row.role === "admin" || row.role === "super_admin") && (
+                    <p className="mt-2 max-w-48 text-xs text-muted-foreground">
+                      {l(
+                        "Privileged invitations require a super administrator.",
+                        "تتطلب الدعوات ذات الصلاحيات المرتفعة مسؤولاً رئيسياً.",
+                      )}
+                    </p>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {pages > 1 && (
         <nav
           aria-label={l("Invitation pages", "صفحات الدعوات")}
@@ -356,6 +451,12 @@ function Invites() {
         )}
       >
         <form onSubmit={prepare} className="space-y-5">
+          <p className="rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
+            {l(
+              "Signup eligibility · 14-day validity · Email delivery not tracked",
+              "السماح بالتسجيل · صلاحية ١٤ يوماً · لا تتم متابعة تسليم البريد",
+            )}
+          </p>
           <label className="block text-sm">
             {t("email")}
             <Input
@@ -402,6 +503,7 @@ function Invites() {
           )}
           <Button
             type="submit"
+            className="w-full"
             disabled={!allowed || !!invitations.error || !!review || !draft.email.trim()}
           >
             {l("Review invitation", "مراجعة الدعوة")}
