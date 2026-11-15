@@ -4848,6 +4848,11 @@ test("portions save consumed totals once and offline water Undo survives sync an
   await page.getByLabel("Water amount (ml)", { exact: true }).fill("750");
   await page.getByRole("button", { name: "Save water changes", exact: true }).click();
   await page.getByRole("button", { name: "Delete water entry 1", exact: true }).click();
+  // A click starts an asynchronous IndexedDB transaction; only reload after the
+  // recovery action confirms that its deletion and Undo record were persisted.
+  await expect(
+    page.getByRole("button", { name: "Undo water deletion 750 ml", exact: true }),
+  ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Manage water entries (1)", exact: true }).click();
   await page.getByRole("button", { name: "Undo water deletion 750 ml", exact: true }).click();
@@ -4857,6 +4862,10 @@ test("portions save consumed totals once and offline water Undo survives sync an
   await expect.poll(() => backend.tables.water_logs[0]?.revision).toBe(4);
   await page.getByRole("button", { name: "Delete water entry 1", exact: true }).click();
   await expect.poll(() => backend.tables.water_logs.length).toBe(0);
+  // Server deletion can finish before the local recovery receipt is committed.
+  await expect(
+    page.getByRole("button", { name: "Undo water deletion 750 ml", exact: true }),
+  ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Manage water entries (1)", exact: true }).click();
   await page.getByRole("button", { name: "Undo water deletion 750 ml", exact: true }).click();

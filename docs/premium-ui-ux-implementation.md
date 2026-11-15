@@ -1,5 +1,17 @@
 # Exercise Studio: local implementation
 
+## Water Undo CI recovery — November 15
+
+The first post-merge `main` CI run exposed a race in the offline water Undo
+browser test: it reloaded immediately after a click that starts an asynchronous
+IndexedDB deletion, before the persisted Undo action appeared. The test now
+waits for the visible Undo action before both offline and online reloads, retaining
+its identity, revision, synchronization and recovery assertions. The failure
+snapshot showed the entry still present without the Undo record after reload.
+The corrected scenario passed ten consecutive local Chromium runs. This is a
+test synchronization fix; the application persistence contract is unchanged.
+The GitHub Actions run must pass again before Pages can publish the merged work.
+
 ## Repository publication authorization — November 15
 
 The user approved committing and pushing the accumulated local work after the
