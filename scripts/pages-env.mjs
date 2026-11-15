@@ -6,6 +6,11 @@ const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || config.supabasePublisha
 if (url.protocol !== "https:" || !key?.startsWith("sb_publishable_")) {
   throw new Error("Pages requires an HTTPS Supabase URL and a public publishable key.");
 }
+// The DSN is public by design. It is optional, and must point at the EU ingest host when set.
+const sentryDsn = process.env.VITE_SENTRY_DSN ?? config.sentryDsn ?? "";
+if (sentryDsn && !/^https:\/\/[0-9a-f]+@o\d+\.ingest\.de\.sentry\.io\/\d+$/.test(sentryDsn)) {
+  throw new Error("The Sentry DSN must be an HTTPS EU ingest address.");
+}
 await writeFile(
   ".env.pages.local",
   `VITE_SUPABASE_URL=${JSON.stringify(url.origin)}\nVITE_SUPABASE_PUBLISHABLE_KEY=${JSON.stringify(key)}\n`,
@@ -18,7 +23,12 @@ const result = spawnSync(
   ["node_modules/vite/bin/vite.js", "build", "--mode", "pages"],
   {
     stdio: "inherit",
-    env: { ...process.env, VITE_SUPABASE_URL: url.origin, VITE_SUPABASE_PUBLISHABLE_KEY: key },
+    env: {
+      ...process.env,
+      VITE_SUPABASE_URL: url.origin,
+      VITE_SUPABASE_PUBLISHABLE_KEY: key,
+      VITE_SENTRY_DSN: sentryDsn,
+    },
   },
 );
 if (result.error) throw result.error;

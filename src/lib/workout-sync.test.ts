@@ -8,6 +8,9 @@ const mock = vi.hoisted(() => ({
   accept: true,
   onWrite: null as (() => Promise<void>) | null,
   onDelete: null as (() => Promise<void>) | null,
+  serverFinished: null as string | null,
+  finishAccepted: true,
+  finishes: 0,
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -19,7 +22,14 @@ vi.mock("@/integrations/supabase/client", () => ({
         select: () => query,
         eq: () => query,
         is: () => query,
-        maybeSingle: async () => ({ data: { id: "session", finished_at: null }, error: null }),
+        maybeSingle: async () => ({
+          data: { id: "session", finished_at: mock.serverFinished },
+          error: null,
+        }),
+        update: () => {
+          operation = "finish";
+          return query;
+        },
         upsert: (value: Record<string, unknown>) => {
           row = value;
           operation = "write";
@@ -30,6 +40,13 @@ vi.mock("@/integrations/supabase/client", () => ({
           return query;
         },
         abortSignal: () => {
+          if (table === "workout_sessions" && operation === "finish") {
+            mock.finishes++;
+            return Promise.resolve({
+              data: mock.finishAccepted ? [{ id: "session" }] : [],
+              error: null,
+            });
+          }
           if (table !== "set_logs") return query;
           return (async () => {
             if (operation === "write") {
@@ -57,6 +74,9 @@ beforeEach(() => {
   mock.accept = true;
   mock.onWrite = null;
   mock.onDelete = null;
+  mock.serverFinished = null;
+  mock.finishAccepted = true;
+  mock.finishes = 0;
 });
 async function seed() {
   return changeWorkout(mock.user, () =>
@@ -105,4 +125,48 @@ it("replays an undo made while its deletion acknowledgement was in flight", asyn
   await syncWorkout(mock.user);
   expect(mock.writes.map((r) => r["id"])).toEqual([row["id"]]);
   expect((await readWorkout(mock.user)).sets[0]?.sync).toBe("synced");
+});
+
+it("retains a completion receipt only after sets and session are accepted", async () => {
+  await seed();
+  await changeWorkout(mock.user, (w) => ({
+    ...w,
+    phase: "finishing",
+    finishedAt: new Date(Date.now() + 1000).toISOString(),
+  }));
+  mock.finishAccepted = false;
+  await syncWorkout(mock.user);
+  let w = await readWorkout(mock.user);
+  expect(w.session?.id).toBe("session");
+  expect(w.completion).toBeUndefined();
+  expect(w.error).toContain("not accepted");
+  mock.finishAccepted = true;
+  await syncWorkout(mock.user);
+  w = await readWorkout(mock.user);
+  expect(w.session).toBeNull();
+  expect(w.sets).toEqual([]);
+  expect(w.completion).toMatchObject({
+    id: "session",
+    loggedSets: 1,
+    workingSets: 1,
+    volumeKg: 250,
+  });
+  expect(mock.writes).toHaveLength(1);
+});
+
+it("recovers the same receipt after a lost finish acknowledgement without a second finish", async () => {
+  await seed();
+  mock.serverFinished = new Date(Date.now() + 1000).toISOString();
+  await changeWorkout(mock.user, (w) => ({
+    ...w,
+    phase: "finishing",
+    finishedAt: mock.serverFinished,
+    sets: w.sets.map((set) => ({ ...set, sync: "synced" })),
+  }));
+  await syncWorkout(mock.user);
+  const receipt = (await readWorkout(mock.user)).completion;
+  expect(receipt).toMatchObject({ id: "session", volumeKg: 250 });
+  await syncWorkout(mock.user);
+  expect((await readWorkout(mock.user)).completion).toEqual(receipt);
+  expect(mock.finishes).toBe(0);
 });

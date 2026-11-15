@@ -24,7 +24,7 @@ export async function coachMemberAccess(actor: string, member: string) {
   }
   const profile = await supabase
     .from("profiles")
-    .select("id,display_name,email")
+    .select("id,display_name,email,training_preferences")
     .eq("id", member)
     .maybeSingle();
   if (profile.error) throw profile.error;

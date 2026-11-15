@@ -119,7 +119,7 @@ export function WorkoutHistoryDetail({
         return (
           <section
             key={id}
-            className="min-w-0 rounded-lg border border-border p-3"
+            className="min-w-0 rounded-lg border border-border bg-background p-3"
             aria-label={name}
           >
             <div className="flex items-center gap-3">
@@ -141,9 +141,10 @@ export function WorkoutHistoryDetail({
                 {l("No recorded sets.", "لا توجد مجموعات مسجلة.")}
               </p>
             )}
-            <ol className="mt-2 space-y-2">
+            {/* Compact set tiles match the ledger composition; very narrow screens retain one column. */}
+            <ol className="mt-3 grid gap-2 min-[360px]:grid-cols-2">
               {group.sets.map((set) => (
-                <li key={set.id} className="rounded bg-muted/40 p-2 text-sm">
+                <li key={set.id} className="min-w-0 rounded-md bg-card p-2 text-xs leading-5">
                   <p className="flex flex-wrap gap-x-2">
                     <span>
                       {l("Set", "مجموعة")} {set.set_number} ·{" "}

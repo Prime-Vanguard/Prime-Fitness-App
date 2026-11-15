@@ -37,6 +37,7 @@ export function policyDraft(item: VersionItem, policy?: PolicyRow): PolicyDraft 
     seconds: "",
   };
 }
+// Validate the rule against the frozen exercise mode before preparing a policy write.
 export function preparePolicy(item: VersionItem, draft: PolicyDraft, original?: PolicyRow) {
   const timed = item.logging_mode === "timed";
   if ((timed && draft.rule === "double") || (!timed && draft.rule === "duration"))

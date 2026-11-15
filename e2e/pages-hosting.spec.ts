@@ -62,7 +62,8 @@ test("standalone Pages adds an exercise offline and exposes scanner lookup witho
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await context.setOffline(true);
   await page.getByRole("button", { name: "Add exercise", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Use", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByRole("button", { name: "Insert selected exercises", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(`[data-exercise-id="${exercise}"]`)).toHaveCount(1);
   await page.reload();

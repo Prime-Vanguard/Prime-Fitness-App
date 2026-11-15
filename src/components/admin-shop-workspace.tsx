@@ -15,9 +15,11 @@ import {
   loadRedemptions,
   loadShopPeople,
   type Redemption,
+  type Reward,
   type ShopSearch,
 } from "@/lib/admin-shop";
 import { PageHeader } from "./page-header";
+import { StaffSummary } from "./staff-summary";
 import { MemberSections } from "./member-sections";
 import { AdminEditorDrawer, AdminDraftWarning } from "./admin-editor-drawer";
 import { AdminChangeReview, type AdminReview } from "./admin-change-review";
@@ -202,11 +204,67 @@ export function AdminShopWorkspace({
     pages = Math.max(1, Math.ceil(total / 25)),
     page = Math.min(search.page ?? 1, pages),
     slice = (page - 1) * 25;
+  // Phone cards and desktop tables share the same reviewed actions and snapshots.
+  const requestAction = (request: Redemption) => (
+    <Button
+      variant="outline"
+      disabled={!queueReady}
+      onClick={() => {
+        setPicked(request);
+        setError("");
+      }}
+    >
+      {l("Review request", "مراجعة الطلب")}
+    </Button>
+  );
+  const visibilityAction = (reward: Reward) => (
+    <Button
+      variant="outline"
+      disabled={!ready}
+      onClick={() =>
+        setReview({
+          title: l("Review reward visibility", "مراجعة ظهور المكافأة"),
+          description: reward.title_en,
+          details: (
+            <p>
+              {reward.active
+                ? l(
+                    "Hide from new requests. Existing requests remain available for fulfillment.",
+                    "إخفاء عن الطلبات الجديدة مع استمرار تسليم الطلبات الحالية.",
+                  )
+                : l(
+                    "Show for new requests, subject to available stock.",
+                    "إظهار للطلبات الجديدة وفق المخزون المتاح.",
+                  )}
+            </p>
+          ),
+          save: async () => {
+            await changeRewardVisibility(actor, reward);
+            setSaved(l("Visibility confirmed.", "تم تأكيد الظهور."));
+            refresh();
+          },
+        })
+      }
+    >
+      {reward.active ? l("Hide reward", "إخفاء المكافأة") : l("Show reward", "إظهار المكافأة")}
+    </Button>
+  );
   if (me && !allowed) return <p className="mt-10">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("rewardsAdmin")} />
+      <PageHeader
+        eyebrow={l("Rewards workspace", "مساحة إدارة المكافآت")}
+        eyebrowTone="accent"
+        title={t("rewardsAdmin")}
+      />
+      <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+        {l(
+          "Manage the catalogue and review member requests. Fulfillment and refunds require a confirmed review.",
+          "أدر الكتالوج وراجع طلبات الأعضاء. يتطلب التسليم واسترداد النقاط مراجعة مؤكدة.",
+        )}
+      </p>
       <MemberSections
+        appearance="segmented"
         label={l("Shop workspace", "مساحة المتجر")}
         value={section}
         items={[
@@ -215,54 +273,79 @@ export function AdminShopWorkspace({
         ]}
         onSelect={(section) => onSearch({ ...search, section, page: undefined })}
       />
-      <label className="mt-5 block max-w-md text-sm">
-        {l("Search shop", "بحث المتجر")}
-        <Input
-          className="mt-1"
-          value={search.q ?? ""}
-          onChange={(e) =>
-            onSearch({ ...search, q: e.target.value || undefined, page: undefined }, true)
-          }
-        />
-      </label>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <Button
-          variant="outline"
-          onClick={() => {
-            refresh();
-            if (section === "queue") void people.refetch();
-          }}
-        >
-          {l("Refresh shop", "تحديث المتجر")}
-        </Button>
-        {section === "catalogue" && (
-          <Button disabled={!ready} onClick={() => setCreateOpen(true)}>
-            {l("Create reward", "إنشاء مكافأة")}
+      {/* Catalogue and status-scoped queue totals reuse complete reads; errors never imply zero. */}
+      <StaffSummary
+        label={l("Shop overview", "ملخص المتجر")}
+        items={[
+          {
+            label: l("Catalogue rewards", "مكافآت الكتالوج"),
+            value: ready ? rewards.data.length : undefined,
+          },
+          {
+            label: l("Visible rewards", "المكافآت الظاهرة"),
+            value: ready ? rewards.data.filter((reward) => reward.active).length : undefined,
+          },
+          section === "queue"
+            ? {
+                label: l("Requests in selected status", "طلبات الحالة المحددة"),
+                value: queueReady ? orders.data.length : undefined,
+              }
+            : {
+                label: l("Matching rewards", "المكافآت المطابقة"),
+                value: ready ? filteredRewards.length : undefined,
+              },
+        ]}
+      />
+      <div className="mt-6 space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+        <label className="block max-w-md text-sm">
+          {l("Search shop", "بحث المتجر")}
+          <Input
+            className="mt-1"
+            value={search.q ?? ""}
+            onChange={(e) =>
+              onSearch({ ...search, q: e.target.value || undefined, page: undefined }, true)
+            }
+          />
+        </label>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              refresh();
+              if (section === "queue") void people.refetch();
+            }}
+          >
+            {l("Refresh shop", "تحديث المتجر")}
           </Button>
+          {section === "catalogue" && (
+            <Button disabled={!ready} onClick={() => setCreateOpen(true)}>
+              {l("Create reward", "إنشاء مكافأة")}
+            </Button>
+          )}
+        </div>
+        {section === "queue" && (
+          <label className="mt-4 block text-sm min-w-0 max-w-full">
+            {l("Fulfillment status", "حالة التسليم")}
+            <NativeSelect
+              className="mt-2 max-w-sm"
+              value={status}
+              onChange={(e) =>
+                onSearch({
+                  ...search,
+                  status: e.target.value as ShopSearch["status"],
+                  page: undefined,
+                })
+              }
+            >
+              {["pending", "fulfilled", "rejected", "all"].map((s) => (
+                <option key={s} value={s}>
+                  {s === "all" ? l("All statuses", "كل الحالات") : stateLabel(s)}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
         )}
       </div>
-      {section === "queue" && (
-        <label className="mt-4 block text-sm min-w-0 max-w-full">
-          {l("Fulfillment status", "حالة التسليم")}
-          <NativeSelect
-            className="mt-2 max-w-sm"
-            value={status}
-            onChange={(e) =>
-              onSearch({
-                ...search,
-                status: e.target.value as ShopSearch["status"],
-                page: undefined,
-              })
-            }
-          >
-            {["pending", "fulfilled", "rejected", "all"].map((s) => (
-              <option key={s} value={s}>
-                {s === "all" ? l("All statuses", "كل الحالات") : stateLabel(s)}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-      )}
       {(rewards.isPending || (section === "queue" && (orders.isPending || people.isPending))) && (
         <p role="status" className="mt-4">
           {l("Loading shop records…", "جارٍ تحميل سجلات المتجر…")}
@@ -294,92 +377,141 @@ export function AdminShopWorkspace({
               {l("No requests match these filters.", "لا توجد طلبات تطابق هذه التصفية.")}
             </p>
           )}
-          <ul className="mt-4 grid gap-3 md:grid-cols-2">
+          <ul className="mt-4 grid gap-3 md:hidden">
             {filteredOrders.slice(slice, slice + 25).map((r) => (
               <li
                 key={r.id}
-                className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-5"
+                className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-5"
               >
                 <h2 className="break-words font-medium">
                   {who(r.member_id)} · {title(r.reward_id)}
                 </h2>
-                <p>
-                  {r.cost_pv} PV · {stateLabel(r.status)}
+                <p className="rounded-lg border border-border bg-background p-3 text-sm">
+                  <bdi className="font-semibold text-gold">{r.cost_pv} PV</bdi> ·{" "}
+                  {stateLabel(r.status)}
                 </p>
                 <p className="text-xs text-muted-foreground">{adminDate(r.created_at, locale)}</p>
-                <Button
-                  variant="outline"
-                  disabled={!queueReady}
-                  onClick={() => {
-                    setPicked(r);
-                    setError("");
-                  }}
-                >
-                  {l("Review request", "مراجعة الطلب")}
-                </Button>
+                <div className="[&_button]:w-full">{requestAction(r)}</div>
                 {notes[r.id]?.trim() && (
                   <p className="text-xs">{l("Unsaved review note", "ملاحظة مراجعة غير محفوظة")}</p>
                 )}
               </li>
             ))}
           </ul>
+          <div className="mt-4 hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table
+              aria-label={l("Fulfillment requests", "طلبات التسليم")}
+              className="w-full text-sm"
+            >
+              <thead className="bg-background text-xs text-muted-foreground [&_th]:px-4 [&_th]:py-3 [&_th]:text-start">
+                <tr>
+                  {[
+                    l("Member", "العضو"),
+                    l("Reward", "المكافأة"),
+                    "PV",
+                    l("Requested", "تاريخ الطلب"),
+                    l("Status", "الحالة"),
+                    l("Action", "الإجراء"),
+                  ].map((heading) => (
+                    <th key={heading} scope="col">
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border [&_td]:px-4 [&_td]:py-4">
+                {filteredOrders.slice(slice, slice + 25).map((r) => (
+                  <tr key={r.id}>
+                    <td className="max-w-48 break-words font-medium">{who(r.member_id)}</td>
+                    <td className="max-w-48 break-words">{title(r.reward_id)}</td>
+                    <td className="tabular-nums text-gold">
+                      <bdi>{r.cost_pv}</bdi>
+                    </td>
+                    <td className="text-xs text-muted-foreground">
+                      <bdi>{adminDate(r.created_at, locale)}</bdi>
+                    </td>
+                    <td>
+                      {stateLabel(r.status)}
+                      {notes[r.id]?.trim() && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {l("Unsaved review note", "ملاحظة مراجعة غير محفوظة")}
+                        </p>
+                      )}
+                    </td>
+                    <td>{requestAction(r)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : (
         <section aria-label={l("Reward catalogue", "كتالوج المكافآت")} className="mt-5">
           {ready && !filteredRewards.length && (
             <p role="status">{l("No rewards match this search.", "لا توجد مكافآت تطابق البحث.")}</p>
           )}
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 md:hidden">
             {filteredRewards.slice(slice, slice + 25).map((r) => (
               <li
                 key={r.id}
-                className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-5"
+                className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-5"
               >
                 <h2 className="break-words font-medium">
                   {locale === "ar" ? r.title_ar || r.title_en : r.title_en}
                 </h2>
-                <p>
-                  {r.cost_pv} PV · {l("Stock", "المخزون")}: {r.stock ?? l("Unlimited", "غير محدود")}
+                <p className="rounded-lg border border-border bg-background p-3 text-sm">
+                  <bdi className="font-semibold text-gold">{r.cost_pv} PV</bdi> ·{" "}
+                  {l("Stock", "المخزون")}: {r.stock ?? l("Unlimited", "غير محدود")}
                 </p>
                 <p>
                   {r.active ? l("Visible", "ظاهر") : l("Hidden", "مخفي")}
                   {r.stock === 0 ? ` · ${l("Out of stock", "نفد المخزون")}` : ""}
                 </p>
-                <Button
-                  variant="outline"
-                  disabled={!ready}
-                  onClick={() =>
-                    setReview({
-                      title: l("Review reward visibility", "مراجعة ظهور المكافأة"),
-                      description: r.title_en,
-                      details: (
-                        <p>
-                          {r.active
-                            ? l(
-                                "Hide from new requests. Existing requests remain available for fulfillment.",
-                                "إخفاء عن الطلبات الجديدة مع استمرار تسليم الطلبات الحالية.",
-                              )
-                            : l(
-                                "Show for new requests, subject to available stock.",
-                                "إظهار للطلبات الجديدة وفق المخزون المتاح.",
-                              )}
-                        </p>
-                      ),
-                      save: async () => {
-                        await changeRewardVisibility(actor, r);
-                        setSaved(l("Visibility confirmed.", "تم تأكيد الظهور."));
-                        refresh();
-                      },
-                    })
-                  }
-                >
-                  {r.active
-                    ? l("Hide reward", "إخفاء المكافأة")
-                    : l("Show reward", "إظهار المكافأة")}
-                </Button>
+                <div className="[&_button]:w-full">{visibilityAction(r)}</div>
               </li>
             ))}
           </ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table aria-label={l("Reward catalogue", "كتالوج المكافآت")} className="w-full text-sm">
+              <thead className="bg-background text-xs text-muted-foreground [&_th]:px-4 [&_th]:py-3 [&_th]:text-start">
+                <tr>
+                  {[
+                    l("Reward", "المكافأة"),
+                    "PV",
+                    l("Stock", "المخزون"),
+                    l("Visibility", "الظهور"),
+                    l("Action", "الإجراء"),
+                  ].map((heading) => (
+                    <th key={heading} scope="col">
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border [&_td]:px-4 [&_td]:py-4">
+                {filteredRewards.slice(slice, slice + 25).map((r) => (
+                  <tr key={r.id}>
+                    <td className="max-w-64 break-words font-medium">
+                      {locale === "ar" ? r.title_ar || r.title_en : r.title_en}
+                    </td>
+                    <td className="tabular-nums text-gold">
+                      <bdi>{r.cost_pv}</bdi>
+                    </td>
+                    <td>
+                      {r.stock ?? l("Unlimited", "غير محدود")}
+                      {r.stock === 0 && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {l("Out of stock", "نفد المخزون")}
+                        </p>
+                      )}
+                    </td>
+                    <td>{r.active ? l("Visible", "ظاهر") : l("Hidden", "مخفي")}</td>
+                    <td>{visibilityAction(r)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
       <nav
@@ -413,7 +545,8 @@ export function AdminShopWorkspace({
       >
         {picked && (
           <>
-            <p>
+            {/* Original charged cost stays distinct from current catalogue pricing. */}
+            <p className="rounded-xl border border-border bg-background p-4 font-medium">
               {picked.cost_pv} PV · {stateLabel(picked.status)}
             </p>
             <p className="text-sm">

@@ -14,6 +14,7 @@ import type { Units } from "@/lib/units";
 import type { WorkoutSessionController } from "./types";
 
 /** Serializes session commands; feedback follows durable local acceptance. */
+// Coordinate session actions with the durable workout draft and its sync lifecycle.
 export function useWorkoutActions(
   controller: Pick<WorkoutSessionController, "workout" | "change">,
 ) {

@@ -1046,6 +1046,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          training_preferences: Json | null;
           access_active: boolean;
           avatar_url: string | null;
           consent_at: string | null;
@@ -1062,6 +1063,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          training_preferences?: Json | null;
           access_active?: boolean;
           avatar_url?: string | null;
           consent_at?: string | null;
@@ -1078,6 +1080,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          training_preferences?: Json | null;
           access_active?: boolean;
           avatar_url?: string | null;
           consent_at?: string | null;

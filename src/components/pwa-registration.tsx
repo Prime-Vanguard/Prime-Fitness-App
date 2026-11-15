@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { appPath } from "@/lib/app-path";
 import { rememberInstallPrompt, type InstallEvent } from "@/lib/install-prompt";
+// Register the production worker under the app base path and retain the install prompt.
 export function PwaRegistration() {
   useEffect(() => {
     const prompt = (event: Event) => {

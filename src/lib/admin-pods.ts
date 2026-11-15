@@ -120,6 +120,7 @@ async function requireLeader(id: string | null) {
       "Choose an active member with the Pod Leader role. Refresh the available people and review again.",
     );
 }
+// Resolve a previously dispatched creation using its stable ID before inserting again.
 export async function createPod(actor: string, input: PodCreation, onDispatch?: () => void) {
   await requireActiveAdmin(actor);
   const name = input.name.trim();

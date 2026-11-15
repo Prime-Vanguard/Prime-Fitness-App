@@ -1,0 +1,67 @@
+{
+  "project_id": "iyipukmokidkervphrvb",
+  "verified_on": "2026-11-15",
+  "normalization": "CRLF to LF and outer whitespace only; SQL semantics are not inferred",
+  "mappings": [
+    {
+      "name": "admin_review_active_access",
+      "repository_version": "20261030151207",
+      "hosted_version": "20261107134113",
+      "sha256": "4bea0e5d7c21ac86c7239ea6f235e723ce2687cc8da5c9134057a1a0bb7c7181"
+    },
+    {
+      "name": "reviewed_program_editor",
+      "repository_version": "20261030153540",
+      "hosted_version": "20261107134222",
+      "sha256": "288cd2e9787b528a08ba87eecbb3019fb955a205e06e11ea8631fd089f5e39f0"
+    },
+    {
+      "name": "active_shop_administration",
+      "repository_version": "20261030164642",
+      "hosted_version": "20261107134226",
+      "sha256": "f5e2580cbe10241445a063963420bb9ee0f0572add29ed16bbec8a1f0ceed61a"
+    },
+    {
+      "name": "reviewed_schedule_conflicts",
+      "repository_version": "20261101144237",
+      "hosted_version": "20261107134231",
+      "sha256": "ab5d54015206ccc526ad70eab42093a7bf7dfc2f09c73d6aff7cc1ab0a779e9c"
+    },
+    {
+      "name": "trusted_owner_provisioning",
+      "repository_version": "20261101160432",
+      "hosted_version": "20261107134239",
+      "sha256": "cc5638ac7a3f34aeca91f2f756444f1e8181d6b8541fb5085d684d3c386a0e39"
+    },
+    {
+      "name": "cardio_social_member_discovery",
+      "repository_version": "20261107133928",
+      "hosted_version": "20261107142546",
+      "sha256": "e6ab77410f6f6d565b9b1164f18ace06502a19a63d40ce19a495de416df6e396"
+    },
+    {
+      "name": "friend_request_consent_guard",
+      "repository_version": "20261107143533",
+      "hosted_version": "20261107143632",
+      "sha256": "caad8df65a6bcd66a3aa4fab0428270664682596d0fdc9c607490a9d31a403fc"
+    },
+    {
+      "name": "full_exercise_catalogue",
+      "repository_version": "20261107211011",
+      "hosted_version": "20261107212031",
+      "sha256": "a2cd01e695a6d2630cd30aac8403e300515d9faae91f7c9c64c73a4199e0701b"
+    },
+    {
+      "name": "production_access_hardening",
+      "repository_version": "20261115114201",
+      "hosted_version": "20261115135340",
+      "sha256": "e3cd61ab4d9aca43cef224c150594dc9a6d30a0b220850ae629874b560c1e298"
+    },
+    {
+      "name": "onboarding_training_preferences",
+      "repository_version": "20261115131733",
+      "hosted_version": "20261115135356",
+      "sha256": "a211f95c20ff6e942ae2ceb3a23f47d4433ff1e054c71f7915d47afd6ef789cc"
+    }
+  ]
+}

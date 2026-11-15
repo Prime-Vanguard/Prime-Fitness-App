@@ -19,9 +19,11 @@ import type { FoodPick } from "@/features/nutrition/contracts";
 export function FoodScanner({
   userId,
   onReviewed,
+  compact = false,
 }: {
   userId: string;
   onReviewed: (food: FoodPick) => void;
+  compact?: boolean;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
@@ -238,7 +240,11 @@ export function FoodScanner({
       </section>
     );
   return (
-    <section className="my-4 rounded-xl border border-gold/30 p-3">
+    <section
+      className={
+        compact ? "my-3 rounded-xl bg-card p-3" : "my-4 rounded-xl border border-gold/30 p-3"
+      }
+    >
       {offlineCacheUnavailable && (
         <p role="status" className="mb-2 text-sm">
           {l(
@@ -249,6 +255,7 @@ export function FoodScanner({
       )}
       <Button
         variant="outline"
+        className={compact ? "w-full" : ""}
         onClick={() => {
           if (open) stop();
           setOpen(!open);

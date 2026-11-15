@@ -26,6 +26,7 @@ export function validBarcode(value: string) {
     throw new Error("Barcode check digit is invalid. Check the number.");
   return code;
 }
+// Extract tentative values from OCR text; the member reviews them before saving.
 export function parseNutritionLabel(raw: string): ScannedFood {
   const text = raw
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660))

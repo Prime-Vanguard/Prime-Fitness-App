@@ -53,6 +53,60 @@ function pendingRows(rows: { photo_id: string; path: string }[] = []) {
   vi.mocked(supabase.from).mockReturnValue(query as never);
 }
 describe("portable personal backups", () => {
+  it("validates optional training context while accepting legacy profiles", () => {
+    const input = sample();
+    expect(() => validateBackup(input, owner, "test.supabase.co")).not.toThrow();
+    const profile = input.data["profile"] as Record<string, unknown>;
+    profile["training_preferences"] = {
+      goals: ["strength"],
+      experience: null,
+      weekly_days: 3,
+      equipment: [],
+    };
+    expect(() => validateBackup(input, owner, "test.supabase.co")).not.toThrow();
+    profile["training_preferences"] = {
+      goals: ["strength"],
+      experience: null,
+      weekly_days: 20,
+      equipment: [],
+    };
+    expect(() => validateBackup(input, owner, "test.supabase.co")).toThrow();
+  });
+  it("validates saved meal-copy recovery and rejects a foreign ingredient owner", () => {
+    const input = sample();
+    input.version = 2;
+    const day = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+    const copy = {
+      id: crypto.randomUUID(),
+      day,
+      mode: "native",
+      items: [
+        {
+          id: crypto.randomUUID(),
+          member_id: owner,
+          log_date: day,
+          meal: "breakfast",
+          name: "Copied food",
+          calories: 100,
+          protein_g: 5,
+          carbs_g: 10,
+          fat_g: 2,
+        },
+      ],
+    };
+    input.pendingMemberData = {
+      version: 1,
+      records: {},
+      queue: [],
+      references: { mealCopy: copy },
+      lastSync: null,
+    };
+    expect(validateBackup(input, owner, "test.supabase.co").pendingMemberData).toMatchObject({
+      references: { mealCopy: copy },
+    });
+    copy.items[0]!.member_id = other;
+    expect(() => validateBackup(input, owner, "test.supabase.co")).toThrow("ownership");
+  });
   it("validates and restores deleted-food recovery with member ownership intact", async () => {
     vi.stubEnv("VITE_SUPABASE_URL", "https://test.supabase.co");
     pendingRows();

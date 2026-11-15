@@ -268,6 +268,7 @@ export async function removeProgramItem(actor: string, row: ProgramItem) {
   if (result.error) throw result.error;
   if (!result.data) throw new Error("Removal was not confirmed. Refresh the session.");
 }
+// Capture stable exercise metadata alongside the reviewed program items.
 export function programSnapshot(
   program: Program,
   items: ProgramItem[],

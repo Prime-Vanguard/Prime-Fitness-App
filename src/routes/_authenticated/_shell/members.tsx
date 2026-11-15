@@ -91,8 +91,13 @@ function Page() {
   if (!allowed) return <p role="status">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader title={t("myMembers")} />
-      <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_14rem_auto]">
+      {/* The roster query already restricts this workspace to current relationships. */}
+      <PageHeader
+        title={t("myMembers")}
+        eyebrow={l("People workspace", "مساحة الأعضاء والفرق")}
+        eyebrowTone="accent"
+      />
+      <div className="mt-5 grid gap-4 rounded-xl bg-card p-4 sm:grid-cols-[1fr_14rem_auto]">
         <form
           className="text-sm"
           onSubmit={(event) => {
@@ -187,72 +192,143 @@ function Page() {
                 : t("noMembers")}
             </p>
           ) : (
-            <div className="mt-4 overflow-x-auto rounded-xl border bg-card">
-              <table className="w-full text-sm">
-                <caption className="p-3 text-start text-xs text-muted-foreground">
-                  {l(
-                    "Completed workout history, including imports · week uses Cairo dates · XP uses the server total.",
-                    "سجل الجلسات المكتملة بما فيها المستوردة · الأسبوع وفق القاهرة · XP من إجمالي الخادم.",
-                  )}
-                </caption>
-                <thead>
-                  <tr>
-                    {[t("member"), t("level"), t("lastWorkout"), t("workoutsWeek")].map((label) => (
-                      <th className="p-3 text-start" key={label}>
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((member) => {
-                    const summary = !summaries.error ? stats.get(member.id) : undefined,
-                      level =
-                        summary && !thresholds.error && thresholds.data?.length
-                          ? levelFor(summary.xp, thresholds.data).level
-                          : null,
-                      rank = level == null ? null : rankFor(level),
-                      canOpen = me.isAdmin || (me.roles.includes("coach") && member.coached);
-                    return (
-                      <tr key={member.id} className="border-t">
-                        <td className="p-3">
-                          {canOpen ? (
-                            <Link
-                              to="/members/$memberId"
-                              params={{ memberId: member.id }}
-                              className="inline-block min-h-11 py-2 font-medium text-gold underline"
-                            >
-                              {member.display_name || member.email}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">
-                              {member.display_name || member.email}
-                            </span>
-                          )}
-                          <p className="text-xs text-muted-foreground">{member.email}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {member.coached
-                              ? l("Coached member", "عضو تحت تدريبي")
-                              : l("Pod summary only", "ملخص المجموعة فقط")}
-                            {member.coached && member.pod
-                              ? ` · ${l("Pod member", "عضو مجموعة")}`
-                              : ""}
-                          </p>
-                        </td>
-                        <td className="p-3 tabular-nums">
-                          {level == null ? "—" : `${ar ? rank?.ar : rank?.key} · ${level}`}
-                          <p className="text-xs">{summary ? `${summary.xp} XP` : "—"}</p>
-                        </td>
-                        <td className="whitespace-nowrap p-3">
-                          <bdi>{summary ? (summary.last ?? t("never")) : "—"}</bdi>
-                        </td>
-                        <td className="p-3 tabular-nums">{summary?.week ?? "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {/* Mobile cards reuse the same visible-page summaries and scope as the table. */}
+              <ul
+                className="mt-4 space-y-3 md:hidden"
+                aria-label={l("Assigned member summaries", "ملخصات الأعضاء المرتبطين")}
+              >
+                {visible.map((member) => {
+                  const summary = !summaries.error ? stats.get(member.id) : undefined;
+                  const level =
+                    summary && !thresholds.error && thresholds.data?.length
+                      ? levelFor(summary.xp, thresholds.data).level
+                      : null;
+                  const rank = level == null ? null : rankFor(level);
+                  const canOpen = me.isAdmin || (me.roles.includes("coach") && member.coached);
+                  return (
+                    <li key={member.id} className="space-y-3 rounded-xl bg-card p-4">
+                      <h2 className="break-words font-heading font-bold">
+                        {canOpen ? (
+                          <Link
+                            to="/members/$memberId"
+                            params={{ memberId: member.id }}
+                            className="inline-block min-h-11 py-2 text-gold underline"
+                          >
+                            {member.display_name || member.email}
+                          </Link>
+                        ) : (
+                          member.display_name || member.email
+                        )}
+                      </h2>
+                      <p className="break-all text-xs text-muted-foreground">
+                        <bdi>{member.email}</bdi>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {member.coached
+                          ? l("Coached member", "عضو تحت تدريبي")
+                          : l("Pod summary only", "ملخص المجموعة فقط")}
+                      </p>
+                      <dl className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg bg-background p-3">
+                          <dt className="text-xs text-muted-foreground">{t("level")}</dt>
+                          <dd className="mt-1">
+                            {level == null ? (
+                              "—"
+                            ) : (
+                              <>
+                                <bdi>{ar ? rank?.ar : rank?.key}</bdi> · <bdi>{level}</bdi>
+                              </>
+                            )}
+                          </dd>
+                          <dd className="text-xs text-muted-foreground">
+                            {summary ? `${summary.xp} XP` : "—"}
+                          </dd>
+                        </div>
+                        <div className="rounded-lg bg-background p-3">
+                          <dt className="text-xs text-muted-foreground">{t("workoutsWeek")}</dt>
+                          <dd className="mt-1 tabular-nums">{summary?.week ?? "—"}</dd>
+                        </div>
+                        <div className="col-span-2 rounded-lg bg-background p-3">
+                          <dt className="text-xs text-muted-foreground">{t("lastWorkout")}</dt>
+                          <dd className="mt-1">
+                            <bdi>{summary ? (summary.last ?? t("never")) : "—"}</bdi>
+                          </dd>
+                        </div>
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 hidden overflow-x-auto rounded-xl border bg-card md:block">
+                <table className="w-full text-sm">
+                  <caption className="p-3 text-start text-xs text-muted-foreground">
+                    {l(
+                      "Completed workout history, including imports · week uses Cairo dates · XP uses the server total.",
+                      "سجل الجلسات المكتملة بما فيها المستوردة · الأسبوع وفق القاهرة · XP من إجمالي الخادم.",
+                    )}
+                  </caption>
+                  <thead>
+                    <tr>
+                      {[t("member"), t("level"), t("lastWorkout"), t("workoutsWeek")].map(
+                        (label) => (
+                          <th className="p-3 text-start" key={label}>
+                            {label}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((member) => {
+                      const summary = !summaries.error ? stats.get(member.id) : undefined,
+                        level =
+                          summary && !thresholds.error && thresholds.data?.length
+                            ? levelFor(summary.xp, thresholds.data).level
+                            : null,
+                        rank = level == null ? null : rankFor(level),
+                        canOpen = me.isAdmin || (me.roles.includes("coach") && member.coached);
+                      return (
+                        <tr key={member.id} className="border-t">
+                          <td className="p-3">
+                            {canOpen ? (
+                              <Link
+                                to="/members/$memberId"
+                                params={{ memberId: member.id }}
+                                className="inline-block min-h-11 py-2 font-medium text-gold underline"
+                              >
+                                {member.display_name || member.email}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">
+                                {member.display_name || member.email}
+                              </span>
+                            )}
+                            <p className="text-xs text-muted-foreground">{member.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {member.coached
+                                ? l("Coached member", "عضو تحت تدريبي")
+                                : l("Pod summary only", "ملخص المجموعة فقط")}
+                              {member.coached && member.pod
+                                ? ` · ${l("Pod member", "عضو مجموعة")}`
+                                : ""}
+                            </p>
+                          </td>
+                          <td className="p-3 tabular-nums">
+                            {level == null ? "—" : `${ar ? rank?.ar : rank?.key} · ${level}`}
+                            <p className="text-xs">{summary ? `${summary.xp} XP` : "—"}</p>
+                          </td>
+                          <td className="whitespace-nowrap p-3">
+                            <bdi>{summary ? (summary.last ?? t("never")) : "—"}</bdi>
+                          </td>
+                          <td className="p-3 tabular-nums">{summary?.week ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
           {filtered.length > 0 && (
             <nav

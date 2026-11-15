@@ -3,7 +3,9 @@ import { changeWorkout, emptyWorkout, readWorkout } from "./workout-store";
 import { setDetailsSchema } from "./training-model";
 import { sameSetWrite } from "./workout-editor";
 import { deviceScope } from "./device-scope";
+import { workoutCompletion } from "./workout-completion";
 
+// Coalesce retries per project/member; Web Locks also coordinate separate tabs.
 const inFlight = new Map<string, Promise<void>>();
 const timeout = () => AbortSignal.timeout(12000);
 
@@ -32,6 +34,7 @@ export function syncWorkout(userId: string): Promise<void> {
   return promise;
 }
 
+// Reconcile the server session before applying local changes or clearing a draft.
 async function flush(userId: string) {
   if (!navigator.onLine) return;
   let w = await readWorkout(userId);
@@ -47,10 +50,15 @@ async function flush(userId: string) {
     .abortSignal(timeout())
     .maybeSingle();
   if (server.error) throw server.error;
-  const clear = () =>
+  const clear = (completed = false) =>
     changeWorkout(userId, (current) =>
       current.session?.id === session.id
-        ? { ...emptyWorkout(userId), exercises: current.exercises }
+        ? {
+            ...emptyWorkout(userId),
+            exercises: current.exercises,
+            // Capture and clear in one transaction, including a lost finish acknowledgement.
+            ...(completed ? { completion: workoutCompletion(current) } : {}),
+          }
         : current,
     );
   if (server.data?.finished_at) {
@@ -59,7 +67,7 @@ async function flush(userId: string) {
       return;
     }
     if (w.phase === "finishing" && w.sets.every((s) => s.sync === "synced")) {
-      await clear();
+      await clear(true);
       return;
     }
     throw new Error(
@@ -174,6 +182,6 @@ async function flush(userId: string) {
     if (result.error) throw result.error;
     if (!result.data.length)
       throw new Error("Workout was not accepted by the server. Sign in and retry.");
-    await clear();
+    await clear(true);
   }
 }

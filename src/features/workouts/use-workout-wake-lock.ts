@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+// Request screen wakefulness only while the workout view is active and supported.
 export function useWorkoutWakeLock() {
   useEffect(() => {
     if (!navigator.wakeLock) return;

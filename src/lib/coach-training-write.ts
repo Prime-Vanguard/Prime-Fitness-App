@@ -3,6 +3,7 @@ import { coachMemberAccess } from "./coach-member-access";
 import type { preparePolicy, PolicyRow } from "./coach-policy";
 type Assignment = { id: string; program_version_id: string };
 export type Schedule = { mode: string; start_date: string };
+// Recheck staff access and the frozen assignment before preparing a coaching change.
 async function requireAssignment(actor: string, member: string, assignment: Assignment) {
   if (!(await coachMemberAccess(actor, member)))
     throw new Error("Current coach or active administrator access is required.");
@@ -18,6 +19,7 @@ async function requireAssignment(actor: string, member: string, assignment: Assi
   if (!result.data)
     throw new Error("The active program changed. Reload the controls before saving.");
 }
+// Match the original revision so another coach's newer policy cannot be overwritten.
 export async function saveCoachPolicy(
   actor: string,
   member: string,
@@ -55,6 +57,7 @@ export async function saveCoachPolicy(
       "This policy changed or is no longer writable. Your draft is retained; reload and review it.",
     );
 }
+// Compare the reviewed schedule with current values before requesting a change.
 export async function saveCoachSchedule(
   actor: string,
   member: string,

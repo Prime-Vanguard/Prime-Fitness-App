@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { levelFor, rankFor } from "@/lib/levels";
 
+// Derive the displayed level from server totals and thresholds, not local activity.
 export function useGamification(userId: string) {
   return useQuery({
     queryKey: ["gamification", userId],

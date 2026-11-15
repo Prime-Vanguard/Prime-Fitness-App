@@ -3,9 +3,10 @@ import { useShields } from "@/hooks/use-shields";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { StreakShields } from "@/components/streak-shields";
+import { TodaySessionHero } from "@/features/workouts/today-session-hero";
 import { TrainingSchedule } from "@/components/training-schedule";
 import { useActivityDay } from "@/hooks/use-activity-day";
-import { CheckCircle2, Dumbbell, Flame, Sparkles } from "lucide-react";
+import { CheckCircle2, Flame, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
 import { useGamification } from "@/hooks/use-gamification";
@@ -19,6 +20,7 @@ import { useMemberData, retainMemberRows, beginMemberRead } from "@/hooks/use-me
 import { changeMemberState } from "@/lib/member-store";
 import { addDays } from "@/lib/dates";
 import type { Json } from "@/integrations/supabase/types";
+import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 import { useWorkoutSummary } from "@/hooks/use-workout-summary";
 
 export const Route = createFileRoute("/_authenticated/_shell/today")({
@@ -61,7 +63,7 @@ function Bar({
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full rounded-full ${pct >= 100 ? "bg-success" : "bg-gold"}`}
+          className={`fuel-fill h-full rounded-full ${pct >= 100 ? "bg-success" : "bg-slate-200"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -230,46 +232,43 @@ function Today() {
         </p>
       )}
       <PageHeader
-        eyebrow={t("today")}
+        compact
+        accessory={
+          g && (
+            <span
+              data-today-rank
+              className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium"
+            >
+              {locale === "ar" ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
+            </span>
+          )
+        }
+        eyebrow={new Date(`${today}T12:00:00Z`).toLocaleDateString(
+          locale === "ar" ? "ar-EG" : "en-GB",
+          { timeZone: "Africa/Cairo", weekday: "long", month: "short", day: "numeric" },
+        )}
         title={`${t("welcome")}, ${me?.profile?.display_name || t("member")}`}
       />
-      <div
-        role="group"
-        className="mt-4 flex flex-wrap gap-2"
-        aria-label={locale === "ar" ? "إجراءات اليوم" : "Daily actions"}
-      >
-        <Button asChild variant="outline">
-          <Link to="/nutrition" search={{ entry: "quick" }}>
-            {t("logFood")}
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to="/nutrition" hash="water">
-            {t("water")}
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to="/progress" search={{ section: "body" }}>
-            {locale === "ar" ? "تسجيل القياسات" : "Check-in"}
-          </Link>
-        </Button>
-      </div>
-      <TrainingSchedule userId={user.id} compact />
+      {workout?.session || data?.open ? (
+        <TodaySessionHero
+          title={workout?.session?.title || t("todayWorkout")}
+          active
+          plan={workout?.plan ?? []}
+          exercises={(workout?.exercises ?? []) as ExerciseGuidance[]}
+          guidance={features?.guidance === true}
+        />
+      ) : (
+        <TrainingSchedule
+          userId={user.id}
+          compact
+          dashboard
+          guidanceEnabled={features?.guidance === true}
+          fallback={<TodaySessionHero title={t("todayWorkout")} />}
+        />
+      )}
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-5">
-          <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-gold">
-            <Dumbbell className="h-4 w-4" />
-            {t("todayWorkout")}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">{t("startHint")}</p>
-          <Button asChild className="mt-4 h-12 w-full">
-            <Link to="/train">
-              {workout?.session || data?.open ? t("continueWorkout") : t("startWorkout")}
-            </Link>
-          </Button>
-        </section>
-        <section className="rounded-xl border border-border bg-card p-5">
+      <div className="mt-4">
+        <section className="rounded-xl bg-card p-4">
           <p className="text-xs uppercase tracking-widest text-gold">{t("todayFuel")}</p>
           <div className="mt-3 space-y-3">
             {fuelAvailable ? (
@@ -293,21 +292,95 @@ function Today() {
               </p>
             )}
           </div>
-          <Button asChild variant="outline" className="mt-4 w-full">
-            <Link to="/nutrition">{t("logFood")}</Link>
-          </Button>
+          <div
+            role="group"
+            className="mt-4 flex flex-wrap gap-2"
+            aria-label={locale === "ar" ? "إجراءات اليوم" : "Daily actions"}
+          >
+            <Button asChild variant="outline">
+              <Link to="/nutrition" search={{ entry: "quick" }}>
+                {t("logFood")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/nutrition" hash="water">
+                {t("water")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/progress" search={{ section: "body" }}>
+                {locale === "ar" ? "تسجيل القياسات" : "Check-in"}
+              </Link>
+            </Button>
+          </div>
         </section>
       </div>
 
-      <section className="gold-glow mt-6 flex items-center gap-4 rounded-xl border border-gold/40 bg-card p-5">
+      <div className="mt-4 space-y-4">
+        <section className="rounded-xl bg-card p-4">
+          <div className="flex items-center gap-2">
+            <Flame
+              aria-hidden
+              className={`size-5 ${streak > 0 ? "text-emerald-400" : "text-muted-foreground"}`}
+            />
+            <h2 className="font-heading text-base font-bold">
+              <span className="tabular-nums">{activity ? streak : "–"}</span> · {t("streak")}
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("streakHint")}</p>
+          <StreakShields
+            userId={user.id}
+            today={today}
+            activeDays={[...workoutDays, ...foodDays]}
+          />
+        </section>
+        <section className="rounded-xl bg-card p-4">
+          <p className="text-xs uppercase tracking-widest text-gold">{t("weeklyQuests")}</p>
+          {!data ? (
+            <p role="status" className="mt-3 text-sm text-muted-foreground">
+              {locale === "ar"
+                ? "تقدم المهام غير متاح بعد. اتصل لتحديثه."
+                : "Quest progress is not available yet. Connect to refresh it."}
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {quests.map((q) => {
+                const done = q.progress >= q.goal;
+                return (
+                  <li key={q.key}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        {done && <CheckCircle2 className="h-4 w-4 text-success" />}
+                        {t(q.key)}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {q.progress}/{q.goal}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full ${done ? "bg-success" : "bg-gold"}`}
+                        style={{ width: `${(q.progress / q.goal) * 100}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <section className="mt-4 flex items-center gap-4 rounded-xl bg-card p-4">
         <RankCrest rank={g?.rank.key ?? "Recruit"} size={64} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-display text-lg font-bold">
-              {g ? (locale === "ar" ? g.rank.ar : g.rank.key) : "—"} · {t("level")} {g?.level ?? 1}
+              {g ? (locale === "ar" ? g.rank.ar : g.rank.key) : "—"} · {t("level")}{" "}
+              {g?.level ?? "—"}
             </p>
             <span className="text-xs tabular-nums text-muted-foreground">
-              {g?.xp ?? 0} {t("xp")}
+              {g?.xp ?? "—"} {t("xp")}
             </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
@@ -318,52 +391,26 @@ function Today() {
           </div>
         </div>
       </section>
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
-        <section className="rounded-xl border border-border bg-card p-5 text-center">
-          <Flame
-            className={`mx-auto h-10 w-10 ${streak > 0 ? "text-gold" : "text-muted-foreground"}`}
-          />
-          <p className="mt-2 font-display text-4xl font-bold tabular-nums">
-            {activity ? streak : "–"}
+      <details className="mt-3 rounded-xl bg-card p-4">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
+          {locale === "ar" ? "ما الفرق بين XP ونقاط PV؟" : "XP & PV points explained"}
+        </summary>
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            {locale === "ar"
+              ? "يبني XP مستواك ورتبتك. نقاط PV رصيد للمكافآت من مهام PV المعتمدة؛ إنفاقها لا يقلل XP أو الرتبة. لا يوجد تحويل تلقائي بينهما."
+              : "XP builds your level and rank. PV points are spendable rewards from approved PV tasks; spending them does not reduce XP or rank. There is no automatic conversion between them."}
           </p>
-          <p className="text-sm">{t("streak")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("streakHint")}</p>
-          <StreakShields
-            userId={user.id}
-            today={today}
-            activeDays={[...workoutDays, ...foodDays]}
-          />
-        </section>
-        <section className="rounded-xl border border-border bg-card p-5">
-          <p className="text-xs uppercase tracking-widest text-gold">{t("weeklyQuests")}</p>
-          <ul className="mt-3 space-y-3">
-            {quests.map((q) => {
-              const done = q.progress >= q.goal;
-              return (
-                <li key={q.key}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      {done && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {t(q.key)}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {q.progress}/{q.goal}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full ${done ? "bg-success" : "bg-gold"}`}
-                      style={{ width: `${(q.progress / q.goal) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </div>
-
+          <p className="tabular-nums">
+            XP: {g?.xp ?? "—"} · PV: {g?.pv ?? "—"}
+          </p>
+          <Button asChild variant="outline">
+            <Link to="/rewards">
+              {locale === "ar" ? "عرض قواعد المكافآت" : "View reward rules"}
+            </Link>
+          </Button>
+        </div>
+      </details>
       {!!data?.pending && (
         <Link
           to="/rewards"

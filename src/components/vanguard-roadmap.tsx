@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "./ui/button";
 import { Lock, Map } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,19 @@ export function VanguardRoadmap({
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [selected, setSelected] = useState(level);
   const rank = rankFor(selected);
+  const mapRef = useRef<HTMLDivElement>(null);
+  function jumpCurrent() {
+    setSelected(level);
+    const container = mapRef.current,
+      button = container?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (container && button) container.scrollTop = button.offsetTop - container.clientHeight / 2;
+    button?.focus({ preventScroll: true });
+  }
+  useEffect(() => {
+    const container = mapRef.current,
+      button = container?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (container && button) container.scrollTop = button.offsetTop - container.clientHeight / 2;
+  }, [level]);
   const { data: avatar } = useQuery({
     queryKey: ["avatar", avatarPath],
     enabled: !!avatarPath,
@@ -43,8 +57,10 @@ export function VanguardRoadmap({
     },
   });
   const target = thresholds?.find((row) => row.level === selected);
+  const nextRank = RANKS.find((tier) => tier.min > level);
+  const nextThreshold = thresholds?.find((row) => row.level === nextRank?.min);
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-gold/30 bg-card p-5">
+    <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex items-center gap-2">
         <Map size={20} className="text-gold" />
         <h2 className="font-display text-lg font-bold">
@@ -76,8 +92,20 @@ export function VanguardRoadmap({
           </p>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <Button variant="outline" onClick={jumpCurrent}>
+          {l("Jump to my level", "الانتقال إلى مستواي")}
+        </Button>
+        {nextRank && nextThreshold && (
+          <p className="text-xs text-muted-foreground">
+            {l("Next rank", "الرتبة التالية")}: {locale === "ar" ? nextRank.ar : nextRank.key} ·{" "}
+            {Math.max(0, nextThreshold.xp_required - xp).toLocaleString(locale)} XP
+          </p>
+        )}
+      </div>
       <div
-        className="mt-4 max-h-80 space-y-6 overflow-y-auto rounded-xl bg-background/40 p-3"
+        ref={mapRef}
+        className="relative mt-4 max-h-80 space-y-6 overflow-y-auto rounded-xl bg-background/40 p-3"
         aria-label={l("100-level journey map", "خريطة رحلة المئة مستوى")}
       >
         {RANKS.map((tier) => (

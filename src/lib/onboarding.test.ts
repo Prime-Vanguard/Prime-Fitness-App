@@ -107,3 +107,35 @@ it("rejects a mismatched receipt rather than showing success", async () => {
   mock(ok(before), ok({ ...receipt, id: "other" }));
   await expect(completeOnboarding("member", draft)).rejects.toThrow("not confirmed");
 });
+
+it("compares training selections independent of JSON key and selection ordering", async () => {
+  const training = {
+    goals: ["strength", "hypertrophy"],
+    experience: "novice",
+    weekly_days: 3,
+    equipment: ["dumbbells", "barbell"],
+  } as const;
+  const request = {
+    ...draft,
+    training: { ...training, goals: [...training.goals], equipment: [...training.equipment] },
+  };
+  const saved = {
+    ...receipt,
+    training_preferences: {
+      equipment: ["barbell", "dumbbells"],
+      weekly_days: 3,
+      experience: "novice",
+      goals: ["hypertrophy", "strength"],
+    },
+  };
+  const ops = mock(ok(saved));
+  await expect(completeOnboarding("member", request)).resolves.toEqual(saved);
+  expect(ops.some(([op]) => op === "update")).toBe(false);
+  mock(ok({ ...saved, training_preferences: { ...saved.training_preferences, weekly_days: 4 } }));
+  await expect(completeOnboarding("member", request)).rejects.toThrow("completed elsewhere");
+});
+
+it("explains a missing migration without pretending preferences were saved", async () => {
+  mock(ok(before), { data: null, error: { code: "PGRST204", message: "missing column" } });
+  await expect(completeOnboarding("member", draft)).rejects.toThrow("database update");
+});

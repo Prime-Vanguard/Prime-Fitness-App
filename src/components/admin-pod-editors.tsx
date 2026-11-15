@@ -441,9 +441,10 @@ export function PodRoster({
                 {message}
               </p>
             )}
+            {/* Leadership stays visually separate from roster membership and its reviewed writes. */}
             <section
               aria-label={l("Pod leadership", "قيادة المجموعة")}
-              className="space-y-3 rounded-xl border border-border p-4"
+              className="space-y-4 rounded-xl border border-border bg-background p-4"
             >
               <h3 className="font-medium">{l("Leadership", "القيادة")}</h3>
               {reloading && (

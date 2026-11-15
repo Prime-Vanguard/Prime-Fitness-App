@@ -65,6 +65,7 @@ function database() {
     });
   return connection;
 }
+// Local member data is scoped by both backend project and member identity.
 export async function readMemberState(user: string): Promise<MemberState> {
   const d = await database();
   return new Promise((resolve, reject) => {
@@ -73,6 +74,7 @@ export async function readMemberState(user: string): Promise<MemberState> {
     r.onerror = () => reject(r.error);
   });
 }
+// Update records and queue together, and report success only after IndexedDB commits.
 export async function changeMemberState(
   user: string,
   fn: (s: MemberState) => MemberState,
@@ -162,6 +164,7 @@ function notifyMemberSynced(user: string) {
   ensureMemberChannel();
   channel?.postMessage({ type: "member-sync-accepted", scope });
 }
+// Group related writes under one durable identity so retries cannot split a meal.
 export async function queueMemberWrites(
   user: string,
   writes: {
@@ -260,6 +263,8 @@ export async function cacheMemberRecords(
   });
   return accepted;
 }
+// Reuse an in-flight flush for the same member; record order and group boundaries
+// are preserved even when reconnect, focus and the periodic retry overlap.
 const running = new Map<string, Promise<void>>();
 export function syncMemberEntries(user: string): Promise<void> {
   const old = running.get(user);
@@ -291,6 +296,7 @@ export function syncMemberEntries(user: string): Promise<void> {
           ...v,
           queue: v.queue.map((m) => (ids.has(m.id) ? { ...m, status: "sending" } : m)),
         }));
+        // Recheck identity immediately before sending, including after a tab/account switch.
         const current = await supabase.auth.getSession();
         if (current.data.session?.user.id !== user) return;
         const body = batch.map(({ id, record_id, entity, op, payload, base_revision }) => ({

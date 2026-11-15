@@ -16,6 +16,7 @@ import { workoutEditorSchema } from "./workout-editor";
 import { foodUndoEntries, foodEntry, mergeFoodRecovery } from "./nutrition-entries";
 import { waterUndoEntries, waterEntry, mergeWaterRecovery } from "./water-entries";
 import { mergeCardioRecovery } from "@/features/cardio/store";
+import { mergeMealCopyRecovery } from "@/features/nutrition/meal-copy";
 
 export const RESTORE_TABLES = [
   "workout_sessions",
@@ -128,6 +129,7 @@ const pathOwned = (path: string, owner: string) =>
   !path.includes("..") &&
   !path.includes("\\") &&
   !/[?#]/.test(path);
+// Validate the backup and its owner/project before permitting a restore.
 export function validateBackup(input: unknown, owner: string, host: string): PersonalBackup {
   const backup = envelope.parse(input);
   backup.data["wellness_checkins"] ??= [];
@@ -143,6 +145,7 @@ export function validateBackup(input: unknown, owner: string, host: string): Per
       throw new Error("Invalid pending member backup.");
     const ids = new Set<string>();
     mergeCardioRecovery({}, state.references ?? {}, owner);
+    mergeMealCopyRecovery({}, state.references ?? {}, owner);
     for (const recovery of foodUndoEntries(state.references ?? {}))
       foodEntry(recovery.record, owner);
     for (const recovery of waterUndoEntries(state.references ?? {}))
@@ -184,6 +187,9 @@ export function validateBackup(input: unknown, owner: string, host: string): Per
     !["en", "ar"].includes(String(profile["locale"]))
   )
     throw new Error("Invalid profile in backup.");
+  // Legacy backups omit this context; newer backups validate it before server restore.
+  if (profile["training_preferences"] != null)
+    trainingPreferenceSchema.parse(profile["training_preferences"]);
   for (const tab of RESTORE_TABLES) {
     const rows = z.array(record).max(100000).parse(backup.data[tab]);
     const seen = new Set<string>();
@@ -376,6 +382,7 @@ export async function checksum(bytes: Uint8Array): Promise<string> {
     .map((v) => v.toString(16).padStart(2, "0"))
     .join("");
 }
+// Check stored media bytes against their recorded digests before restoration.
 export async function verifyMedia(backup: PersonalBackup) {
   let total = 0;
   for (const media of backup.media) {
@@ -474,6 +481,15 @@ export async function restorePersonalBackup(
       new Set(current.queue.filter((m) => m.entity === "water_logs").map((m) => m.record_id)),
     );
     mergeCardioRecovery(current.references, source.references ?? {}, owner);
+    mergeMealCopyRecovery(
+      current.references,
+      source.references ?? {},
+      owner,
+      new Set([
+        ...(current.records.food_logs ?? []).map((row) => row.id),
+        ...current.queue.filter((row) => row.entity === "food_logs").map((row) => row.record_id),
+      ]),
+    );
   }
   await verifyMedia(backup);
   const added: string[] = [];
@@ -605,8 +621,18 @@ export async function restorePersonalBackup(
         new Set(current.queue.filter((m) => m.entity === "water_logs").map((m) => m.record_id)),
       );
       next.references = mergeCardioRecovery(next.references, source.references ?? {}, owner);
+      next.references = mergeMealCopyRecovery(
+        next.references,
+        source.references ?? {},
+        owner,
+        new Set([
+          ...(current.records.food_logs ?? []).map((row) => row.id),
+          ...current.queue.filter((row) => row.entity === "food_logs").map((row) => row.record_id),
+        ]),
+      );
       return next;
     });
   }
   return draft;
 }
+import { trainingPreferenceSchema } from "./onboarding-preferences";

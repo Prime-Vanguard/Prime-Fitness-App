@@ -11,6 +11,7 @@ import {
   beginMemberRead,
 } from "@/lib/member-store";
 import { activityDay, addDays } from "@/lib/dates";
+// Observe member-scoped device data and retain pending entries when pruning history.
 export function useMemberData(userId: string) {
   const [state, setState] = useState(emptyMemberState);
   const [error, setError] = useState("");

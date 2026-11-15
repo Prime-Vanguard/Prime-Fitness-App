@@ -29,6 +29,7 @@ const pillars = [
   { icon: Trophy, title: "Rise", text: "Earn XP and climb from Recruit to Prime Legend." },
 ];
 
+// Public entry point; membership and authorization are handled by the sign-in flow.
 function Index() {
   return (
     <main className="bg-hero min-h-screen">

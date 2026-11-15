@@ -23,6 +23,7 @@ export function e1rm(weight: number, reps: number) {
   return reps === 1 ? weight : Math.round(weight * (1 + reps / 30) * 10) / 10;
 }
 
+// This legacy strength summary compares bilateral working sets by estimated 1RM.
 export function personalRecords(sets: SetRow[]) {
   const map = new Map<
     string,

@@ -47,6 +47,24 @@ artifacts/
 supabase/.temp/
 coverage/
 public/scanner-runtime/
+
+# Local authentication, credentials and signing material.
+**/*-test-account.json
+playwright/.auth/
+e2e/.auth/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Rebuildable tool caches and TypeScript incremental state.
+.cache/
+.eslintcache
+*.tsbuildinfo
+supabase/.branches/
+
+# Raw hosted inspection captures stay local; retain reviewed reports and identity maps.
+docs/readiness/hosted-metadata-*.json
 design/stitch_prime_fitness_tracker_app
 docs/noor-first-use-feedback.md
 docs/noor-pwa-fixes.md

@@ -192,7 +192,7 @@ export function ProgramBuilder({
   }
   return (
     <section
-      className="mt-7 space-y-5 rounded-xl border border-gold/30 bg-card p-4 sm:p-6"
+      className="mt-7 space-y-5 rounded-xl bg-card p-4 sm:p-6"
       aria-label={l("Program builder", "محرر البرنامج")}
     >
       <h2 className="break-words font-display text-xl">{program.name}</h2>
@@ -203,6 +203,7 @@ export function ProgramBuilder({
         )}
       </p>
       <MemberSections
+        appearance="segmented"
         label={l("Program workspace", "مساحة البرنامج")}
         value={section}
         items={[
@@ -246,7 +247,8 @@ export function ProgramBuilder({
         </div>
       )}
       <div hidden={section !== "draft"} className="space-y-5">
-        <div className="flex flex-wrap gap-4">
+        {/* Session selectors change only the editable draft view, not frozen assignments. */}
+        <div className="flex flex-wrap gap-4 rounded-xl bg-background p-4">
           {(
             [
               [t("week"), week, program.weeks, (n: number) => onSession(n, day)],
@@ -269,9 +271,25 @@ export function ProgramBuilder({
             </label>
           ))}
         </div>
-        <h3 className="font-medium">
+        <h3 className="font-heading text-lg font-bold">
           {t("week")} {week} · {t("day")} {day}
         </h3>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-lg bg-background p-3">
+            <dt className="text-xs text-muted-foreground">
+              {l("Session exercises", "تمارين الجلسة")}
+            </dt>
+            <dd className="mt-1 font-semibold tabular-nums">{ready ? session.length : "—"}</dd>
+          </div>
+          <div className="rounded-lg bg-background p-3">
+            <dt className="text-xs text-muted-foreground">
+              {l("Prescribed sets", "المجموعات المخططة")}
+            </dt>
+            <dd className="mt-1 font-semibold tabular-nums">
+              {ready ? session.reduce((total, row) => total + row.target_sets, 0) : "—"}
+            </dd>
+          </div>
+        </dl>
         <Button disabled={!ready} onClick={() => edit(null)}>
           {l("Add exercise to session", "إضافة تمرين للجلسة")}
         </Button>
@@ -285,7 +303,7 @@ export function ProgramBuilder({
         )}
         <ul className="space-y-3">
           {session.map((i) => (
-            <li key={i.id} className="space-y-3 rounded-xl border border-border p-4">
+            <li key={i.id} className="space-y-3 rounded-xl bg-background p-4">
               <p className="break-words font-medium">{name(i.exercise_id)}</p>
               <p className="text-sm text-muted-foreground">
                 <bdi>

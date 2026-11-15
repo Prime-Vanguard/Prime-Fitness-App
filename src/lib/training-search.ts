@@ -1,6 +1,8 @@
 import { addDays, activityDay } from "./dates";
 export type TrainSearch = {
-  section?: "workout" | "program" | "history" | undefined;
+  /** Presentation-only hub view; never changes the active draft or completion state. */
+  view?: "overview" | undefined;
+  section?: "workout" | "program" | "history" | "cardio" | undefined;
   q?: string | undefined;
   from?: string | undefined;
   to?: string | undefined;
@@ -23,7 +25,9 @@ export function trainingSearch(raw: Record<string, unknown>): TrainSearch {
         ? Number(rawPage)
         : 0;
   return {
-    section: section === "history" || section === "program" ? section : undefined,
+    view: raw["view"] === "overview" ? "overview" : undefined,
+    section:
+      section === "history" || section === "program" || section === "cardio" ? section : undefined,
     q: typeof raw["q"] === "string" ? raw["q"].trim().slice(0, 100) || undefined : undefined,
     from: validActivityDate(raw["from"]) ? raw["from"] : undefined,
     to: validActivityDate(raw["to"]) ? raw["to"] : undefined,

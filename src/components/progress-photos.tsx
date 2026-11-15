@@ -1,3 +1,4 @@
+import { SelectionIndicator } from "./selection-indicator";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ export function ProgressPhotos({
   const [operationError, setOperationError] = useState("");
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const file = useRef<HTMLInputElement>(null);
+  const cameraFile = useRef<HTMLInputElement>(null);
   const key = ["photos", userId];
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [userId]);
@@ -129,23 +131,11 @@ export function ProgressPhotos({
   }
 
   return (
-    <section className="mt-6 rounded-xl border border-border bg-card p-5">
-      <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+    <section className="mt-6 space-y-4" data-stitch-photo-workspace>
+      <h2 className="sr-only">
         <Camera className="h-5 w-5 text-gold" />
         {t("photos")}
       </h2>
-      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-        <Lock className="h-3 w-3" />
-        {t("photosPrivate")}
-      </p>
-      {!readOnly && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {l(
-            "New photos are converted to JPEG. Pending deletions are excluded from backups.",
-            "تُحوّل الصور الجديدة إلى JPEG. تُستبعد الصور المنتظر حذفها من النسخ الاحتياطية.",
-          )}
-        </p>
-      )}
       {operationError && (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {operationError}
@@ -165,32 +155,86 @@ export function ProgressPhotos({
         </p>
       )}
       {!readOnly && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {POSES.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPose(p)}
-              className={`rounded-full px-3 py-1 text-xs ${pose === p ? "bg-gold text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+        <div className="space-y-3">
+          {/* Capture and gallery retain their existing upload/normalization flow. */}
+          <div className="grid gap-2">
+            <input
+              ref={cameraFile}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/avif,image/bmp"
+              capture="environment"
+              aria-label={l("Take progress photo", "التقاط صورة التقدم")}
+              hidden
+              onChange={(event) => {
+                const photo = event.target.files?.[0];
+                if (photo) void upload(photo);
+                event.target.value = "";
+              }}
+            />
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={busy}
+              onClick={() => cameraFile.current?.click()}
             >
-              {t(`pose_${p}` as TKey)}
-            </button>
-          ))}
-          <input
-            ref={file}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/avif,image/bmp"
-            aria-label={l("Choose progress photo", "اختر صورة التقدم")}
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload(f);
-              e.target.value = "";
-            }}
-          />
-          <Button size="sm" disabled={busy} onClick={() => file.current?.click()}>
-            {busy ? "…" : t("addPhoto")}
-          </Button>
+              <Camera aria-hidden className="size-4" />
+              {l("Take photo", "التقاط صورة")}
+            </Button>
+            <input
+              ref={file}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/avif,image/bmp"
+              aria-label={l("Choose progress photo", "اختر صورة التقدم")}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) upload(f);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="lg"
+              variant="secondary"
+              className="w-full"
+              disabled={busy}
+              onClick={() => file.current?.click()}
+            >
+              {busy ? "…" : t("addPhoto")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {l("Upload pose", "وضعية الصورة المرفوعة")}
+          </p>
+          <div
+            className="sliding-selection flex flex-wrap gap-2"
+            role="group"
+            aria-label={l("Upload pose", "وضعية الصورة المرفوعة")}
+          >
+            <SelectionIndicator />
+            {POSES.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPose(p)}
+                aria-pressed={pose === p}
+                className={`min-h-11 rounded-lg px-4 py-2 text-sm ${pose === p ? "bg-raised text-foreground ring-1 ring-gold" : "bg-background text-muted-foreground"}`}
+              >
+                {t(`pose_${p}` as TKey)}
+              </button>
+            ))}
+          </div>
         </div>
+      )}
+      <p className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+        <Lock aria-hidden className="mt-0.5 size-5 shrink-0 text-gold" />
+        {t("photosPrivate")}
+      </p>
+      {!readOnly && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {l(
+            "New photos are converted to JPEG. Pending deletions are excluded from backups.",
+            "تُحوّل الصور الجديدة إلى JPEG. تُستبعد الصور المنتظر حذفها من النسخ الاحتياطية.",
+          )}
+        </p>
       )}
       {pending.length > 0 && (
         <ul
@@ -217,14 +261,22 @@ export function ProgressPhotos({
           ))}
         </ul>
       )}
+      {/* Keep comparison above the archive; signed URL renewal and deletion
+          exclusions remain owned by the existing components. */}
+      <PhotoHistoryComparison
+        key={userId}
+        userId={userId}
+        excluded={pending.map((p) => p.photo_id)}
+      />
+      <h3 className="font-heading text-lg font-semibold">{l("Photo archive", "أرشيف الصور")}</h3>
       {!isPending && !error && !data?.length ? (
         <p className="mt-3 text-sm text-muted-foreground">{t("noPhotos")}</p>
       ) : (
-        <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {data?.map((p) => (
             <li
               key={p.id}
-              className="group relative overflow-hidden rounded-lg border border-border"
+              className="group relative min-w-0 overflow-hidden rounded-lg border border-border"
             >
               <PrivatePhoto
                 key={p.id}
@@ -245,6 +297,7 @@ export function ProgressPhotos({
                   <button
                     disabled={busy}
                     aria-label={t("delete")}
+                    className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-destructive focus-visible:outline-2 focus-visible:outline-ring"
                     onClick={() => void del(p.id, p.path)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -277,11 +330,6 @@ export function ProgressPhotos({
           {l("Older photos", "صور أقدم")}
         </Button>
       </nav>
-      <PhotoHistoryComparison
-        key={userId}
-        userId={userId}
-        excluded={pending.map((p) => p.photo_id)}
-      />
     </section>
   );
 }

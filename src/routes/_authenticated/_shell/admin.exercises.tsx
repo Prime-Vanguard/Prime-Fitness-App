@@ -13,6 +13,7 @@ import { AdminChangeReview, type AdminReview } from "@/components/admin-change-r
 import { ExerciseEditor } from "@/components/exercise-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StaffSummary } from "@/components/staff-summary";
 
 export const Route = createFileRoute("/_authenticated/_shell/admin/exercises")({
   head: () => ({
@@ -137,14 +138,38 @@ function Exercises() {
   if (me && !allowed) return <p className="mt-10">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("exercises")} />
+      <PageHeader
+        eyebrow={l("Training workspace", "مساحة التدريب")}
+        eyebrowTone="accent"
+        title={t("exercises")}
+      />
+      {/* Editorial state is reported from catalogue records, not inferred from media availability. */}
+      <StaffSummary
+        label={l("Catalogue summary", "ملخص المكتبة")}
+        items={[
+          {
+            label: l("Catalogue entries", "تمارين المكتبة"),
+            value: data.isSuccess ? data.data.length : undefined,
+          },
+          {
+            label: l("Reviewed guidance", "شرح تمت مراجعته"),
+            value: data.isSuccess
+              ? data.data.filter((row) => row.editorial_status === "reviewed").length
+              : undefined,
+          },
+          {
+            label: l("Matching filters", "مطابق للتصفية"),
+            value: data.isSuccess ? rows.length : undefined,
+          },
+        ]}
+      />
       <p className="mt-3 text-sm text-muted-foreground">
         {l(
           "Search the catalogue, review editorial gaps and edit one exercise at a time.",
           "ابحث في المكتبة وراجع الحقول غير المكتملة وعدّل تمريناً واحداً في كل مرة.",
         )}
       </p>
-      <div className="mt-6 flex flex-wrap items-end gap-3">
+      <div className="mt-6 flex flex-wrap items-end gap-3 rounded-xl bg-card p-4">
         <label className="w-full max-w-sm text-sm">
           {l("Search exercises", "بحث التمارين")}
           <Input

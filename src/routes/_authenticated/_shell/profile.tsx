@@ -21,13 +21,14 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DeviceSettings } from "@/components/device-settings";
-import { Camera, LogOut } from "lucide-react";
+import { Camera, ChevronDown, ChevronRight, Cloud, LogOut, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
 import { useGamification } from "@/hooks/use-gamification";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
 import { RankCrest } from "@/components/rank-crest";
+import { AvatarCropDialog } from "@/components/avatar-crop-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +81,8 @@ function Profile() {
   const { data } = useMe(user.id);
   const { data: g } = useGamification(user.id);
   const { t, locale: cur, setLocale } = useI18n();
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const avatarCamera = useRef<HTMLInputElement>(null);
   const ar = cur === "ar";
   const qc = useQueryClient();
   const [name, setName] = useState("");
@@ -97,6 +100,7 @@ function Profile() {
   const dirty = !!baseline && signature !== baseline;
   const [saveMessage, setSaveMessage] = useState(""),
     [saveError, setSaveError] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
   const [passwordMessage, setPasswordMessage] = useState(""),
     [passwordError, setPasswordError] = useState(false);
   const unsaved = dirty || !!pw || !!pw2;
@@ -219,6 +223,7 @@ function Profile() {
     if (!f) return;
     if (!f.type.startsWith("image/")) return void toast.error(t("imageOnly"));
     setBusy(true);
+    let uploaded = false;
     try {
       const path = `${user.id}/avatar-${Date.now()}.jpg`;
       const up = await supabase.storage
@@ -233,10 +238,12 @@ function Profile() {
       if (avatarPath) await supabase.storage.from("progress-photos").remove([avatarPath]);
       qc.invalidateQueries({ queryKey: ["me", user.id] });
       toast.success(t("saved"));
+      uploaded = true;
     } catch (e) {
       toast.error((e as Error).message);
     }
     setBusy(false);
+    return uploaded;
   }
 
   async function changePw() {
@@ -264,10 +271,30 @@ function Profile() {
       })
     : "";
 
-  const card = "rounded-xl border border-border bg-card p-6";
+  // Presentation stays separate from the draft/blocker and upload controllers above.
+  const card = "rounded-xl bg-card p-4 sm:p-5";
   return (
     <>
-      <PageHeader title={t("profile")} />
+      {avatarFile && (
+        <AvatarCropDialog
+          key={`${user.id}:${avatarFile.lastModified}`}
+          file={avatarFile}
+          onCancel={() => setAvatarFile(null)}
+          onConfirm={async (photo) => {
+            const uploaded = await uploadAvatar(photo);
+            if (!uploaded)
+              throw new Error(
+                ar ? "لم يتم حفظ الصورة. أعد المحاولة." : "Photo was not saved. Try again.",
+              );
+            setAvatarFile(null);
+          }}
+        />
+      )}
+      <PageHeader
+        title={t("profile")}
+        eyebrow={ar ? "إعدادات العضو وتفضيلاته" : "Member settings & preferences"}
+        eyebrowTone="accent"
+      />
       <AlertDialog
         open={blocker.status === "blocked"}
         onOpenChange={(open) => {
@@ -300,6 +327,7 @@ function Profile() {
         </AlertDialogContent>
       </AlertDialog>
       <MemberSections
+        appearance="segmented"
         label={ar ? "أقسام الملف" : "Profile sections"}
         value={section}
         disabled={busy}
@@ -314,17 +342,20 @@ function Profile() {
         }
       />
 
-      <div className="mt-8 grid max-w-3xl gap-6">
+      <div data-stitch-profile className="mt-5 grid max-w-3xl gap-5">
+        <TrainingPreferencesSummary value={p?.training_preferences} />
         {section === "account" && (
           <>
             {/* Member card */}
-            <div className={`${card} gold-glow`}>
-              <div className="flex flex-wrap items-center gap-5">
+            <div className={card}>
+              {/* Compact identity follows the reference; optional photo/activity controls
+                  remain mounted in a native disclosure, preserving upload and crop ownership. */}
+              <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={busy}
-                  className="relative size-20 shrink-0 overflow-hidden rounded-full border-2 border-gold bg-muted"
+                  className="relative size-16 shrink-0 overflow-hidden rounded-xl border border-gold/60 bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                   aria-label={ar ? "تغيير الصورة" : "Change photo"}
                 >
                   {avatarUrl ? (
@@ -334,8 +365,8 @@ function Profile() {
                       {(name || p?.email || "?").slice(0, 1).toUpperCase()}
                     </span>
                   )}
-                  <span className="absolute inset-x-0 bottom-0 flex justify-center bg-background/70 py-0.5">
-                    <Camera className="size-3.5" />
+                  <span className="absolute inset-x-0 bottom-0 flex justify-center bg-background/80 py-1">
+                    <Camera aria-hidden className="size-3.5" />
                   </span>
                 </button>
                 <input
@@ -343,61 +374,118 @@ function Profile() {
                   type="file"
                   accept="image/*"
                   hidden
-                  onChange={(e) => uploadAvatar(e.target.files?.[0])}
+                  aria-label={ar ? "اختر صورة الملف الشخصي" : "Choose profile photo"}
+                  onChange={(e) => {
+                    setAvatarFile(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
                 />
+                <input
+                  ref={avatarCamera}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  hidden
+                  aria-label={ar ? "التقاط صورة الملف الشخصي" : "Take profile photo"}
+                  onChange={(event) => {
+                    setAvatarFile(event.target.files?.[0] ?? null);
+                    event.target.value = "";
+                  }}
+                />
+
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-heading text-xl font-bold">{name || p?.email}</p>
-                  <p className="truncate text-sm text-muted-foreground">{p?.email}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span
-                      className={`rounded-full px-2 py-0.5 ${p?.access_active ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"}`}
-                    >
-                      {p?.access_active ? t("accessOn") : t("accessOff")}
-                    </span>
-                    {data?.roles.map((r) => (
-                      <span key={r} className="rounded-full bg-muted px-2 py-0.5">
-                        {r}
-                      </span>
-                    ))}
-                    {joined && (
-                      <span className="text-muted-foreground">
-                        {ar ? "عضو منذ" : "Member since"} {joined}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {g && <RankCrest rank={g.rank.key} size={64} />}
-              </div>
-              {g && (
-                <div className="mt-5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gold">
+                  <p className="break-words font-heading text-xl font-bold">{name || p?.email}</p>
+                  {g && (
+                    <p className="mt-1 text-sm text-gold">
                       {ar ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {g.xp} {t("xp")}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-gold"
-                      style={{ width: `${Math.round(g.pct * 100)}%` }}
-                    />
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                    {[
-                      [t("totalWorkouts"), stats?.workouts ?? "–"],
-                      [t("badges"), stats?.badges ?? "–"],
-                      [t("pvWallet"), g.pv],
-                    ].map(([l, v]) => (
-                      <div key={String(l)} className="rounded-lg bg-muted/50 p-3">
-                        <p className="font-heading text-lg font-bold">{v}</p>
-                        <p className="text-xs text-muted-foreground">{l}</p>
-                      </div>
-                    ))}
-                  </div>
+                    </p>
+                  )}
                 </div>
-              )}
+                {g && <RankCrest rank={g.rank.key} size={40} />}
+              </div>
+              <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-background p-3">
+                  <dt className="text-xs text-muted-foreground">
+                    {ar ? "حالة العضوية" : "Membership access"}
+                  </dt>
+                  <dd
+                    className={`mt-1 font-medium ${p?.access_active ? "text-success" : "text-muted-foreground"}`}
+                  >
+                    {p ? (p.access_active ? t("accessOn") : t("accessOff")) : "—"}
+                  </dd>
+                </div>
+                <div className="rounded-lg bg-background p-3">
+                  <dt className="text-xs text-muted-foreground">
+                    {ar ? "عضو منذ" : "Member since"}
+                  </dt>
+                  <dd className="mt-1 font-medium">{joined || "—"}</dd>
+                </div>
+              </dl>
+              <details className="group mt-3 border-t border-border pt-1" data-profile-activity>
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold [&::-webkit-details-marker]:hidden">
+                  {ar ? "الصورة والرتبة والنشاط" : "Photo, rank & activity"}
+                  <ChevronDown
+                    aria-hidden
+                    className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                  />
+                </summary>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {ar ? "المعرض" : "Gallery"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => avatarCamera.current?.click()}
+                  >
+                    <Camera aria-hidden className="size-4" />
+                    {ar ? "التقاط صورة" : "Take photo"}
+                  </Button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {data?.roles.map((role) => (
+                    <span key={role} className="rounded-full bg-muted px-2 py-1">
+                      {role}
+                    </span>
+                  ))}
+                </div>
+                {g && (
+                  <div className="mt-5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gold">
+                        {ar ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {g.xp} {t("xp")}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full bg-gold"
+                        style={{ width: `${Math.round(g.pct * 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                      {[
+                        [t("totalWorkouts"), stats?.workouts ?? "–"],
+                        [t("badges"), stats?.badges ?? "–"],
+                        [t("pvWallet"), g.pv],
+                      ].map(([l, v]) => (
+                        <div key={String(l)} className="min-w-0 rounded-lg bg-background p-3">
+                          <p className="font-heading text-lg font-bold">{v}</p>
+                          <p className="text-xs text-muted-foreground">{l}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </details>
             </div>
           </>
         )}
@@ -481,44 +569,131 @@ function Profile() {
         {section === "offline" && <DeviceSettings />}
         {section === "account" && (
           <>
-            {/* Security */}
-            <div className={`${card} space-y-4`}>
-              <h2 className="font-heading font-semibold">
-                {ar ? "تغيير كلمة المرور" : "Change password"}
+            {/* Show actual account details; the mockup's passkey and ecosystem claims
+                are not supported authentication methods or verified integrations. */}
+            <section
+              className={`${card} space-y-4`}
+              aria-label={ar ? "بيانات الحساب" : "Account credentials"}
+            >
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {ar ? "الأمان وبيانات الحساب" : "Security & credentials"}
               </h2>
-              <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-                <PasswordField
-                  id="profile-new-password"
-                  fresh
-                  label={ar ? "كلمة المرور الجديدة" : "New password"}
-                  value={pw}
-                  onChange={setPw}
-                  invalid={passwordError}
-                  errorId="profile-password-feedback"
-                />
-                <PasswordField
-                  id="profile-confirm-password"
-                  fresh
-                  label={ar ? "تأكيد كلمة المرور" : "Confirm password"}
-                  value={pw2}
-                  onChange={setPw2}
-                  invalid={passwordError}
-                  errorId="profile-password-feedback"
-                />
-              </fieldset>
-              {passwordMessage && (
-                <p
-                  id="profile-password-feedback"
-                  role={passwordError ? "alert" : "status"}
-                  className="text-sm"
-                >
-                  {passwordMessage}
+              <div className="space-y-3 rounded-lg bg-background p-4 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  {ar ? "بريد العضو" : "Member email"}
                 </p>
-              )}
-              <Button variant="secondary" onClick={changePw} disabled={busy || !pw}>
-                {ar ? "تحديث كلمة المرور" : "Update password"}
+                <p className="break-words" dir="ltr">
+                  {p?.email || user.email}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {ar ? "تسجيل الدخول بالبريد وكلمة المرور" : "Email and password sign-in"}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => void navigate({ search: { section: "preferences" } })}
+              >
+                {ar ? "إدارة التفضيلات" : "Manage preferences"}
               </Button>
-            </div>
+            </section>
+            {/* Disclosure never clears values: unsaved-password navigation guards still apply. */}
+            <details className={`${card} group`} data-profile-password>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-heading font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold [&::-webkit-details-marker]:hidden">
+                {ar ? "تغيير كلمة المرور" : "Change password"}
+                <ChevronDown
+                  aria-hidden
+                  className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                />
+              </summary>
+              <div className="space-y-4 pt-4">
+                <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
+                  <PasswordField
+                    id="profile-new-password"
+                    fresh
+                    label={ar ? "كلمة المرور الجديدة" : "New password"}
+                    value={pw}
+                    onChange={setPw}
+                    invalid={passwordError}
+                    errorId="profile-password-feedback"
+                  />
+                  <PasswordField
+                    id="profile-confirm-password"
+                    fresh
+                    label={ar ? "تأكيد كلمة المرور" : "Confirm password"}
+                    value={pw2}
+                    onChange={setPw2}
+                    invalid={passwordError}
+                    errorId="profile-password-feedback"
+                  />
+                </fieldset>
+                {passwordMessage && (
+                  <p
+                    id="profile-password-feedback"
+                    role={passwordError ? "alert" : "status"}
+                    className="text-sm"
+                  >
+                    {passwordMessage}
+                  </p>
+                )}
+                <Button variant="secondary" onClick={changePw} disabled={busy || !pw}>
+                  {ar ? "تحديث كلمة المرور" : "Update password"}
+                </Button>
+              </div>
+            </details>
+            {/* Overview rows link to existing URL sections; previews use saved profile
+                values and never imply that a local queue is synchronized. */}
+            <section
+              aria-label={ar ? "نظرة عامة على التفضيلات" : "Preferences overview"}
+              className="space-y-2"
+            >
+              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {ar ? "نظرة عامة على التفضيلات" : "Preferences overview"}
+              </h2>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void navigate({ search: { section: "preferences" } })}
+                className={`${card} flex w-full items-center gap-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold`}
+              >
+                <Settings2 aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    {ar ? "اللغة والوحدات والراحة" : "Language, units & rest"}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {p
+                      ? `${p.locale === "ar" ? "العربية" : "English"} · ${p.units === "imperial" ? t("imperial") : t("metric")} · ${rest}s`
+                      : "—"}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="size-4 shrink-0 rtl:rotate-180" />
+              </button>
+            </section>
+            <section aria-label={ar ? "التخزين والمزامنة" : "Storage & sync"} className="space-y-2">
+              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {ar ? "التخزين والمزامنة" : "Storage & sync"}
+              </h2>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void navigate({ search: { section: "offline" } })}
+                aria-label={ar ? "مراجعة التطبيق ودون اتصال" : "Review app & offline"}
+                className={`${card} flex w-full items-center gap-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold`}
+              >
+                <Cloud aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    {ar ? "التطبيق ودون اتصال" : "App & offline"}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {ar
+                      ? "مراجعة المزامنة والتخزين على الجهاز"
+                      : "Review synchronization and device storage"}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="size-4 shrink-0 rtl:rotate-180" />
+              </button>
+            </section>
           </>
         )}
         {section === "privacy" && (
@@ -531,17 +706,22 @@ function Profile() {
         )}
         {/* Data & account */}
         <div className={`${card} flex flex-wrap gap-3`}>
+          {signOutError && (
+            <p role="alert" className="w-full text-sm">
+              {signOutError}
+            </p>
+          )}
           <Button
             variant="destructive"
             disabled={busy}
             onClick={async () => {
+              setSignOutError("");
               signingOut.current = true;
               discardDrafts();
               const result = await supabase.auth.signOut();
               if (result.error) {
                 signingOut.current = false;
-                setPasswordError(true);
-                setPasswordMessage(result.error.message);
+                setSignOutError(result.error.message);
               }
             }}
           >
@@ -553,3 +733,4 @@ function Profile() {
     </>
   );
 }
+import { TrainingPreferencesSummary } from "@/components/training-preferences-summary";

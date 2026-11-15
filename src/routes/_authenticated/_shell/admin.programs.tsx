@@ -18,6 +18,7 @@ import { AdminChangeReview, type AdminReview } from "@/components/admin-change-r
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StaffSummary } from "@/components/staff-summary";
 
 export const Route = createFileRoute("/_authenticated/_shell/admin/programs")({
   validateSearch: programSearch,
@@ -136,14 +137,36 @@ function Programs() {
   if (me && !allowed) return <p className="mt-10">{t("notAllowed")}</p>;
   return (
     <>
-      <PageHeader eyebrow={t("admin")} title={t("programs")} />
+      <PageHeader
+        eyebrow={l("Training workspace", "مساحة التدريب")}
+        eyebrowTone="accent"
+        title={t("programs")}
+      />
+      {/* Overview totals use the whole loaded catalogue, not the current list page. */}
+      <StaffSummary
+        label={l("Program summary", "ملخص البرامج")}
+        items={[
+          {
+            label: l("Programs", "البرامج"),
+            value: programs.isSuccess ? programs.data.length : undefined,
+          },
+          {
+            label: l("Matching search", "مطابق للبحث"),
+            value: programs.isSuccess ? rows.length : undefined,
+          },
+          {
+            label: l("Exercise library", "مكتبة التمارين"),
+            value: exercises.isSuccess ? exercises.data.length : undefined,
+          },
+        ]}
+      />
       <p className="mt-3 text-sm text-muted-foreground">
         {l(
           "Build the editable draft one session at a time. Publishing creates a frozen version; assignment is a separate reviewed step.",
           "ابنِ المسودة جلسةً واحدة في كل مرة. ينشئ النشر نسخة مجمدة؛ التعيين خطوة مراجعة منفصلة.",
         )}
       </p>
-      <div className="mt-6 flex flex-wrap items-end gap-3">
+      <div className="mt-6 flex flex-wrap items-end gap-3 rounded-xl bg-card p-4">
         <label className="w-full max-w-sm text-sm">
           {l("Search programs", "بحث البرامج")}
           <Input

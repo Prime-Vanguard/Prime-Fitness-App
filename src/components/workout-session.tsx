@@ -2,9 +2,10 @@ import { useWorkoutEditor } from "@/features/workouts/use-workout-editor";
 import { WorkoutExerciseOptions } from "@/features/workouts/workout-exercise-options";
 import { WorkoutExerciseCard } from "@/features/workouts/workout-exercise-card";
 import { useWorkoutActions } from "@/features/workouts/use-workout-actions";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { selectExercises } from "@/features/workouts/select-exercises";
 import { Link } from "@tanstack/react-router";
-import { Check, Download, MoreHorizontal, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Download, Plus } from "lucide-react";
 import type { WorkoutSessionController } from "@/features/workouts/types";
 import { DraftFields, SetEditor } from "@/features/workouts/workout-set-editor";
 import { SessionTime, HoldTimer, RestTimer } from "@/features/workouts/workout-timers";
@@ -20,8 +21,9 @@ import {
   workingCount,
   workoutSlots,
   slotReference,
+  slotDraftKey,
   supersetPair,
-  supersetCandidates,
+  supersetChoices,
   pairSuperset,
 } from "@/lib/workout-editor";
 import { displayWeight, weightUnit, formatMeasure } from "@/lib/units";
@@ -34,6 +36,9 @@ import { ExerciseDiscovery, ExerciseDetail } from "./exercise-discovery";
 import { TrainingSuggestion } from "./training-suggestion";
 import { PlannedSetRows } from "@/features/workouts/planned-set-rows";
 import { useSlotRest } from "@/hooks/use-workout-references";
+import { BrandLockup } from "./brand-lockup";
+import { NotificationBell } from "./notification-bell";
+import { WorkoutSyncStatus } from "@/features/workouts/workout-sync-status";
 
 type Controller = WorkoutSessionController;
 
@@ -61,9 +66,39 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   } = editor;
   const { role, side } = logging;
   const [library, setLibrary] = useState<"add" | "swap" | null>(null);
+  const pickerSlots = useRef(new Map<string, string>());
+  function openLibrary(mode: "add" | "swap") {
+    pickerSlots.current.clear();
+    setLibrary(mode);
+  }
+  async function confirmExercises(ids: string[]) {
+    await run(async () => {
+      const replacing = library === "swap" && !!activePlan;
+      const choices = ids.map((id) => {
+        let slot = pickerSlots.current.get(id);
+        if (!slot) {
+          slot = "local:" + crypto.randomUUID();
+          pickerSlots.current.set(id, slot);
+        }
+        return { id, slot };
+      });
+      const saved = await change((current) =>
+        selectExercises(
+          current,
+          choices,
+          replacing ? { exercise: exerciseId, slot: selection } : undefined,
+          locale,
+        ),
+      );
+      pick(saved.editor!.selectedExercise!, saved.editor!.selectedSlot!, false);
+      setLibrary(null);
+    }, true);
+  }
   const [detail, setDetail] = useState<{ exercise: ExerciseGuidance; play: boolean } | null>(null);
   const [tools, setTools] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const advancedEntry = useRef<HTMLDivElement>(null);
+  const focusAdvancedEntry = useRef(false);
   const [review, setReview] = useState(false),
     [discard, setDiscard] = useState(false);
   const [editing, setEditing] = useState<WorkoutSet | null>(null);
@@ -91,6 +126,13 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   const group = supersetPair(w),
     reference = slotReference(exerciseId, selection);
   const groupIndex = group.indexOf(reference);
+  const partnerOptions = useMemo(
+    () =>
+      tools
+        ? supersetChoices({ plan: w.plan, sets: w.sets, exercises: w.exercises }, reference, locale)
+        : [],
+    [tools, w.plan, w.sets, w.exercises, reference, locale],
+  );
 
   function exportWorkout() {
     const url = URL.createObjectURL(
@@ -104,40 +146,93 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   }
 
   return (
-    <div className="space-y-4 py-4" data-workout-session>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gold">
-            {t("workout")}
-          </p>
-          <h1 className="mt-1 text-xl font-bold">{w.session!.title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {workingCount(sets)} {l("working sets", "مجموعات عمل")} ·{" "}
-            <SessionTime started={w.session!.started_at} />
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/today">{l("Minimize", "تصغير")}</Link>
-          </Button>
-          {!locked && (
-            <Button disabled={busy || !sets.length} onClick={() => setReview(true)}>
-              {t("finishWorkout")}
-            </Button>
-          )}
-        </div>
-      </header>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/40 px-3 py-2 text-sm">
-        <span role="status">
-          {!online ? l("Offline · ", "دون اتصال · ") : ""}
-          {pendingCount(w)
-            ? l("Saved on device · waiting to sync", "محفوظ على الجهاز · بانتظار المزامنة")
-            : l("Synced", "تمت المزامنة")}
-        </span>
-        <Button variant="ghost" onClick={() => void retry()}>
-          {l("Retry sync", "إعادة المزامنة")}
+    <div className="py-0" data-workout-session>
+      <div className="flex h-16 items-center justify-between gap-2" data-workout-focus-header>
+        {/* Returning to the hub changes presentation only; the controller retains the draft. */}
+        <Button asChild variant="ghost" size="icon" className="shrink-0">
+          <Link
+            to="/train"
+            search={{ view: "overview" }}
+            aria-label={l("Back to Train", "العودة إلى التدريب")}
+            title={l("Back to Train", "العودة إلى التدريب")}
+          >
+            <ChevronLeft aria-hidden className="size-4 rtl:rotate-180" />
+          </Link>
         </Button>
+        <div className="min-w-0 flex-1">
+          <BrandLockup />
+        </div>
+        <NotificationBell
+          userId={w.userId}
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground"
+        />
       </div>
+      <header className="sticky top-0 z-20 mb-2 grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 bg-background py-2">
+        <Button asChild variant="ghost" size="icon" className="bg-card text-muted-foreground">
+          <Link to="/today" aria-label={l("Minimize", "تصغير")} title={l("Minimize", "تصغير")}>
+            <ChevronDown aria-hidden="true" />
+          </Link>
+        </Button>
+        <div className="min-w-0">
+          <h1
+            className="truncate text-base font-bold leading-6"
+            title={w.session!.title ?? t("workout")}
+          >
+            {w.session!.title ?? t("workout")}
+          </h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <SessionTime started={w.session!.started_at} />
+            {" · "}
+            {l(
+              `Ex ${
+                Math.max(
+                  0,
+                  slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
+                ) + 1
+              } of ${slots.length}`,
+              `التمرين ${
+                Math.max(
+                  0,
+                  slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
+                ) + 1
+              } من ${slots.length}`,
+            )}
+          </p>
+        </div>
+        {!locked && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-transparent bg-card uppercase tracking-wider text-muted-foreground"
+            aria-label={t("finishWorkout")}
+            disabled={busy || !sets.length}
+            onClick={() => setReview(true)}
+          >
+            {l("Finish", "إنهاء")}
+          </Button>
+        )}
+      </header>
+      <div
+        className="mb-4 flex gap-1.5"
+        role="img"
+        aria-label={l(
+          `${slots.length} exercises in this workout`,
+          `${slots.length} تمارين في هذه الجلسة`,
+        )}
+      >
+        {slots.map((slot) => {
+          const count = workingCount(
+            sets.filter((set) => set.exercise_id === slot.id && (set.slot_key ?? "") === slot.key),
+          );
+          return (
+            <span
+              key={`${slot.key}:${slot.id}`}
+              className={`h-1.5 flex-1 rounded-full ${slot.sets > 0 && count >= slot.sets ? "bg-success" : slot.key === selection && slot.id === exerciseId ? "bg-foreground" : "bg-raised"}`}
+            />
+          );
+        })}
+      </div>
+      <WorkoutSyncStatus online={online} pending={pendingCount(w)} error={!!w.error} />
       {(error || w.error) && (
         <p
           role="alert"
@@ -190,7 +285,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
       <div className="space-y-3">
         {slots
           .filter((p) => p.id)
-          .map((slot) => {
+          .map((slot, index) => {
             const rows = sets.filter(
               (s) => s.exercise_id === slot.id && (s.slot_key ?? "") === slot.key,
             );
@@ -200,10 +295,15 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
             const cardExercise = (
               slot.exercise ? { ...catalogue, ...slot.exercise } : catalogue
             ) as ExerciseGuidance | undefined;
+            const firstPlanned = activePlan?.sets
+              ? w.editor?.plannedRows?.[slotDraftKey(slot.id, slot.key)]?.[0]
+              : undefined;
             return (
               <WorkoutExerciseCard
                 key={`${slot.key}:${slot.id}`}
                 slot={slot}
+                position={index + 1}
+                total={slots.length}
                 cardExercise={cardExercise}
                 name={name(slot.id, slot.key)}
                 rows={rows}
@@ -214,41 +314,196 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                 guidance={features?.guidance === true}
                 supersetPosition={group.indexOf(slotReference(slot.id, slot.key))}
                 onSelect={() => pick(slot.id, slot.key)}
+                onOptions={() => setTools(true)}
                 onOpenMedia={() => {
                   if (cardExercise) setDetail({ exercise: cardExercise, play: true });
                 }}
                 onEdit={setEditing}
                 onDelete={remove}
+                actions={
+                  active && !locked ? (
+                    <>
+                      {" "}
+                      {features?.progression && selection && (
+                        <TrainingSuggestion
+                          userId={w.userId}
+                          slot={selection}
+                          exerciseId={exerciseId}
+                          onUse={(kg, reps, seconds) =>
+                            updateDraft({
+                              weight: kg == null ? "" : String(displayWeight(kg, units)),
+                              reps: String(seconds ?? reps ?? ""),
+                              rpe: "",
+                            })
+                          }
+                        />
+                      )}
+                      <Sheet
+                        open={tools}
+                        onOpenChange={(open) => {
+                          if (!busy) setTools(open);
+                        }}
+                      >
+                        <SheetContent
+                          side="bottom"
+                          className="max-h-[85dvh] overflow-y-auto rounded-t-2xl p-5"
+                          onCloseAutoFocus={(event) => {
+                            if (!focusAdvancedEntry.current) return;
+                            event.preventDefault();
+                            focusAdvancedEntry.current = false;
+                            advancedEntry.current?.scrollIntoView({ block: "center" });
+                            advancedEntry.current
+                              ?.querySelector("input")
+                              ?.focus({ preventScroll: true });
+                          }}
+                        >
+                          <div className="mx-auto max-w-lg space-y-4">
+                            <SheetTitle>{l("Exercise options", "خيارات التمرين")}</SheetTitle>
+                            <SheetDescription>{name(exerciseId, selection)}</SheetDescription>
+                            {tools && (
+                              <WorkoutExerciseOptions
+                                actions={
+                                  <>
+                                    {" "}
+                                    <Button
+                                      variant="outline"
+                                      disabled={busy}
+                                      onClick={() => void retry()}
+                                    >
+                                      {l("Retry sync", "إعادة المزامنة")}
+                                    </Button>
+                                    {features?.guidance && (
+                                      <Button
+                                        variant="outline"
+                                        disabled={busy}
+                                        onClick={() => {
+                                          setTools(false);
+                                          if (selected)
+                                            setDetail({
+                                              exercise: selected as ExerciseGuidance,
+                                              play: false,
+                                            });
+                                        }}
+                                      >
+                                        {l("Instructions", "طريقة الأداء")}
+                                      </Button>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        setTools(false);
+                                        openLibrary("swap");
+                                      }}
+                                    >
+                                      {l("Swap exercise", "استبدال التمرين")}
+                                    </Button>
+                                  </>
+                                }
+                                onClose={() => setTools(false)}
+                                timed={timed}
+                                disabled={busy}
+                                error={error || w.error || ""}
+                                rest={{
+                                  seconds: restSeconds,
+                                  ready: restPreference.ready,
+                                  error: restPreference.error,
+                                  onSave: (seconds) =>
+                                    run(() => restPreference.save(seconds), true),
+                                }}
+                                onEditSet={async (seconds) => {
+                                  await run(async () => {
+                                    await editor.persistDraft();
+                                    if (
+                                      seconds != null &&
+                                      (seconds !== restSeconds || restPreference.error)
+                                    )
+                                      await restPreference.save(seconds);
+                                    focusAdvancedEntry.current = true;
+                                    setAdvanced(true);
+                                    setTools(false);
+                                  }, true);
+                                }}
+                                onDraft={updateDraft}
+                                equipment={selected?.equipment}
+                                units={units}
+                                draft={draft}
+                                onWarmup={editor.loadWarmup}
+                                logging={{
+                                  ...logging,
+                                  enabled: features?.logging === true,
+                                  rows: currentRows,
+                                }}
+                                superset={{
+                                  value:
+                                    groupIndex >= 0 ? (group[groupIndex === 0 ? 1 : 0] ?? "") : "",
+                                  options: partnerOptions,
+                                  onChange: (ref) => {
+                                    void run(() => change((c) => pairSuperset(c, reference, ref)));
+                                  },
+                                }}
+                              />
+                            )}
+                          </div>
+                        </SheetContent>
+                      </Sheet>
+                    </>
+                  ) : undefined
+                }
+                primaryAction={
+                  active && !locked && firstPlanned ? (
+                    <Button
+                      type="submit"
+                      form={`planned-${firstPlanned.id}`}
+                      className="h-12 w-full uppercase"
+                      disabled={busy || !restPreference.ready || !!w.holdStartedAt}
+                    >
+                      <Check aria-hidden className="size-4" />
+                      {l(`Log set ${firstPlanned.number}`, `تسجيل المجموعة ${firstPlanned.number}`)}
+                    </Button>
+                  ) : undefined
+                }
+                history={
+                  active ? (
+                    previous.data ? (
+                      <p className="rounded-xl bg-row p-4 text-sm">
+                        <bdi dir="ltr">
+                          {previous.data.duration_seconds != null
+                            ? `${previous.data.duration_seconds}s`
+                            : previous.data.reps}{" "}
+                          ×{" "}
+                          {previous.data.weight_kg == null
+                            ? "—"
+                            : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
+                          {wu}
+                        </bdi>
+                        <span className="mt-2 block text-xs text-muted-foreground">
+                          {new Date(previous.data.created_at).toLocaleDateString(
+                            locale === "ar" ? "ar-EG" : "en-GB",
+                          )}
+                          {previous.data.workout_sessions?.origin === "import"
+                            ? l(" · Imported", " · مستورد")
+                            : ""}
+                          {previous.data.cached
+                            ? l(" · Cached on device", " · نسخة على الجهاز")
+                            : ""}
+                        </span>
+                      </p>
+                    ) : (
+                      <p role="status" className="text-sm text-muted-foreground">
+                        {previous.isPending
+                          ? l("Loading previous performance…", "جارٍ تحميل الأداء السابق…")
+                          : l(
+                              "No compatible previous performance is available. You can still log your sets.",
+                              "لا يتوفر أداء سابق متوافق. يمكنك تسجيل مجموعاتك.",
+                            )}
+                      </p>
+                    )
+                  ) : undefined
+                }
               >
                 {active && !locked && (
                   <>
-                    <div className="flex flex-wrap gap-2">
-                      {features?.guidance && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            if (selected)
-                              setDetail({
-                                exercise: selected as ExerciseGuidance,
-                                play: false,
-                              });
-                          }}
-                        >
-                          {l("Instructions", "طريقة الأداء")}
-                        </Button>
-                      )}
-                      <Button variant="outline" onClick={() => setLibrary("swap")}>
-                        {l("Swap exercise", "استبدال التمرين")}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setTools(!tools)}
-                        aria-expanded={tools}
-                      >
-                        <MoreHorizontal />
-                        {l("Exercise options", "خيارات التمرين")}
-                      </Button>
-                    </div>
                     {!!activePlan?.sets && (
                       <>
                         {previous.data && (
@@ -312,7 +567,11 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                       </>
                     )}
                     {(!activePlan?.sets || advanced) && (
-                      <div className="rounded-xl bg-background/50 p-3">
+                      <div
+                        ref={advancedEntry}
+                        data-advanced-set-entry
+                        className="rounded-xl bg-background/50 p-3"
+                      >
                         <p className="mb-3 text-sm font-semibold">
                           {l("Next set", "المجموعة التالية")} {Math.floor(count) + 1}
                           {role !== "working" ? ` · ${trainingLabel(role, locale)}` : ""}
@@ -418,51 +677,6 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                         )}
                       </p>
                     )}
-                    {features?.progression && selection && (
-                      <TrainingSuggestion
-                        userId={w.userId}
-                        slot={selection}
-                        exerciseId={exerciseId}
-                        onUse={(kg, reps, seconds) =>
-                          updateDraft({
-                            weight: kg == null ? "" : String(displayWeight(kg, units)),
-                            reps: String(seconds ?? reps ?? ""),
-                            rpe: "",
-                          })
-                        }
-                      />
-                    )}
-                    {tools && (
-                      <WorkoutExerciseOptions
-                        onDraft={updateDraft}
-                        equipment={selected?.equipment}
-                        units={units}
-                        draft={draft}
-                        onWarmup={editor.loadWarmup}
-                        logging={{
-                          ...logging,
-                          enabled: features?.logging === true,
-                          rows: currentRows,
-                        }}
-                        superset={{
-                          value: groupIndex >= 0 ? (group[groupIndex === 0 ? 1 : 0] ?? "") : "",
-                          options: supersetCandidates(w)
-                            .filter((p) => slotReference(p.id, p.key) !== reference)
-                            .map((p, i) => ({
-                              value: slotReference(p.id, p.key),
-                              label:
-                                name(p.id) +
-                                (supersetCandidates(w).filter((other) => other.id === p.id).length >
-                                1
-                                  ? ` \u00b7 ${i + 1}`
-                                  : ""),
-                            })),
-                          onChange: (ref) => {
-                            void run(() => change((c) => pairSuperset(c, reference, ref)));
-                          },
-                        }}
-                      />
-                    )}
                   </>
                 )}
               </WorkoutExerciseCard>
@@ -470,12 +684,12 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           })}
       </div>
       {!locked && (
-        <Button variant="outline" className="w-full" onClick={() => setLibrary("add")}>
+        <Button variant="outline" className="mt-4 w-full" onClick={() => openLibrary("add")}>
           <Plus />
           {l("Add exercise", "إضافة تمرين")}
         </Button>
       )}
-      <details className="rounded-xl border border-border p-4">
+      <details className="mt-4 rounded-xl border border-border p-4">
         <summary className="min-h-11 cursor-pointer text-sm">
           {l("Session notes & recovery", "ملاحظات الجلسة والاستعادة")}
         </summary>
@@ -499,7 +713,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
         </div>
       </details>
       {!locked && (
-        <div className="flex justify-end border-t border-border pt-4">
+        <div className="mt-4 flex justify-end border-t border-border pt-4">
           <Button
             variant="outline"
             className="min-h-11 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -534,88 +748,35 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           if (!o && !busy) setLibrary(null);
         }}
       >
-        <SheetContent side="bottom" className="max-h-[90dvh] overflow-auto rounded-t-2xl p-4">
-          <div className="mx-auto max-w-2xl">
-            <SheetTitle>
+        <SheetContent
+          side="bottom"
+          className="h-[90dvh] max-h-[90dvh] overflow-hidden rounded-t-2xl p-4"
+        >
+          <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col">
+            <SheetTitle className="shrink-0 pe-10 font-heading text-2xl font-bold">
               {library === "swap"
                 ? l("Swap exercise", "استبدال التمرين")
                 : l("Add exercise", "إضافة تمرين")}
             </SheetTitle>
             <SheetDescription>
-              {l(
-                "Choose an exercise. Previously logged sets stay unchanged.",
-                "اختر تمريناً. تبقى المجموعات السابقة دون تغيير.",
-              )}
+              {library === "add"
+                ? l(
+                    "Choose exercises, then review and add your selection.",
+                    "اختر التمارين، ثم راجعها وأضفها إلى جلستك.",
+                  )
+                : l(
+                    "Choose a replacement. Previously logged sets stay unchanged.",
+                    "اختر تمريناً بديلاً. تبقى المجموعات السابقة دون تغيير.",
+                  )}
             </SheetDescription>
             <ExerciseDiscovery
+              member={w.userId}
+              fill
               exercises={w.exercises as ExerciseGuidance[]}
               preferred={w.plan.map((p) => p.id)}
               disabled={busy || locked}
-              onChoose={(id) =>
-                run(async () => {
-                  const slot = `local:${crypto.randomUUID()}`;
-                  const swapping = library === "swap" && !!activePlan;
-                  const key = swapping ? selection : slot;
-                  await change((c) => {
-                    if (c.phase !== "active")
-                      throw new Error(
-                        l(
-                          "This workout is no longer editable.",
-                          "لم تعد هذه الجلسة قابلة للتعديل.",
-                        ),
-                      );
-                    if (c.holdStartedAt)
-                      throw new Error(
-                        l(
-                          "Stop the current hold before switching exercises.",
-                          "أوقف الثبات قبل تغيير التمرين.",
-                        ),
-                      );
-                    const exercise = c.exercises.find((e) => e.id === id) as
-                      ExerciseGuidance | undefined;
-                    if (
-                      !exercise ||
-                      exercise.active === false ||
-                      exercise.guidance?.catalogue_kind === "cardio"
-                    )
-                      throw new Error(
-                        l(
-                          "This exercise is unavailable for strength logging.",
-                          "هذا التمرين غير متاح لتسجيل القوة.",
-                        ),
-                      );
-                    return {
-                      ...c,
-                      plan: swapping
-                        ? c.plan.map((p) =>
-                            p.slot_key === selection && p.id === exerciseId
-                              ? { ...p, id, exercise: c.exercises.find((e) => e.id === id) }
-                              : p,
-                          )
-                        : [
-                            ...c.plan,
-                            {
-                              id,
-                              slot_key: slot,
-                              sets: 0,
-                              reps: "",
-                              exercise: c.exercises.find((e) => e.id === id),
-                            },
-                          ],
-                      superset: library === "swap" ? [] : c.superset,
-                      ...(library === "swap" ? { supersetSlots: [] } : {}),
-                      editor: {
-                        ...c.editor,
-                        drafts: c.editor?.drafts ?? {},
-                        selectedSlot: key,
-                        selectedExercise: id,
-                      },
-                    };
-                  });
-                  pick(id, key, false);
-                  setLibrary(null);
-                }, true)
-              }
+              onChoose={(id) => confirmExercises([id])}
+              onChooseMany={library === "add" ? confirmExercises : undefined}
             />
           </div>
         </SheetContent>
@@ -629,6 +790,8 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
         />
       )}
       <WorkoutReview
+        startedAt={w.session!.started_at}
+        units={units}
         title={w.session?.title ?? l("Workout", "تمرين")}
         onBackup={exportWorkout}
         open={review || discard}

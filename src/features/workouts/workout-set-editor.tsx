@@ -19,7 +19,7 @@ export function DraftFields({
 }) {
   const { locale, t } = useI18n();
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-2 rounded-xl bg-row p-3">
       {(
         [
           ["weight", weightUnit(units)],
@@ -30,7 +30,7 @@ export function DraftFields({
         <label key={key} className="min-w-0 text-xs text-muted-foreground">
           {label}
           <Input
-            className="mt-1 h-12 text-base tabular-nums"
+            className="mt-1 h-12 px-2 text-center text-base font-semibold tabular-nums"
             inputMode={key === "reps" ? "numeric" : "decimal"}
             value={draft[key]}
             onChange={(e) => onChange({ [key]: e.target.value })}

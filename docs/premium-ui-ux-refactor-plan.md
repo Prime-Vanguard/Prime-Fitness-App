@@ -1,6 +1,10 @@
 # Prime Fitness: Stitch-based premium UI/UX refactor
 
-Status: planning; visual direction awaits approval. Updated November 10, 2026.
+Status: implementation started locally with the owner's authorization on November
+10, 2026. Do not commit, push or deploy: the owner will test locally first.
+
+See [the implementation report](premium-ui-ux-implementation.md) for the completed
+slice, verification and remaining work. The full redesign is not complete.
 
 ## Executive overview
 
@@ -16,8 +20,15 @@ Agreed decisions:
 - Mobile-first member workflows and desktop-first staff workspaces.
 - Five member tabs: Today, Train, Nutrition, Progress, Rewards; Profile in the
   header/sidebar.
-- Exercise Studio media with collapsible demonstrations and immediately reachable
-  editable set rows.
+- November 12 approved navigation refinement: one stable shell with explicit
+  My Fitness / Staff Workspace switching. Keep destination order fixed within
+  each workspace and share the same menu model across sidebar, rail and drawer.
+  Profile/settings retains workspace context. This supersedes route-dependent
+  navigation variations in the Stitch references; see the
+  [navigation checkpoint](design-reviews/workspace-navigation.md).
+- Follow the Stitch screen compositions directly: exercise media before the
+  Log/Guide/History tabs, a separate execution table and prominent Log Set action.
+  Demonstrations play only on request; static posters remain visible.
 - Subtle rank identity outside Rewards.
 - Unsupported mockup functionality belongs to a separate future backlog.
 - Discard Workout stays visible outside Session notes & recovery.
@@ -37,7 +48,9 @@ tokens, workout/nutrition modules, recovery, social and staff boundaries. This i
 not a fresh interactive audit of every screen or physical-device acceptance.
 
 Source precedence: current user decisions; existing security/persistence/reward
-contracts; this plan; main Stitch design.md; screenshots; generated HTML.
+contracts; Stitch screenshots for visual composition; main Stitch design.md;
+this plan; generated HTML. The owner's November 10 instruction to follow the
+designs exactly supersedes earlier compact/collapsible-media interpretations.
 
 | Priority | Evidence                                      | Confirmed issue / action                                                                                                 |
 | -------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -67,7 +80,27 @@ Hypotheses needing user testing: previous/prescribed/actual comprehension; media
 versus logging speed; Arabic section navigation; staff drawer density; and
 understanding device-save versus server acceptance.
 
-## Three visual directions
+## Design authority: one-to-one Stitch reproduction
+
+The owner explicitly requested a 1:1 implementation, not a design inspired by
+Stitch. The alternatives below are historical exploration only. Do not blend
+them into a new design or substitute compact layouts for an exported composition.
+Choose the corresponding route/state/language reference and reproduce its layout,
+typography, spacing, surfaces, radii, icon placement and action hierarchy directly.
+
+For each screen, record the source export and capture the implemented view at the
+same CSS viewport with equivalent sanitized content. Compare side by side and
+review an overlay before calling that screen visually accepted. Baseline screenshots
+of the application alone are not evidence of 1:1 parity. Keep a list of unresolved
+asset/content differences; do not claim full fidelity while they remain.
+
+Preserve functional permissions, saved data, required validation and accessible
+controls. Use real licensed exercise assets and actual records; do not replace
+them with fabricated clinical diagrams, achievements or unsupported metrics.
+Where a mockup omits an existing feature, keep it in the matching overflow or
+secondary flow rather than adding another default-screen card.
+
+Historical alternatives:
 
 | Direction                          | Composition                                                                                     | Use                          |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------- |
@@ -75,8 +108,8 @@ understanding device-save versus server acceptance.
 | Precision Studio                   | Same identity, smaller media, dense numbers and aligned tables                                  | Training and staff treatment |
 | Vanguard Heritage                  | Existing crests, editorial spacing, milestones and restrained gold rules                        | Journey and achievements     |
 
-These are coordinated treatments, not selectable themes. Keep long-term identity
-subtle during daily work. Reuse approved rank emblems and licensed media references.
+These are not instructions to vary the approved export. Reuse the matching
+Stitch reference, approved rank emblems and licensed media.
 
 ## Screen specifications and annotated concepts
 
@@ -92,27 +125,41 @@ or tonnage targets. Missing data is unavailable, not zero.
 ### Train and active workout
 
 References: train_prime_fitness_2, train_workout_prime_fitness_1,
-active_workout_prime_fitness_1/2, advanced_set_prime_fitness, workout_dialogs_prime_fitness.
+active_workout_prime_fitness_1/2, advanced_set_prime_fitness, workout_dialogs_prime_fitness,
+cardio_hiit_prime_fitness.
 
-Train sections: Workout, My Program, History, Cardio. Preserve existing search
-state/deep links and add validated cardio. Use concise recovery notices opening
+Train sections: Workout, My Program, History. Cardio is a separate secondary card
+with its existing URL-backed destination. Preserve existing search state/deep links.
+The Cardio destination includes the circular HIIT clock, editable interval blueprint,
+start/pause/resume/completion controls and a separate steady-state logging view.
+Use actual recorded activity in the volume summary; do not copy sample heart-rate
+zones, protocol claims or weekly targets without configured supporting data.
+Use concise recovery notices opening
 the existing project-confirmation/export review.
 
 ```text
+Brand / active workout                     Notifications
 Minimize         Session / elapsed          Finish
-Progress         Saved on device / pending sync
-Exercise / muscles / load convention / prescription
-Log | About | History       Show demonstration
+Progress strip   Pending/error state when necessary
+Exercise position / name                   Options (three dots)
+Muscle chips
+16:10 exercise media
+Log | Guide | History
+Execution table / unit convention / prescription
 Set | Previous | Actual weight | Reps | Complete
-Log current set             Advanced options
-Exercise outline
+Log current set (separate gold action)
+Exercise options (secondary panel, closed by default)
 Session notes & recovery
 Discard workout
 Rest timer                   -15s / +15s / Skip
 ```
 
-Log is default. Phone media is compact/collapsible; About holds the larger demo.
-Desktop uses logging plus outline/guidance. Preserve focus when media collapses.
+Log is default. Match the media-first active-workout reference on phones: exercise
+position/name, muscle chips, large static demonstration poster, then Log/Guide/History
+tabs. Place the execution table below the preview and a prominent Log Set action
+after the table. Preserve editable actual performance, prescribed targets, RPE,
+timed/unilateral controls and recovery even where the mockups omit them. Adapt to
+desktop without inventing a different visual language or fabricating records.
 Prescription stays visible and read-only; actual weight supports clearing,
 decimals and kg/lb. Do not promote placeholders to logged performance. Preserve
 existing initialization rules and delayed-evidence protection.

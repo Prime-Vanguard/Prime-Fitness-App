@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { Button } from "./ui/button";
 
+/** Opening or closing the panel never marks messages read; only explicit actions do. */
 export function NotificationBell({
   userId,
   className = "",
@@ -87,8 +88,11 @@ export function NotificationBell({
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-0">
-        <p className="border-b border-border px-4 py-2 text-sm font-semibold">
+      <PopoverContent
+        align="end"
+        className="max-h-[min(80dvh,42rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-card p-0"
+      >
+        <p className="sticky top-0 z-10 border-b border-border bg-card px-4 py-4 font-heading text-base font-bold">
           {t("notifications")}
         </p>
         {isPending && (
@@ -136,6 +140,7 @@ export function NotificationBell({
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {new Date(n.created_at).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB", {
+                      timeZone: "Africa/Cairo",
                       day: "numeric",
                       month: "short",
                       hour: "2-digit",
@@ -145,7 +150,10 @@ export function NotificationBell({
                 </>
               );
               return (
-                <li key={n.id} className="px-4 py-2 text-sm">
+                <li
+                  key={n.id}
+                  className={`mx-3 my-2 rounded-lg border-s-2 px-3 py-3 text-sm ${n.read_at ? "border-transparent bg-background/50" : "border-gold bg-background"}`}
+                >
                   {n.link ? (
                     <Link
                       to={n.link}

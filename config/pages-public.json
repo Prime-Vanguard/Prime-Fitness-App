@@ -1,4 +1,5 @@
 {
   "supabaseUrl": "https://iyipukmokidkervphrvb.supabase.co",
-  "supabasePublishableKey": "sb_publishable_z94cd9XVmacq-dKYFWb3sg_-n5egLwP"
+  "supabasePublishableKey": "sb_publishable_z94cd9XVmacq-dKYFWb3sg_-n5egLwP",
+  "sentryDsn": "https://32d8f7eecf48f38aa345fb84492590f3@o4512429832994816.ingest.de.sentry.io/4512429934706768"
 }

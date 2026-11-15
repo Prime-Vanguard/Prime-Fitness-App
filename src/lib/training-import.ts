@@ -35,6 +35,7 @@ export type ImportOptions = {
   timeZone: string;
   ambiguity: "reject" | "earlier" | "later";
 };
+// Parse quoted fields as CSV data, including embedded commas and line breaks.
 export function readCsv(text: string): string[][] {
   if (new TextEncoder().encode(text).byteLength > 20 * 1024 * 1024)
     throw new Error("CSV exceeds 20 MiB.");
@@ -172,6 +173,7 @@ function decimal(raw: string, label: string, max: number) {
   if (!Number.isFinite(n) || n < 0 || n > max) throw new Error(`Invalid ${label}.`);
   return n;
 }
+// Reject unsupported headers and malformed rows before preparing any import writes.
 export function parseTrainingCsv(
   text: string,
   options: ImportOptions,

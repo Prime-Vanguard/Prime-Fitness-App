@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 const count = z.number().int().safe().nonnegative();
+// Limit and normalize URL filters before using them to drive the analytics view.
 export function analyticsSearch(raw: Record<string, unknown>): {
   member?: string | undefined;
   access?: "active" | "paused" | undefined;
@@ -48,6 +49,7 @@ const schema = z.object({
     }),
   ),
 });
+// Validate the server snapshot and reject incomplete rosters before export.
 export async function adminAnalytics(signal?: AbortSignal) {
   const request = supabase.rpc("get_admin_analytics");
   const result = await (signal ? request.abortSignal(signal) : request);

@@ -11,6 +11,7 @@ export type MemberChange =
   | { kind: "coach"; member: string; coach: string };
 
 /** Fresh UI preflight; database policies and the guarded coach RPC remain authoritative. */
+// UI preflight for active staff; database policies still authorize each write.
 export async function requireActiveAdmin(actor: string) {
   const [profile, roles] = await Promise.all([
     supabase.from("profiles").select("access_active").eq("id", actor).maybeSingle(),

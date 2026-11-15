@@ -1,3 +1,4 @@
+import { SelectionIndicator } from "@/components/selection-indicator";
 import { NativeSelect } from "@/components/ui/native-select";
 import { fetchAll } from "@/lib/pagination";
 import { useUnits } from "@/hooks/use-units";
@@ -17,11 +18,15 @@ import { useQuery } from "@tanstack/react-query";
 import { DeferredProgressChart } from "@/components/deferred-progress-chart";
 import { BodyProgress } from "@/components/body-progress";
 import { StrengthEvidence } from "@/components/strength-evidence";
+import { RecordComparison } from "@/components/record-comparison";
+import { ProgressMetrics } from "@/components/progress-metrics";
+import { LoadingPlaceholder } from "@/components/loading-placeholder";
 import { trainingLabel } from "@/lib/training-labels";
 import { MuscleHeatmap } from "@/components/muscle-heatmap";
 import { ShareAchievement } from "@/components/share-achievement";
 import { useMe } from "@/hooks/use-me";
 import { CardioPanel } from "@/features/cardio/cardio-panel";
+import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
@@ -52,8 +57,12 @@ export const Route = createFileRoute("/_authenticated/_shell/progress")({
   component: Page,
   validateSearch: (
     raw: Record<string, unknown>,
-  ): { section?: "overview" | "strength" | "body" | "photos" | undefined } => ({
-    section: pageSection(raw["section"], ["overview", "strength", "body", "photos"], "overview"),
+  ): { section?: "overview" | "strength" | "body" | "photos" | "cardio" | undefined } => ({
+    section: pageSection(
+      raw["section"],
+      ["overview", "strength", "body", "photos", "cardio"],
+      "overview",
+    ),
   }),
 });
 
@@ -61,6 +70,7 @@ function Page() {
   const { user } = Route.useRouteContext();
   const { t, locale } = useI18n();
   const { data: me } = useMe(user.id);
+  const { data: features } = useTrainingFeatures(user.id);
   const units = useUnits(user.id);
   const wu = weightUnit(units);
   const search = Route.useSearch(),
@@ -186,19 +196,26 @@ function Page() {
 
   return (
     <>
-      <PageHeader title={t("progress")} />
-      <CardioPanel userId={user.id} progressOnly />
+      <PageHeader
+        title={t("progress")}
+        eyebrow={locale === "ar" ? "تحليلات فانغارد" : "Vanguard analytics"}
+        eyebrowTone="accent"
+      />
       {error && (
         <p role="alert" className="text-destructive">
           {error.message}
         </p>
       )}
       <MemberSections
+        appearance="segmented"
         label={locale === "ar" ? "أقسام التقدم" : "Progress sections"}
         value={section}
         items={[
           ["overview", locale === "ar" ? "نظرة عامة" : "Overview"],
           ["strength", locale === "ar" ? "القوة" : "Strength"],
+          ...(features?.cardio
+            ? [["cardio", locale === "ar" ? "الكارديو" : "Cardio"] as const]
+            : []),
           ["body", locale === "ar" ? "الجسم والمتابعة" : "Body & wellness"],
           ["photos", locale === "ar" ? "الصور" : "Photos"],
         ]}
@@ -206,12 +223,22 @@ function Page() {
           void navigate({ search: { section: section === "overview" ? undefined : section } })
         }
       />
+      {section === "cardio" &&
+        (features?.cardio ? (
+          <CardioPanel userId={user.id} progressOnly />
+        ) : (
+          <p role="status" className="mt-5 text-sm text-muted-foreground">
+            {locale === "ar"
+              ? "تعذر تأكيد إتاحة الكارديو. اتصل أو اختر قسماً آخر."
+              : "Cardio availability could not be confirmed. Reconnect or select another section."}
+          </p>
+        ))}
       {section === "overview" && (
         <>
           {overview.isPending && (
-            <p role="status">
-              {locale === "ar" ? "جارٍ تحميل الملخص…" : "Loading progress summary…"}
-            </p>
+            <LoadingPlaceholder
+              label={locale === "ar" ? "جارٍ تحميل الملخص…" : "Loading progress summary…"}
+            />
           )}
           {overview.error && (
             <p role="alert">
@@ -221,27 +248,8 @@ function Page() {
               </Button>
             </p>
           )}
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {[
-              [t("totalWorkouts"), overview.data?.workouts ?? "—"],
-              [t("thisWeek"), overview.data?.weekly ?? "—"],
-              [
-                locale === "ar" ? "سجلات المجموعات" : "Logged set entries",
-                overview.data?.sets ?? "—",
-              ],
-            ].map(([l, v]) => (
-              <div key={String(l)} className="rounded-xl border border-border bg-card p-4">
-                <p className="text-xs text-muted-foreground">{l}</p>
-                <p className="mt-1 font-display text-2xl font-bold tabular-nums">{v}</p>
-              </div>
-            ))}
-          </div>
+          {!overview.isPending && <ProgressMetrics data={overview.data} />}
 
-          <p className="mt-2 text-xs text-muted-foreground">
-            {locale === "ar"
-              ? "يشمل الجلسات المكتملة والمستوردة. تُحسب كل جهة وجزء تنازلي كسجل منفصل."
-              : "Includes completed and imported history. Each logged side/drop segment is a separate entry."}
-          </p>
           <MuscleHeatmap userId={user.id} />
         </>
       )}
@@ -253,52 +261,6 @@ function Page() {
       )}
       {section === "strength" && (
         <>
-          {conventions.length > 0 && (
-            <label className="mt-4 block text-sm min-w-0 max-w-full">
-              {locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"}
-              <NativeSelect
-                className="mt-2"
-                value={recordConvention}
-                aria-label={
-                  locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"
-                }
-                onChange={(event) => setLoadConvention(event.target.value)}
-              >
-                {conventions.map((value) => (
-                  <option key={value} value={value}>
-                    {trainingLabel(value, locale)}
-                  </option>
-                ))}
-              </NativeSelect>
-            </label>
-          )}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm">
-              {locale === "ar" ? "البحث في التمارين" : "Search strength exercises"}
-              <Input
-                className="mt-1"
-                value={exerciseQuery}
-                onChange={(e) => setExerciseQuery(e.target.value)}
-              />
-            </label>
-            <label className="text-sm min-w-0 max-w-full block">
-              {locale === "ar" ? "فترة الرسم" : "Trend period"}
-              <NativeSelect
-                className="mt-2"
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-              >
-                <option value="30">30 {locale === "ar" ? "يوماً" : "days"}</option>
-                <option value="90">90 {locale === "ar" ? "يوماً" : "days"}</option>
-                <option value="all">{locale === "ar" ? "كل الوقت" : "All time"}</option>
-              </NativeSelect>
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {locale === "ar"
-              ? "الأرقام القياسية لكل الوقت؛ الفترة تغيّر الرسم فقط. يشمل السجل الجلسات المستوردة."
-              : "Records are all-time; the period changes the trend only. Includes imported history."}
-          </p>
           {isPending && (
             <p role="status">
               {locale === "ar" ? "جارٍ تحميل السجل…" : "Loading strength history…"}
@@ -316,6 +278,150 @@ function Page() {
               {locale === "ar" ? "إعادة المحاولة" : "Retry strength"}
             </Button>
           )}
+          {/* A single stable control tree preserves keyboard focus even when a
+              search has no matches. Plot/PR visibility never owns filter state. */}
+          <section
+            className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-5"
+            data-stitch-strength-trend
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-lg font-bold">{t("strengthTrend")}</h2>
+              {!!series.length && (
+                <div className="text-end">
+                  <p className="text-xs text-muted-foreground">{t("est1rm")}</p>
+                  <p className="mt-1 font-heading text-2xl font-bold tabular-nums">
+                    <bdi>
+                      {formatMeasure(displayWeight(series.at(-1)!.value, units))}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">{wu}</span>
+                    </bdi>
+                  </p>
+                </div>
+              )}
+            </div>
+            {/* Trend controls stay beside the chart without changing all-time PR evidence. */}
+            <label className="mt-4 block text-sm">
+              {t("exercise")}
+              <NativeSelect
+                aria-label={t("exercise")}
+                className="sm:w-auto sm:max-w-sm"
+                value={current}
+                onChange={(e) => setPicked(e.target.value)}
+              >
+                {prIds.map((id) => (
+                  <option key={id} value={id}>
+                    {name(id)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </label>
+            <div
+              role="group"
+              aria-label={locale === "ar" ? "فترة الرسم" : "Trend period"}
+              className="sliding-selection mt-3 flex gap-2"
+            >
+              {/* Period selection changes the view only; historical records remain untouched. */}
+              <SelectionIndicator />
+              {(["30", "90", "all"] as const).map((value) => (
+                <Button
+                  key={value}
+                  variant="secondary"
+                  aria-pressed={period === value}
+                  onClick={() => setPeriod(value)}
+                  className={
+                    period === value ? "bg-raised text-foreground" : "text-muted-foreground"
+                  }
+                >
+                  {value === "all"
+                    ? locale === "ar"
+                      ? "كل الوقت"
+                      : "All time"
+                    : value + " " + (locale === "ar" ? "يوماً" : "days")}
+                </Button>
+              ))}
+            </div>
+            <details className="mt-3 rounded-lg bg-card px-3">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm">
+                {locale === "ar" ? "فلاتر إضافية" : "More strength filters"}
+              </summary>
+              {conventions.length > 0 && (
+                <label className="mt-4 block text-sm min-w-0 max-w-full">
+                  {locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"}
+                  <NativeSelect
+                    className="mt-2"
+                    value={recordConvention}
+                    aria-label={
+                      locale === "ar" ? "أساس الحمل للأرقام القياسية" : "Record load convention"
+                    }
+                    onChange={(event) => setLoadConvention(event.target.value)}
+                  >
+                    {conventions.map((value) => (
+                      <option key={value} value={value}>
+                        {trainingLabel(value, locale)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </label>
+              )}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm">
+                  {locale === "ar" ? "البحث في التمارين" : "Search strength exercises"}
+                  <Input
+                    className="mt-1"
+                    value={exerciseQuery}
+                    onChange={(e) => setExerciseQuery(e.target.value)}
+                  />
+                </label>
+                <label className="text-sm min-w-0 max-w-full block">
+                  {locale === "ar" ? "فترة الرسم" : "Trend period"}
+                  <NativeSelect
+                    className="mt-2"
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value)}
+                  >
+                    <option value="30">30 {locale === "ar" ? "يوماً" : "days"}</option>
+                    <option value="90">90 {locale === "ar" ? "يوماً" : "days"}</option>
+                    <option value="all">{locale === "ar" ? "كل الوقت" : "All time"}</option>
+                  </NativeSelect>
+                </label>
+              </div>
+            </details>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {locale === "ar"
+                ? "الأرقام القياسية لكل الوقت؛ الفترة تغيّر الرسم فقط. يشمل السجل الجلسات المستوردة."
+                : "Records are all-time; the period changes the trend only. Includes imported history."}
+            </p>
+            {series.length > 1 && (
+              <RecordComparison
+                before={{
+                  date: series[0]!.date,
+                  value: formatMeasure(displayWeight(series[0]!.value, units)),
+                }}
+                after={{
+                  date: series.at(-1)!.date,
+                  value: formatMeasure(displayWeight(series.at(-1)!.value, units)),
+                }}
+                unit={wu}
+              />
+            )}
+            {series.length > 1 && (
+              <DeferredProgressChart
+                series={series.map((point) => ({
+                  ...point,
+                  value: formatMeasure(displayWeight(point.value, units)),
+                }))}
+                label={t("est1rm")}
+                unit={wu}
+              />
+            )}
+            {series.length === 1 && (
+              <p className="mt-4 rounded-lg bg-background p-4 text-sm text-muted-foreground">
+                {locale === "ar"
+                  ? "سجل واحد متاح. أكمل جلسة أخرى لإظهار اتجاه القوة."
+                  : "One record available. Complete another session to show a strength trend."}
+              </p>
+            )}
+          </section>
+
           {data && (
             <ModeRecords
               sets={
@@ -340,49 +446,21 @@ function Page() {
               </p>
             ) : (
               <>
-                <section className="mt-6 rounded-xl border border-border bg-card p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="font-display text-lg font-bold">{t("strengthTrend")}</h2>
-                    <NativeSelect
-                      aria-label={t("exercise")}
-                      className="sm:w-auto sm:max-w-sm"
-                      value={current}
-                      onChange={(e) => setPicked(e.target.value)}
-                    >
-                      {prIds.map((id) => (
-                        <option key={id} value={id}>
-                          {name(id)}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </div>
-                  {series.length > 1 && (
-                    <DeferredProgressChart
-                      series={series.map((point) => ({
-                        ...point,
-                        value: formatMeasure(displayWeight(point.value, units)),
-                      }))}
-                      label={t("est1rm")}
-                      unit={wu}
-                    />
-                  )}
-                </section>
-
                 <section className="mt-6 rounded-xl border border-border bg-card">
                   <h2 className="flex items-center gap-2 px-5 pt-5 font-display text-lg font-bold">
                     <Trophy className="h-5 w-5 text-gold" />
                     {t("records")}
                   </h2>
-                  <ul className="mt-3 divide-y divide-border">
+                  <ul className="m-3 space-y-2">
                     {prIds.map((id) => {
                       const p = prs.get(id)!;
                       return (
                         <li
                           key={id}
-                          className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background p-3 text-sm"
                         >
-                          <div>
-                            <p className="font-medium">{name(id)}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words font-medium">{name(id)}</p>
                             <p className="text-xs text-muted-foreground">{fmt(p.date)}</p>
                           </div>
                           <div className="text-end tabular-nums">
@@ -402,31 +480,36 @@ function Page() {
               </>
             ))}
           {!!series.length && (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-start text-sm">
-                <caption className="mb-2 text-start">
-                  {locale === "ar"
-                    ? "بيانات الرسم: أقصى تكرار تقديري"
-                    : "Trend data: estimated 1RM"}
-                </caption>
-                <thead>
-                  <tr>
-                    <th className="p-2 text-start">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                    <th className="p-2 text-start">{wu}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {series.map((point) => (
-                    <tr key={point.date}>
-                      <td className="p-2">{fmt(point.date)}</td>
-                      <td className="p-2 tabular-nums">
-                        {formatMeasure(displayWeight(point.value, units))}
-                      </td>
+            <details className="mt-4 rounded-xl border border-border bg-card p-4">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">
+                {locale === "ar" ? "بيانات الرسم" : "Trend data"}
+              </summary>
+              <div className="overflow-x-auto">
+                <table className="w-full text-start text-sm">
+                  <caption className="mb-2 text-start">
+                    {locale === "ar"
+                      ? "بيانات الرسم: أقصى تكرار تقديري"
+                      : "Trend data: estimated 1RM"}
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th className="p-2 text-start">{locale === "ar" ? "التاريخ" : "Date"}</th>
+                      <th className="p-2 text-start">{wu}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {series.map((point) => (
+                      <tr key={point.date}>
+                        <td className="p-2">{fmt(point.date)}</td>
+                        <td className="p-2 tabular-nums">
+                          {formatMeasure(displayWeight(point.value, units))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           )}
           {current && prs.get(current) && (
             <div className="mt-4">

@@ -23,6 +23,7 @@ export function useNutritionData(
   const {
     data: remoteData,
     error: loadError,
+    isFetching,
     refetch: retryNutrition,
   } = useQuery({
     queryKey: [...key, !!offline, currentDay],
@@ -117,5 +118,31 @@ export function useNutritionData(
       qc.invalidateQueries({ queryKey: ["today", userId] }),
     ]);
 
-  return { local, data, totalsAvailable, loadError, retryNutrition, refresh };
+  const dayStates: Record<string, { logged: boolean; pending: boolean; cached: boolean }> = {};
+  for (let offset = 0; offset < 7; offset++) {
+    const date = addDays(currentDay, -offset);
+    const known = offline && cachedWindow && date >= cachedWindow.from && date <= cachedWindow.to;
+    if (known || (date === day && !!remoteData)) {
+      const rows = known
+        ? (local.records.food_logs ?? []).filter((row) => row.log_date === date)
+        : (remoteData?.food ?? []);
+      dayStates[date] = {
+        logged: rows.length > 0,
+        pending: local.queue.some(
+          (change) => change.entity === "food_logs" && change.payload.log_date === date,
+        ),
+        cached: !!known,
+      };
+    }
+  }
+  return {
+    local,
+    data,
+    dayStates,
+    totalsAvailable,
+    loadError,
+    isFetching,
+    retryNutrition,
+    refresh,
+  };
 }

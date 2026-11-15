@@ -56,6 +56,11 @@ describe("training depth", () => {
       ),
     ).toEqual(["a"]);
     expect(discoverExercises(exercises, "squat").map((e) => e.id)).toEqual(["a", "b"]);
+    expect(
+      discoverExercises([{ ...exercises[0]!, equipment_tags: [] }], "", {
+        equipment: "barbell",
+      }).map((exercise) => exercise.id),
+    ).toEqual(["a"]);
   });
   it("advances load only after all working sets hit the range ceiling", () => {
     expect(suggestTraining(policy, [set(), set()])).toMatchObject({

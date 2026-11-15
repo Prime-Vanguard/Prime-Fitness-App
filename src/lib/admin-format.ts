@@ -1,3 +1,4 @@
+// Staff timestamps use Cairo time consistently, regardless of the viewing device.
 export function adminDate(value: string | null, locale: string) {
   if (!value) return locale === "ar" ? "غير مسجل" : "Not recorded";
   const date = new Date(value);

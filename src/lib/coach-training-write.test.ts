@@ -14,6 +14,7 @@ beforeEach(() => {
     id: member,
     display_name: "Member",
     email: null,
+    training_preferences: null,
   });
 });
 function mock(results: unknown[]) {

@@ -1,6 +1,7 @@
+import { SelectionIndicator } from "@/components/selection-indicator";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useState } from "react";
-import { Copy, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +17,7 @@ import type { MealItem } from "@/lib/nutrition-tools";
 import { MEALS, type NutritionEntryModel, type FoodPick, type FoodEntryMode } from "./contracts";
 import { useFoodLibrary } from "./use-food-library";
 import { FoodScanner } from "@/features/food-scanning/food-scanner";
+import { PortionControl } from "./portion-control";
 
 /** Entry presentation uses explicit data/actions, with no route or mutation controller. */
 export function NutritionEntrySheet({
@@ -47,7 +49,7 @@ export function NutritionEntrySheet({
     changeMeal,
     closeEntry,
     choose: chooseFood,
-    copyYesterday,
+
     add,
     onLogged,
   } = model;
@@ -69,10 +71,11 @@ export function NutritionEntrySheet({
       }}
     >
       <SheetContent
-        side={locale === "ar" ? "left" : "right"}
-        className="w-full overflow-y-auto sm:max-w-lg"
+        side="bottom"
+        className="mx-auto max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl p-4 sm:max-w-2xl"
         dir={locale === "ar" ? "rtl" : "ltr"}
       >
+        <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
         <SheetHeader className="pe-10">
           <SheetTitle>
             {editing ? (locale === "ar" ? "تعديل الطعام" : "Edit food") : t("addFood")}
@@ -82,9 +85,35 @@ export function NutritionEntrySheet({
           </SheetDescription>
         </SheetHeader>
         <nav
-          className="mt-4 grid grid-cols-2 gap-2"
+          className="sliding-selection mt-4 grid grid-cols-4 gap-2"
+          aria-label={locale === "ar" ? "اختيار الوجبة" : "Choose meal"}
+        >
+          {/* Meal selection remains draft-owned; the moving surface is decorative. */}
+          <SelectionIndicator />
+          {MEALS.map((meal) => (
+            <Button
+              key={meal}
+              type="button"
+              variant="secondary"
+              className={
+                "min-w-0 px-1 text-xs " +
+                (selectedMeal === meal
+                  ? "bg-raised text-foreground"
+                  : "bg-card text-muted-foreground")
+              }
+              disabled={adding}
+              aria-pressed={selectedMeal === meal}
+              onClick={() => changeMeal(meal)}
+            >
+              {t(meal as TKey)}
+            </Button>
+          ))}
+        </nav>
+        <nav
+          className="sliding-selection mt-4 flex gap-2 overflow-x-auto pb-1"
           aria-label={locale === "ar" ? "طرق إضافة الطعام" : "Food entry methods"}
         >
+          <SelectionIndicator />
           {(
             [
               ["search", locale === "ar" ? "بحث" : "Search"],
@@ -97,7 +126,11 @@ export function NutritionEntrySheet({
             .map(([entry, label]) => (
               <Button
                 key={entry}
-                variant={mode === entry ? "default" : "outline"}
+                variant="secondary"
+                className={
+                  "shrink-0 rounded-full px-4 " +
+                  (mode === entry ? "bg-raised text-foreground" : "bg-card text-muted-foreground")
+                }
                 aria-pressed={mode === entry}
                 disabled={adding}
                 onClick={() => onMode(entry)}
@@ -106,7 +139,29 @@ export function NutritionEntrySheet({
               </Button>
             ))}
         </nav>
-        {!editing && <FoodScanner userId={userId} onReviewed={choose} />}
+        {!editing && mode !== "favorites" && mode !== "recent" && !!lib?.recent.length && (
+          <section
+            className="mt-3"
+            aria-label={locale === "ar" ? "أطعمة حديثة سريعة" : "Quick recent foods"}
+          >
+            <p className="text-xs text-muted-foreground">{t("recentFoods")}</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {lib.recent.slice(0, 4).map((r, index) => (
+                <Button
+                  key={index}
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={adding}
+                  onClick={() => choose(r)}
+                >
+                  {r.name} · {r.calories} kcal
+                </Button>
+              ))}
+            </div>
+          </section>
+        )}
+        {!editing && <FoodScanner userId={userId} onReviewed={choose} compact />}
         {(mode === "search" || mode === "recent") && (
           <>
             {libraryPending && (
@@ -138,7 +193,7 @@ export function NutritionEntrySheet({
                 {locale === "ar" ? "لا توجد أطعمة حديثة بعد." : "No recent foods yet."}
               </p>
             )}
-            <div className="mt-6 rounded-xl border border-border bg-card p-4">
+            <div className="mt-4 rounded-xl bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
                 {mode === "search" && (
                   <div className="relative min-w-0 flex-1">
@@ -152,25 +207,28 @@ export function NutritionEntrySheet({
                     />
                   </div>
                 )}
-                <Button type="button" variant="outline" onClick={copyYesterday}>
-                  <Copy className="h-4 w-4" />
-                  {t("copyYesterday")}
-                </Button>
               </div>
               {mode === "search" && matches.length > 0 && (
-                <ul className="mt-2 divide-y divide-border rounded-md border border-border text-sm">
+                <ul className="mt-3 space-y-3 text-sm">
                   {matches.map((x) => (
                     <li key={x.id}>
                       <button
                         type="button"
-                        className="flex min-h-11 w-full justify-between gap-3 px-3 py-2 text-start hover:bg-muted"
+                        className="flex min-h-16 w-full items-start justify-between gap-3 rounded-xl bg-background p-4 text-start hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                         onClick={() =>
                           choose({ ...x, name: (locale === "ar" && x.name_ar) || x.name_en })
                         }
                       >
-                        <span>
-                          {(locale === "ar" && x.name_ar) || x.name_en}{" "}
-                          <span className="text-xs text-muted-foreground">· {x.serving}</span>
+                        <span className="min-w-0 break-words font-semibold">
+                          {(locale === "ar" && x.name_ar) || x.name_en}
+                          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                            {x.serving}
+                          </span>
+                          <span className="mt-2 block text-xs font-normal text-muted-foreground">
+                            <bdi dir="ltr">
+                              {x.protein_g}g P · {x.carbs_g}g C · {x.fat_g}g F
+                            </bdi>
+                          </span>
                         </span>
                         <span className="tabular-nums text-muted-foreground">
                           {x.calories} kcal
@@ -207,7 +265,7 @@ export function NutritionEntrySheet({
             </p>
             <form
               onSubmit={add}
-              className="mt-3 grid gap-3 rounded-xl border border-border bg-card p-4 grid-cols-2"
+              className="mt-5 grid grid-cols-2 gap-4 rounded-xl bg-raised p-4 sm:p-5"
             >
               <fieldset disabled={adding} className="contents">
                 {f.serving && (
@@ -215,14 +273,11 @@ export function NutritionEntrySheet({
                     {locale === "ar" ? "الحصة الأساسية" : "Base portion"}: {f.serving}
                   </p>
                 )}
-                <label className="col-span-2 text-sm">
-                  {locale === "ar" ? "مضاعف الحصة" : "Portion multiplier"}
-                  <Input
-                    inputMode="decimal"
-                    value={f.portion}
-                    onChange={(event) => updateDraft({ portion: event.target.value })}
-                  />
-                </label>
+                <PortionControl
+                  portion={f.portion}
+                  serving={f.serving}
+                  onChange={(portion) => updateDraft({ portion })}
+                />
                 <p className="col-span-2 text-xs text-muted-foreground">
                   {locale === "ar"
                     ? "القيم أدناه لحصة واحدة. تُحفظ الإجماليات حسب الكمية التي تناولتها."
@@ -233,9 +288,21 @@ export function NutritionEntrySheet({
                     role="status"
                     className="col-span-2 rounded-md border border-gold/40 p-3 text-sm"
                   >
-                    {locale === "ar" ? "الإجمالي الذي سيُحفظ" : "Total to save"}:{" "}
-                    {portionTotals.calories} kcal · {portionTotals.protein_g} g {t("protein")} ·{" "}
-                    {portionTotals.carbs_g} g {t("carbs")} · {portionTotals.fat_g} g {t("fat")}
+                    <span className="block font-semibold">
+                      {locale === "ar" ? "الإجمالي الذي سيُحفظ" : "Total to save"}:
+                    </span>
+                    <span className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                      <bdi dir="ltr">{portionTotals.calories} kcal</bdi>
+                      <span>
+                        {t("protein")} <bdi dir="ltr">{portionTotals.protein_g} g</bdi>
+                      </span>
+                      <span>
+                        {t("carbs")} <bdi dir="ltr">{portionTotals.carbs_g} g</bdi>
+                      </span>
+                      <span>
+                        {t("fat")} <bdi dir="ltr">{portionTotals.fat_g} g</bdi>
+                      </span>
+                    </span>
                   </p>
                 )}
                 <label className="col-span-2 text-sm min-w-0 max-w-full block">
@@ -302,7 +369,11 @@ export function NutritionEntrySheet({
                     onChange={(e) => updateDraft({ fat_g: e.target.value })}
                   />
                 </label>
-                <Button type="submit" disabled={adding}>
+                <Button
+                  type="submit"
+                  disabled={adding}
+                  className="col-span-2 min-h-12 w-full font-heading text-base font-bold"
+                >
                   {editing ? (locale === "ar" ? "حفظ التغييرات" : "Save changes") : t("addFood")}
                 </Button>
                 {entryError && (

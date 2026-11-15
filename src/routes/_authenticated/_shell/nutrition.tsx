@@ -1,5 +1,7 @@
+import { FoodSaveState } from "@/components/food-save-state";
+import { useRecordFeedback } from "@/hooks/use-record-feedback";
 import { createFileRoute } from "@tanstack/react-router";
-import { Droplet, Trash2, Pencil } from "lucide-react";
+import { Droplet, Trash2, Pencil, Plus } from "lucide-react";
 import { WaterTank } from "@/components/water-tank";
 import { WaterEntries } from "@/components/water-entries";
 import { foodUndoEntries, type FoodUndo } from "@/lib/nutrition-entries";
@@ -8,13 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
-import { activityDay, addDays } from "@/lib/dates";
+import { activityDay } from "@/lib/dates";
 import { useActivityDay } from "@/hooks/use-activity-day";
 import { validActivityDate } from "@/lib/training-search";
 import { MEALS, type NutritionSearch } from "@/features/nutrition/contracts";
 import { useNutritionData } from "@/features/nutrition/use-nutrition-data";
 import { useNutritionWorkflow } from "@/features/nutrition/use-nutrition-workflow";
+import { NutritionSummary } from "@/features/nutrition/nutrition-summary";
+import { NutritionLoading } from "@/features/nutrition/nutrition-loading";
+import { NutritionDateNav } from "@/features/nutrition/nutrition-date-nav";
 import { NutritionEntrySheet } from "@/features/nutrition/nutrition-entry-sheet";
+import { MealCopyReview } from "@/features/nutrition/meal-copy-review";
 
 export const Route = createFileRoute("/_authenticated/_shell/nutrition")({
   validateSearch: (raw: Record<string, unknown>): NutritionSearch => ({
@@ -44,45 +50,6 @@ export const Route = createFileRoute("/_authenticated/_shell/nutrition")({
 
 const today = activityDay;
 
-function Ring({
-  label,
-  value,
-  target,
-  unit,
-}: {
-  label: string;
-  value: number;
-  target?: number | null | undefined;
-  unit: string;
-}) {
-  const pct = target ? Math.min(1, value / target) : 0;
-  const r = 30,
-    c = 2 * Math.PI * r;
-  return (
-    <div className="flex flex-col items-center rounded-xl border border-border bg-card p-3">
-      <svg aria-hidden="true" viewBox="0 0 72 72" className="h-8 w-8 -rotate-90">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="var(--muted)" strokeWidth="6" />
-        <circle
-          cx="36"
-          cy="36"
-          r={r}
-          fill="none"
-          stroke={pct >= 1 ? "var(--success)" : "var(--gold)"}
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-        />
-      </svg>
-      <p className="mt-2 text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold tabular-nums">
-        {Math.round(value)}
-        {target ? ` / ${target}` : ""} {unit}
-      </p>
-    </div>
-  );
-}
-
 function Page() {
   const { user } = Route.useRouteContext();
   const { data: features } = useTrainingFeatures(user.id);
@@ -92,18 +59,21 @@ function Page() {
     navigate = Route.useNavigate();
   const day = search.day ?? currentDay;
   const offline = features?.offline === true;
-  const { local, data, totalsAvailable, loadError, retryNutrition, refresh } = useNutritionData(
-    user.id,
-    day,
-    currentDay,
-    offline,
-  );
+  const {
+    local,
+    data,
+    dayStates,
+    totalsAvailable,
+    loadError,
+    isFetching,
+    retryNutrition,
+    refresh,
+  } = useNutritionData(user.id, day, currentDay, offline);
   const workflow = useNutritionWorkflow({
     userId: user.id,
     day,
     search,
     offline,
-    localFood: local.records.food_logs ?? [],
     refresh,
     navigate: (options) => navigate(options),
   });
@@ -116,6 +86,23 @@ function Page() {
     (data?.food ?? []).reduce((a, x) => a + Number(x[k]), 0);
   const water = (data?.water ?? []).reduce((a, x) => a + x.ml, 0);
   const tg = data?.targets;
+  const hasEntries = !!data?.food.length || !!data?.water.length;
+  // Keep partial device records visible while a network read is in progress.
+  const loadingTotals = !totalsAvailable && isFetching && !loadError;
+  const feedbackRef = useRecordFeedback(
+    `${user.id}:${day}`,
+    data?.food.map((row) => ({
+      id: row.id,
+      value: JSON.stringify([
+        row.name,
+        row.calories,
+        row.protein_g,
+        row.carbs_g,
+        row.fat_g,
+        row.meal,
+      ]),
+    })),
+  );
   let undos: FoodUndo[] = [];
   let recoveryError = "";
   try {
@@ -128,7 +115,7 @@ function Page() {
   }
 
   return (
-    <>
+    <div ref={feedbackRef} className="app-page-flow">
       <PageHeader title={t("nutrition")} />
       {(mutationError || recoveryError) && (
         <p role="alert" className="mt-3 text-sm text-destructive">
@@ -215,74 +202,67 @@ function Page() {
               : "Not yet synced"}
         </p>
       )}
-      <div className="mt-4 flex flex-wrap items-end gap-2">
-        <Button
-          variant="outline"
-          aria-label={locale === "ar" ? "اليوم السابق" : "Previous day"}
-          onClick={() => setDay(addDays(day, -1))}
-        >
-          −1
-        </Button>
-        <label className="min-w-40 flex-1 text-sm">
-          {locale === "ar" ? "تاريخ السجل" : "Log date"}
-          <Input
-            type="date"
-            className="mt-1 w-full"
-            value={day}
-            max={today()}
-            onChange={(e) => setDay(e.target.value || today())}
-          />
-        </label>
-        <Button
-          variant="outline"
-          aria-label={locale === "ar" ? "اليوم التالي" : "Next day"}
-          disabled={day >= currentDay}
-          onClick={() => setDay(addDays(day, 1))}
-        >
-          +1
-        </Button>
-        <Button variant="outline" onClick={() => setDay(currentDay)}>
-          {t("today")}
-        </Button>
-        <Button onClick={() => openEntry("quick")}>{t("addFood")}</Button>
-      </div>
+      <NutritionDateNav day={day} today={currentDay} onSelect={setDay} days={dayStates} />
+      <Button
+        className="mt-4 min-h-12 w-full font-heading text-base font-bold"
+        onClick={() => openEntry("quick")}
+      >
+        <Plus aria-hidden className="size-5" />
+        {t("addFood")}
+      </Button>
       {!tg && totalsAvailable && (
         <p className="mt-4 text-sm text-muted-foreground">{t("noTargets")}</p>
       )}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {!totalsAvailable && (
-          <p role="status" className="col-span-full text-sm">
-            {locale === "ar"
-              ? navigator.onLine && !loadError
-                ? "جارٍ تحميل إجماليات التغذية…"
-                : "الإجماليات الكاملة غير متاحة؛ تُعرض سجلات الجهاز فقط."
-              : navigator.onLine && !loadError
-                ? "Loading nutrition totals…"
-                : "Complete totals are unavailable; only device entries are shown."}
-          </p>
+      <div className="mt-4">
+        {loadingTotals && !hasEntries ? (
+          <NutritionLoading
+            label={locale === "ar" ? "جارٍ تحميل إجماليات التغذية…" : "Loading nutrition totals…"}
+          />
+        ) : (
+          !totalsAvailable && (
+            <p role="status" className="col-span-full text-sm">
+              {locale === "ar"
+                ? loadingTotals
+                  ? "جارٍ تحميل إجماليات التغذية…"
+                  : "الإجماليات الكاملة غير متاحة؛ تُعرض سجلات الجهاز فقط."
+                : loadingTotals
+                  ? "Loading nutrition totals…"
+                  : "Complete totals are unavailable; only device entries are shown."}
+            </p>
+          )
         )}
-        {(totalsAvailable || !!data?.food.length || !!data?.water.length) && (
-          <>
-            <Ring label={t("calories")} value={sum("calories")} target={tg?.calories} unit="kcal" />
-            <Ring label={t("protein")} value={sum("protein_g")} target={tg?.protein_g} unit="g" />
-            <Ring label={t("carbs")} value={sum("carbs_g")} target={tg?.carbs_g} unit="g" />
-            <Ring label={t("fat")} value={sum("fat_g")} target={tg?.fat_g} unit="g" />
-          </>
+        {(totalsAvailable || hasEntries) && (
+          <NutritionSummary
+            complete={totalsAvailable}
+            totals={{
+              calories: sum("calories"),
+              protein_g: sum("protein_g"),
+              carbs_g: sum("carbs_g"),
+              fat_g: sum("fat_g"),
+            }}
+            targets={tg}
+          />
         )}
       </div>
 
       <section
         id="water"
-        className="mt-4 grid scroll-mt-6 grid-cols-[1fr_1fr] gap-3 rounded-xl border border-border bg-card p-3"
+        className="mt-4 scroll-mt-24 space-y-3 rounded-xl bg-card p-4"
         aria-label={t("water")}
       >
         {(totalsAvailable || !!data?.water.length) && (
-          <WaterTank value={water} target={tg?.water_ml} pulse={waterPulse} />
+          <WaterTank value={water} target={tg?.water_ml} pulse={waterPulse} inline />
         )}
-        <div className="flex flex-wrap content-center items-center gap-2">
-          {[250, 500].map((ml) => (
-            <Button key={ml} variant="outline" disabled={adding} onClick={() => addWater(ml)}>
-              <Droplet className="h-4 w-4" />+{ml} ml
+        <div className="grid grid-cols-3 gap-2">
+          {[250, 500, 750].map((ml) => (
+            <Button
+              key={ml}
+              variant="secondary"
+              className="min-w-0 gap-1 px-1 text-xs"
+              disabled={adding}
+              onClick={() => addWater(ml)}
+            >
+              <Droplet aria-hidden className="h-4 w-4 shrink-0" />+{ml} ml
             </Button>
           ))}
         </div>
@@ -304,36 +284,85 @@ function Page() {
         model={workflow.entry}
         onMode={(entry) => void navigate({ search: { ...search, entry }, replace: true })}
       />
-      <div className="mt-6 space-y-4">
+      <div className="mt-6 space-y-4" data-stitch-meals>
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <h2>{locale === "ar" ? "الوجبات اليومية" : "Daily meals"}</h2>
+          <span>
+            {totalsAvailable
+              ? `${MEALS.filter((meal) => data?.food.some((row) => row.meal === meal)).length} / 4`
+              : "—"}{" "}
+            {locale === "ar" ? "مسجلة" : "recorded"}
+          </span>
+        </div>
+        {/* Keep optional copying beside meal records, after the primary daily summary. */}
+        <div className="mt-3">
+          <MealCopyReview
+            userId={user.id}
+            day={day}
+            meal={workflow.entry.selectedMeal}
+            offline={offline}
+            localFood={local.records.food_logs ?? []}
+            onLogged={workflow.entry.onLogged}
+            disabled={adding}
+          />
+        </div>
         {MEALS.map((m) => {
           const rows = data?.food.filter((x) => x.meal === m) ?? [];
 
           return (
-            <section key={m} className="rounded-xl border border-border bg-card">
-              <div className="flex items-center justify-between gap-2 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gold">{t(m as TKey)}</h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label={`${t("addFood")} ${t(m as TKey)}`}
-                  onClick={() => openEntry("search", m)}
-                >
-                  {t("addFood")}
-                </Button>
+            <section key={m} className="rounded-xl bg-card p-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    aria-hidden
+                    className={
+                      "size-2 rounded-full " +
+                      (rows.length ? "bg-emerald-400" : "bg-muted-foreground")
+                    }
+                  />
+                  {t(m as TKey)}
+                </h3>
+                <p className="text-sm tabular-nums text-muted-foreground">
+                  {totalsAvailable
+                    ? rows.reduce((sum, row) => sum + row.calories, 0) + " kcal"
+                    : "—"}
+                </p>
               </div>
               {totalsAvailable && !rows.length && (
-                <p className="px-4 pb-3 text-sm text-muted-foreground">{t("noFood")}</p>
+                <p className="rounded-lg bg-background p-5 text-center text-sm text-muted-foreground">
+                  {t("noFood")}
+                </p>
               )}
-              <ul className="divide-y divide-border">
+              <ul className="space-y-3">
                 {rows.map((x) => (
                   <li
                     key={x.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm"
+                    data-feedback-record={x.id}
+                    className="space-y-2 rounded-lg bg-background p-3 text-sm"
                   >
-                    <span className="min-w-0 break-words">{x.name}</span>
-                    <span className="flex flex-wrap items-center gap-3 tabular-nums text-muted-foreground">
-                      {x.calories} kcal · P{Number(x.protein_g)} C{Number(x.carbs_g)} F
-                      {Number(x.fat_g)}
+                    <FoodSaveState
+                      sending={local.queue.some(
+                        (change) =>
+                          change.entity === "food_logs" &&
+                          change.record_id === x.id &&
+                          change.status === "sending",
+                      )}
+                      pending={local.queue.some(
+                        (change) => change.entity === "food_logs" && change.record_id === x.id,
+                      )}
+                      review={local.queue.some(
+                        (change) =>
+                          change.entity === "food_logs" &&
+                          change.record_id === x.id &&
+                          (change.status === "conflict" || change.status === "rejected"),
+                      )}
+                    />
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0 break-words font-medium">{x.name}</span>
+                      <span className="shrink-0 tabular-nums">{x.calories} kcal</span>
+                    </div>
+                    <span className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-muted-foreground">
+                      P{Number(x.protein_g)} C{Number(x.carbs_g)} F{Number(x.fat_g)}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -356,11 +385,20 @@ function Page() {
                   </li>
                 ))}
               </ul>
+              <Button
+                variant="secondary"
+                className="mt-3 w-full bg-background"
+                aria-label={`${t("addFood")} ${t(m as TKey)}`}
+                onClick={() => openEntry("search", m)}
+              >
+                <Plus aria-hidden className="size-4" />
+                {t("addFood")} · {t(m as TKey)}
+              </Button>
             </section>
           );
         })}
       </div>
       <p className="mt-8 text-xs text-muted-foreground">{t("nutritionSafety")}</p>
-    </>
+    </div>
   );
 }

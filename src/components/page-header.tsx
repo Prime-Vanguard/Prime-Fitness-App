@@ -4,17 +4,44 @@ export function PageHeader({
   eyebrow,
   title,
   children,
+  compact = false,
+  eyebrowTone = "muted",
+  accessory,
 }: {
   eyebrow?: string;
   title: string;
   children?: ReactNode;
+  compact?: boolean;
+  eyebrowTone?: "muted" | "accent";
+  /** Optional contextual status shares the eyebrow row without absolute positioning. */
+  accessory?: ReactNode;
 }) {
   return (
-    <div className="pt-6">
-      {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">{eyebrow}</p>
+    <div className="pt-6 pb-3 md:pt-0" data-page-header>
+      {(eyebrow || accessory) && (
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          {eyebrow && (
+            <p
+              className={
+                "text-xs font-semibold uppercase tracking-[0.12em] " +
+                (eyebrowTone === "accent" ? "text-gold" : "text-muted-foreground")
+              }
+            >
+              {eyebrow}
+            </p>
+          )}
+          {accessory}
+        </div>
       )}
-      <h1 className="mt-2 text-3xl font-extrabold md:text-4xl">{title}</h1>
+      <h1
+        className={
+          compact
+            ? "font-heading text-2xl font-bold leading-8"
+            : "text-[28px] leading-[35px] font-extrabold md:text-4xl md:leading-[44px]"
+        }
+      >
+        {title}
+      </h1>
       {children}
     </div>
   );

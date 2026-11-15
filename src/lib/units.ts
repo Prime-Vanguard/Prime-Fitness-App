@@ -1,5 +1,6 @@
 export type Units = "metric" | "imperial";
 const LB_PER_KG = 2.20462262185;
+// Convert at the display boundary; stored measurements use kilograms and centimetres.
 export const weightUnit = (units: Units) => (units === "imperial" ? "lb" : "kg");
 export const lengthUnit = (units: Units) => (units === "imperial" ? "in" : "cm");
 export const displayWeight = (kg: number, units: Units) =>

@@ -210,6 +210,7 @@ async function decisionReceipt(claim: PvClaim) {
     );
   return { claim, awarded: result.data.points };
 }
+// Recheck the reviewer, claim and task values; server-side rules determine the award.
 export async function decidePvClaim(
   actor: string,
   original: ClaimContext,

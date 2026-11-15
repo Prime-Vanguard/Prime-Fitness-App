@@ -13,6 +13,7 @@ import { mergeExerciseSnapshots, type PlanItem } from "@/lib/training-tools";
 import { fetchAll } from "@/lib/pagination";
 import { parseVersionItems } from "@/lib/program-versions";
 
+// Expose the durable local workout draft and immediate reconnect/focus retries.
 export function useWorkout(userId: string) {
   const [workout, setWorkout] = useState<Workout>(() => emptyWorkout(userId));
   const [ready, setReady] = useState(false);

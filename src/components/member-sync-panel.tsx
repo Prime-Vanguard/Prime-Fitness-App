@@ -11,6 +11,8 @@ import { entityLabel, conflictFields, mutationSummary } from "@/lib/recovery-pre
 import { adminDate } from "@/lib/admin-format";
 import { AdminChangeReview, type AdminReview } from "./admin-change-review";
 import { Button } from "./ui/button";
+import { Link } from "@tanstack/react-router";
+// Present queued changes and explicit conflict recovery without discarding local data.
 export function MemberSyncPanel({
   userId,
   state,
@@ -133,13 +135,24 @@ export function MemberSyncPanel({
       },
     });
   }
-  if (!state.queue.length && !error && !failure) return null;
+  if (!state.queue.length && !state.references["mealCopy"] && !error && !failure) return null;
   return (
     <section
-      className="my-4 space-y-4 rounded-xl border border-amber-500/40 p-4"
+      className="my-4 space-y-4 rounded-xl border border-pending/40 bg-card p-4 sm:p-5"
       aria-label={l("Member sync", "مزامنة السجلات")}
     >
       <h2 className="font-semibold">{l("Sync & recovery", "المزامنة والاسترداد")}</h2>
+      {state.references["mealCopy"] && (
+        <p className="text-sm">
+          {l(
+            "An unconfirmed meal copy needs review before device data can be removed.",
+            "توجد نسخة وجبة غير مؤكدة تحتاج إلى مراجعة قبل إزالة بيانات الجهاز.",
+          )}{" "}
+          <Link className="underline" to="/nutrition">
+            {l("Review in Nutrition", "مراجعة في التغذية")}
+          </Link>
+        </p>
+      )}
       <p role="status">
         {error ? "—" : state.queue.length}{" "}
         {l(
@@ -156,8 +169,13 @@ export function MemberSyncPanel({
             ["rejected", l("Needs attention", "تحتاج معالجة")],
           ] as const
         ).map(([key, label]) => (
-          <div key={key}>
-            <dt className="text-muted-foreground">{label}</dt>
+          <div
+            key={key}
+            className={`save-state rounded-lg border p-2.5 ${key === "conflict" || key === "rejected" ? "border-pending/30 bg-pending/5" : "border-info/30 bg-info/5"}`}
+          >
+            <dt className={key === "conflict" || key === "rejected" ? "text-pending" : "text-info"}>
+              {label}
+            </dt>
             <dd>{error ? "—" : counts[key]}</dd>
           </div>
         ))}
@@ -204,7 +222,7 @@ export function MemberSyncPanel({
               .at(-1)!,
             fields = conflictFields(latest.payload, m.server, ar);
           return (
-            <article key={m.id} className="space-y-3 rounded-lg border border-border p-3">
+            <article key={m.id} className="space-y-4 rounded-xl bg-background p-4">
               <h3 className="font-medium">
                 {entityLabel(m.entity, ar)} ·{" "}
                 {m.status === "conflict"
@@ -223,26 +241,27 @@ export function MemberSyncPanel({
                     ? ` · ${l("Server snapshot unavailable", "نسخة الخادم غير متاحة")}`
                     : ""}
               </p>
-              <div className="space-y-2">
+              {/* Keep device and server evidence distinct; styling never chooses a winner. */}
+              <div className="space-y-3">
                 {fields.map((field) => (
                   <div
                     key={field.key}
-                    className={`rounded-lg border p-3 ${field.changed ? "border-amber-500/50" : "border-border"}`}
+                    className={`rounded-lg border p-3 ${field.changed ? "border-pending/50" : "border-border"}`}
                   >
                     <p className="text-sm font-medium">
                       {field.label}
                       {field.changed ? ` · ${l("Different", "مختلف")}` : ""}
                     </p>
                     <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
+                      <div className="min-w-0 rounded-lg bg-raised p-3">
+                        <dt className="mb-2 text-xs font-semibold text-gold">
                           {l("Device version", "نسخة الجهاز")}
                         </dt>
                         <dd className="whitespace-pre-wrap break-words">{value(field.local)}</dd>
                       </div>
                       {m.status === "conflict" && (
-                        <div>
-                          <dt className="text-xs text-muted-foreground">
+                        <div className="min-w-0 rounded-lg border border-border bg-card p-3">
+                          <dt className="mb-2 text-xs font-semibold text-info">
                             {l("Server version", "نسخة الخادم")}
                           </dt>
                           <dd className="whitespace-pre-wrap break-words">
@@ -325,6 +344,13 @@ export function MemberSyncPanel({
               ),
               save: async () => {
                 await changeMemberState(userId, (current) => {
+                  if (current.references["mealCopy"])
+                    throw new Error(
+                      l(
+                        "Resolve the saved meal copy in Nutrition before removing device data.",
+                        "تحقق من طلب نسخ الوجبة في التغذية قبل إزالة بيانات الجهاز.",
+                      ),
+                    );
                   if (
                     Array.isArray(current.references["redemption-intents"]) &&
                     current.references["redemption-intents"].length
