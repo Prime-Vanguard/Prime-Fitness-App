@@ -144,6 +144,17 @@ try {
     `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}')`,
     /existing streak/,
   );
+  // Imported history is not streak activity (member_activity_days), so it cannot start one.
+  await db.exec(`RESET ROLE; ALTER TABLE public.workout_sessions DISABLE TRIGGER USER;
+    INSERT INTO public.workout_sessions(member_id,title,origin,started_at,finished_at)
+    VALUES ('${outsider}','Imported','import',('${day}'::date - 1 + time '12:00') AT TIME ZONE 'Africa/Cairo',('${day}'::date - 1 + time '13:00') AT TIME ZONE 'Africa/Cairo');
+    ALTER TABLE public.workout_sessions ENABLE TRIGGER USER;`);
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 0);
+  await denied(
+    `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}')`,
+    /existing streak/,
+  );
 
   await db.exec(
     `RESET ROLE; INSERT INTO public.user_roles(user_id,role) VALUES ('${a}','super_admin'); SELECT set_config('request.jwt.claim.sub','${a}',false); UPDATE public.profiles SET access_active=false WHERE id='${b}'`,
