@@ -94,6 +94,8 @@ function Page() {
     [redemptionError, setRedemptionError] = useState(""),
     [redeeming, setRedeeming] = useState(false);
   const redemptionLock = useRef(false);
+  const claimLock = useRef(false);
+  const [claiming, setClaiming] = useState("");
   const [purchase, setPurchase] = useState<{
     rewardId: string;
     cost: number;
@@ -217,9 +219,24 @@ function Page() {
   const rows = (board ?? []).filter((r) => r.opted_in || (optedIn && r.member_id === user.id));
 
   async function claim(taskId: string) {
-    const { error } = await supabase
-      .from("pv_claims")
-      .insert({ task_id: taskId, member_id: user.id, note: notes[taskId]?.trim() || null });
+    if (claimLock.current) return;
+    claimLock.current = true;
+    setClaiming(taskId);
+    let error;
+    try {
+      ({ error } = await supabase
+        .from("pv_claims")
+        .insert({ task_id: taskId, member_id: user.id, note: notes[taskId]?.trim() || null }));
+    } finally {
+      claimLock.current = false;
+      setClaiming("");
+    }
+    if (error?.code === "23505")
+      return void toast.error(
+        locale === "ar"
+          ? "لديك طلب قيد المراجعة لهذه المهمة بالفعل."
+          : "You already have a claim waiting for review for this task.",
+      );
     if (error) return void toast.error(error.message);
     setNotes({ ...notes, [taskId]: "" });
     toast.success(t("saved"));
@@ -536,9 +553,12 @@ function Page() {
                     <Input
                       placeholder={t("claimNote")}
                       value={notes[x.id] ?? ""}
+                      maxLength={500}
                       onChange={(e) => setNotes({ ...notes, [x.id]: e.target.value })}
                     />
-                    <Button onClick={() => claim(x.id)}>{t("claim")}</Button>
+                    <Button disabled={!!claiming} onClick={() => claim(x.id)}>
+                      {t("claim")}
+                    </Button>
                   </div>
                 </li>
               ))}

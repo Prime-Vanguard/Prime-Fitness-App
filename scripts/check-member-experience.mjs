@@ -156,6 +156,22 @@ try {
     /existing streak/,
   );
 
+  // One pending claim per task: a double submit cannot be approved twice.
+  const task = "00000000-0000-4000-8000-000000000030";
+  await db.exec(
+    `RESET ROLE; INSERT INTO public.pv_tasks(id,title_en,points) VALUES ('${task}','Check-in',10);`,
+  );
+  await as(b);
+  await db.exec(`INSERT INTO public.pv_claims(task_id,member_id) VALUES ('${task}','${b}')`);
+  await denied(
+    `INSERT INTO public.pv_claims(task_id,member_id) VALUES ('${task}','${b}')`,
+    /pv_claims_one_pending/,
+  );
+  await denied(
+    `INSERT INTO public.pv_claims(task_id,member_id,note) VALUES ('${task}','${b}',repeat('x',501))`,
+    /pv_claims_note_length|pv_claims_one_pending/,
+  );
+
   await db.exec(
     `RESET ROLE; INSERT INTO public.user_roles(user_id,role) VALUES ('${a}','super_admin'); SELECT set_config('request.jwt.claim.sub','${a}',false); UPDATE public.profiles SET access_active=false WHERE id='${b}'`,
   );

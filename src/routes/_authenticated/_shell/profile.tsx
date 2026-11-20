@@ -287,7 +287,11 @@ function Profile() {
         .from("profiles")
         .update({ avatar_url: path })
         .eq("id", user.id);
-      if (error) throw error;
+      if (error) {
+        // Don't leave an unreferenced photo in storage.
+        await supabase.storage.from("progress-photos").remove([path]);
+        throw error;
+      }
       if (avatarPath) await supabase.storage.from("progress-photos").remove([avatarPath]);
       qc.invalidateQueries({ queryKey: ["me", user.id] });
       toast.success(t("saved"));
