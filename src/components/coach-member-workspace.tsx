@@ -20,6 +20,7 @@ import { TrainingPreferencesSummary } from "./training-preferences-summary";
 import { WellnessCheckIn } from "./wellness-checkin";
 import { ProgressPhotos } from "./progress-photos";
 import { Button } from "./ui/button";
+import { StaffSummaryDownloadButton } from "./staff-offline-downloads";
 export type CoachSection = "overview" | "training" | "nutrition" | "checkins" | "photos";
 
 /** Compose authorized member sections without prefetching private records on overview. */
@@ -174,6 +175,7 @@ export function CoachMemberWorkspace({
         <p className="mt-2 break-all text-sm text-muted-foreground">
           <bdi>{access.data.email}</bdi>
         </p>
+        <StaffSummaryDownloadButton actor={actor} memberId={member} />
       </PageHeader>
       <MemberSections
         appearance="segmented"

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
+import { addDays } from "@/lib/dates";
 
 export function StreakShields({
   userId,
@@ -15,21 +16,21 @@ export function StreakShields({
 }: {
   userId: string;
   today: string;
-  activeDays: string[];
+  /** Server activity days (synced food, finished in-app workouts, shields); undefined while loading. */
+  activeDays: string[] | undefined;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
-  const yesterday = new Date(`${today}T12:00:00Z`);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const [day, setDay] = useState(today);
+  const yesterday = addDays(today, -1);
+  // Keep the choice relative so the date follows `today` past midnight.
+  const [choice, setChoice] = useState<"today" | "yesterday">("today");
+  const day = choice === "today" ? today : yesterday;
   const [busy, setBusy] = useState(false);
   const { data, error } = useShields(userId);
   const qc = useQueryClient();
   const used = data?.filter((d) => d.startsWith(day.slice(0, 7))).length ?? 0;
-  const prior = new Date(`${day}T12:00:00Z`);
-  prior.setUTCDate(prior.getUTCDate() - 1);
-  const all = new Set([...activeDays, ...(data ?? [])]);
-  const eligible = all.has(prior.toISOString().slice(0, 10)) && !all.has(day);
+  const all = new Set([...(activeDays ?? []), ...(data ?? [])]);
+  const eligible = !!activeDays && all.has(addDays(day, -1)) && !all.has(day);
   return (
     <div className="mt-4 rounded-lg border border-gold/30 p-3 text-start">
       <p className="flex items-center gap-2 text-sm font-semibold text-gold">
@@ -44,12 +45,16 @@ export function StreakShields({
       </p>
       <label className="mt-2 block text-xs min-w-0 max-w-full">
         {l("Protect day", "حماية يوم")}
-        <NativeSelect className="mt-2" value={day} onChange={(e) => setDay(e.target.value)}>
-          <option value={today}>
+        <NativeSelect
+          className="mt-2"
+          value={choice}
+          onChange={(e) => setChoice(e.target.value === "yesterday" ? "yesterday" : "today")}
+        >
+          <option value="today">
             {l("Today", "اليوم")} · {today}
           </option>
-          <option value={yesterday.toISOString().slice(0, 10)}>
-            {l("Yesterday", "الأمس")} · {yesterday.toISOString().slice(0, 10)}
+          <option value="yesterday">
+            {l("Yesterday", "الأمس")} · {yesterday}
           </option>
         </NativeSelect>
       </label>
@@ -73,7 +78,7 @@ export function StreakShields({
       >
         {l("Use shield", "استخدام درع")}
       </Button>
-      {!eligible && !error && (
+      {!eligible && !error && activeDays && (
         <p className="mt-2 text-[11px] text-muted-foreground">
           {all.has(day)
             ? l("Already active or protected.", "نشط أو محمي بالفعل.")

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: vi.fn(), auth: { getSession: vi.fn() } },
+  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getSession: vi.fn(), getUser: vi.fn() } },
 }));
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -32,8 +32,22 @@ beforeEach(() => {
   vi.resetAllMocks();
   messages.length = 0;
   user = crypto.randomUUID();
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: { id: user } },
+    error: null,
+  } as never);
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({
+          data: { id: user, access_active: true },
+          error: null,
+        }),
+      }),
+    }),
+  } as never);
   vi.mocked(supabase.auth.getSession).mockResolvedValue({
-    data: { session: { user: { id: user } } },
+    data: { session: { user: { id: user }, access_token: "test-token" } },
     error: null,
   } as never);
 });
@@ -55,6 +69,7 @@ function respond(make: (rows: Mutation[]) => { data: unknown; error: unknown }) 
   vi.mocked(supabase.rpc).mockImplementation(
     (_name, args) =>
       ({
+        setHeader: vi.fn().mockReturnThis(),
         abortSignal: async () => make((args as unknown as { _mutations: Mutation[] })._mutations),
       }) as never,
   );

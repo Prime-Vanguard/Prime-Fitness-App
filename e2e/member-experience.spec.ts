@@ -3574,7 +3574,10 @@ for (const locale of ["en", "ar"] as const) {
     await page.evaluate(() => {
       const original = IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
-        if (this.name === "members" && JSON.stringify(args[0]).includes('"saved":false')) {
+        if (
+          this.name === "member_references" &&
+          JSON.stringify(args[0]).includes('"saved":false')
+        ) {
           IDBObjectStore.prototype.put = original;
           throw new DOMException("Device storage is full", "QuotaExceededError");
         }
@@ -6046,12 +6049,14 @@ for (const locale of ["en", "ar"] as const) {
       },
     ];
     backend.tables.program_schedules = [
-      { assignment_id: assignment, mode: "rotation", start_date: day },
+      { assignment_id: assignment, member_id: userId, mode: "rotation", start_date: day },
     ];
     backend.tables.session_occurrences = [
       {
         id: crypto.randomUUID(),
         assignment_id: assignment,
+        member_id: userId,
+        program_version_id: version,
         ordinal: 1,
         week: 1,
         day: 1,
@@ -9629,7 +9634,7 @@ test("sync recovery compares fields and reviews choices before retaining server 
   await expect(page.getByText("1 entries saved on this device", { exact: false })).toBeVisible();
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("prime-fitness-member-data", 1);
+      const request = indexedDB.open("prime-fitness-member-data", 2);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });

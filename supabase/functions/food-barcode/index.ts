@@ -26,10 +26,19 @@ Deno.serve(async (request: Request) => {
     if (auth.error || !auth.data.user) return json({ error: "Sign in required" }, 401);
     const allowance = await client.rpc("food_scan_allowance");
     if (allowance.error)
-      return json({ error: "Scanning unavailable or hourly limit reached" }, 429);
+      // The budget check raises the same way for a spent budget and for missing
+      // access; only the former is a rate limit.
+      return /limit/i.test(allowance.error.message)
+        ? json({ error: "Hourly scan limit reached" }, 429)
+        : json({ error: "Scanning is not available for this account" }, 403);
     const body = await request.text();
     if (body.length > 2048) return json({ error: "Request too large" }, 400);
-    const { barcode } = JSON.parse(body);
+    let barcode: unknown;
+    try {
+      ({ barcode } = JSON.parse(body));
+    } catch {
+      return json({ error: "Invalid request body" }, 400);
+    }
     if (typeof barcode !== "string" || !/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(barcode))
       return json({ error: "Invalid barcode" }, 400);
     let checksum = 0;

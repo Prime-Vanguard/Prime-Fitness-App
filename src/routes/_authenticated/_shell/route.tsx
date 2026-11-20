@@ -3,10 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Dumbbell, Menu, User } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
-import { WorkoutSync } from "@/components/workout-sync";
+import { toast } from "sonner";
+import { signOutMember } from "@/integrations/supabase/client";
+import { WorkoutCompletionRefresh } from "@/components/workout-sync";
 import { MemberSync } from "@/components/member-sync";
-import { CardioSync } from "@/features/cardio/cardio-sync";
+import { StaffOfflineRevalidation } from "@/components/staff-offline-downloads";
+import { AutomaticOfflinePreparation } from "@/components/automatic-offline-preparation";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { haptic } from "@/lib/device-feedback";
 import { LevelUpWatcher } from "@/components/level-up-watcher";
@@ -135,9 +137,21 @@ function Shell() {
     } catch {
       /* Optional UI preference only. */
     }
+    const result = await signOutMember().catch((error: unknown) => ({
+      error: error instanceof Error ? error : new Error(String(error)),
+    }));
+    // The session is still valid, so stay here rather than show a sign-in page
+    // that would send the member straight back in.
+    if (result.error) {
+      toast.error(
+        locale === "ar"
+          ? `تعذر تسجيل الخروج: ${result.error.message}`
+          : `Sign-out failed: ${result.error.message}`,
+      );
+      return;
+    }
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
     navigate({ to: "/auth", search: { redirect: undefined }, replace: true });
   }
 
@@ -179,7 +193,6 @@ function Shell() {
       >
         {locale === "ar" ? "تخطى إلى المحتوى" : "Skip to content"}
       </a>
-      {trainingFeatures?.cardio && <CardioSync userId={user.id} />}
       <aside
         className={
           focused
@@ -258,6 +271,13 @@ function Shell() {
           ref={pageRef}
           className={`app-page-flow mx-auto w-full ${adminRoute ? "max-w-[1440px]" : "max-w-[1200px]"}`}
         >
+          {data?.profile && !data.offlineAccountPrepared && (
+            <p role="status" className="my-4 rounded-lg border border-gold/40 p-3 text-sm">
+              {locale === "ar"
+                ? "تعذر تجهيز بيانات حسابك للاستخدام دون اتصال. يمكنك الاستمرار عبر الإنترنت؛ تحقق من مساحة التخزين وإعدادات المتصفح ثم أعد تحميل التطبيق."
+                : "Your account details could not be prepared for offline use. You can continue online; check device storage and browser settings, then reload the app."}
+            </p>
+          )}
           {adminRoute && (permissionError || !data || !data.isAdmin) ? (
             <div>
               <p
@@ -284,8 +304,29 @@ function Shell() {
             <Outlet />
           )}
           <LevelUpWatcher userId={user.id} />
-          <WorkoutSync userId={user.id} />
-          {trainingFeatures?.offline && <MemberSync userId={user.id} />}
+          <WorkoutCompletionRefresh userId={user.id} />
+          <StaffOfflineRevalidation actor={user.id} />
+          <AutomaticOfflinePreparation
+            memberId={user.id}
+            completionId={workout?.completion?.id}
+            enabled={
+              !!trainingFeatures?.offline &&
+              data?.profile?.access_active === true &&
+              data.offlineAccountPrepared
+            }
+          />
+          <MemberSync
+            userId={user.id}
+            recordsEnabled={trainingFeatures?.offline === true}
+            workoutsEnabled
+            cardioEnabled={trainingFeatures?.cardio === true}
+            settingsEnabled={data?.profile?.access_active === true}
+            overview={
+              path === "/profile" &&
+              new URLSearchParams(location.searchStr).get("section") === "offline"
+            }
+            workout={workout}
+          />
         </div>
       </main>
 

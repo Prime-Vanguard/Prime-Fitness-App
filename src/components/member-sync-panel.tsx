@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 import {
   changeMemberState,
@@ -12,15 +12,22 @@ import { adminDate } from "@/lib/admin-format";
 import { AdminChangeReview, type AdminReview } from "./admin-change-review";
 import { Button } from "./ui/button";
 import { Link } from "@tanstack/react-router";
+import { cardioState } from "@/features/cardio/store";
+import { profileSettingsStatus } from "@/lib/offline-profile-settings";
+import { clearQueuedSyncDelay } from "@/lib/queued-sync-access";
 // Present queued changes and explicit conflict recovery without discarding local data.
 export function MemberSyncPanel({
   userId,
   state,
   error,
+  overview,
+  retryQueues,
 }: {
   userId: string;
   state: MemberState;
   error: string;
+  overview?: ReactNode;
+  retryQueues?: (() => Promise<void>) | undefined;
 }) {
   const { locale } = useI18n(),
     ar = locale === "ar",
@@ -28,21 +35,35 @@ export function MemberSyncPanel({
   const [review, setReview] = useState<AdminReview | null>(null),
     [failure, setFailure] = useState(""),
     [busy, setBusy] = useState(false);
+  const [needsConnection, setNeedsConnection] = useState(false);
+  useEffect(() => {
+    if (!needsConnection) return;
+    const clearWarning = () => setNeedsConnection(false);
+    window.addEventListener("online", clearWarning);
+    if (navigator.onLine) clearWarning();
+    return () => window.removeEventListener("online", clearWarning);
+  }, [needsConnection]);
   const lock = useRef(false);
   const counts = mutationSummary(state.queue);
   async function retry() {
     if (lock.current) return;
+    if (!navigator.onLine) {
+      setNeedsConnection(true);
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setFailure("");
     try {
-      await changeMemberState(userId, (s) => ({
-        ...s,
-        queue: s.queue.map((m) =>
-          m.status === "rejected" ? { ...m, status: "queued", error: undefined } : m,
-        ),
-      }));
-      await syncMemberEntries(userId);
+      clearQueuedSyncDelay(userId);
+      if (state.queue.some((entry) => entry.status === "rejected"))
+        await changeMemberState(userId, (s) => ({
+          ...s,
+          queue: s.queue.map((m) =>
+            m.status === "rejected" ? { ...m, status: "queued", error: undefined } : m,
+          ),
+        }));
+      await (retryQueues ? retryQueues() : syncMemberEntries(userId));
     } catch (e) {
       setFailure((e as Error).message);
     } finally {
@@ -135,13 +156,22 @@ export function MemberSyncPanel({
       },
     });
   }
-  if (!state.queue.length && !state.references["mealCopy"] && !error && !failure) return null;
+  if (
+    !overview &&
+    !state.queue.length &&
+    !state.references["mealCopy"] &&
+    !error &&
+    !failure &&
+    !needsConnection
+  )
+    return null;
   return (
     <section
       className="my-4 space-y-4 rounded-xl border border-pending/40 bg-card p-4 sm:p-5"
       aria-label={l("Member sync", "مزامنة السجلات")}
     >
       <h2 className="font-semibold">{l("Sync & recovery", "المزامنة والاسترداد")}</h2>
+      {overview}
       {state.references["mealCopy"] && (
         <p className="text-sm">
           {l(
@@ -183,9 +213,12 @@ export function MemberSyncPanel({
       <p className="text-xs text-muted-foreground">
         {l("Last successful sync", "آخر مزامنة ناجحة")}: {adminDate(state.lastSync, locale)}
       </p>
-      {(error || failure) && (
+      {(error || failure || needsConnection) && (
         <p role="alert" className="break-words text-destructive">
-          {error || failure}
+          {error ||
+            (needsConnection
+              ? l("Reconnect to retry sync.", "أعد الاتصال لإعادة محاولة المزامنة.")
+              : failure)}
         </p>
       )}
       <p className="text-xs text-muted-foreground">
@@ -196,7 +229,11 @@ export function MemberSyncPanel({
       </p>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={busy || !!review} onClick={() => void retry()}>
-          {busy ? l("Retrying…", "جارٍ إعادة المحاولة…") : l("Retry", "إعادة المحاولة")}
+          {busy
+            ? l("Retrying…", "جارٍ إعادة المحاولة…")
+            : overview
+              ? l("Retry sync", "إعادة محاولة المزامنة")
+              : l("Retry", "إعادة المحاولة")}
         </Button>
         <Button variant="outline" disabled={!!error} onClick={download}>
           {l("Export pending data", "تصدير البيانات المعلقة")}
@@ -349,6 +386,21 @@ export function MemberSyncPanel({
                       l(
                         "Resolve the saved meal copy in Nutrition before removing device data.",
                         "تحقق من طلب نسخ الوجبة في التغذية قبل إزالة بيانات الجهاز.",
+                      ),
+                    );
+                  const cardio = cardioState(current.references);
+                  if (cardio.queue.length || (cardio.timer && !cardio.timer.saved))
+                    throw new Error(
+                      l(
+                        "Resolve pending cardio changes and finish the saved timer in Progress before removing device data.",
+                        "عالج تغييرات تمارين القلب المعلقة وأكمل المؤقت المحفوظ في صفحة التقدم قبل إزالة بيانات الجهاز.",
+                      ),
+                    );
+                  if (profileSettingsStatus(current))
+                    throw new Error(
+                      l(
+                        "Resolve pending preferences before removing device data.",
+                        "عالج التفضيلات المعلقة قبل إزالة بيانات الجهاز.",
                       ),
                     );
                   if (

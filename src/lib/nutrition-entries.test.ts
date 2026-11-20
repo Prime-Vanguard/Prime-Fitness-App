@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getSession: vi.fn() } },
+  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getSession: vi.fn(), getUser: vi.fn() } },
 }));
 import { supabase } from "@/integrations/supabase/client";
 import { changeMemberState, readMemberState, syncMemberEntries } from "./member-store";
@@ -33,8 +33,22 @@ beforeEach(async () => {
   };
   await changeMemberState(user, (s) => ({ ...s, records: { food_logs: [{ ...record }] } }));
   vi.mocked(supabase.auth.getSession).mockResolvedValue({
-    data: { session: { user: { id: user } } },
+    data: { session: { user: { id: user }, access_token: "test-token" } },
     error: null,
+  } as never);
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: { id: user } },
+    error: null,
+  } as never);
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({
+          data: { id: user, access_active: true },
+          error: null,
+        }),
+      }),
+    }),
   } as never);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -112,6 +126,7 @@ it("restores against the tombstone revision after the server acknowledges deleti
     mutation = state.queue[0]!,
     undo = foodUndoEntries(state.references)[0]!;
   vi.mocked(supabase.rpc).mockReturnValue({
+    setHeader: vi.fn().mockReturnThis(),
     abortSignal: () =>
       Promise.resolve({
         data: [{ id: mutation.id, status: "applied", record: null, revision: 2 }],

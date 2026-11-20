@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: vi.fn(), auth: { getSession: vi.fn() } },
+  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getSession: vi.fn(), getUser: vi.fn() } },
 }));
 import { supabase } from "@/integrations/supabase/client";
 import { readMemberState } from "@/lib/member-store";
@@ -32,9 +32,23 @@ const state = async () => cardioState((await readMemberState(user)).references);
 beforeEach(() => {
   vi.resetAllMocks();
   user = crypto.randomUUID();
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: { id: user } },
+    error: null,
+  } as never);
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({
+          data: { id: user, access_active: true },
+          error: null,
+        }),
+      }),
+    }),
+  } as never);
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
   vi.mocked(supabase.auth.getSession).mockResolvedValue({
-    data: { session: { user: { id: user } } },
+    data: { session: { user: { id: user }, access_token: "test-token" } },
     error: null,
   } as never);
 });
@@ -59,6 +73,7 @@ it("commits a completed interval timer and its queued log once in one durable op
 function online(response: unknown) {
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
   vi.mocked(supabase.rpc).mockReturnValue({
+    setHeader: vi.fn().mockReturnThis(),
     abortSignal: () => Promise.resolve({ data: response, error: null }),
   } as never);
 }
@@ -85,6 +100,7 @@ it("replays a stable mutation after a lost acknowledgement and merges late repli
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
   let reply!: (v: unknown) => void;
   vi.mocked(supabase.rpc).mockReturnValue({
+    setHeader: vi.fn().mockReturnThis(),
     abortSignal: () =>
       new Promise((resolve) => {
         reply = resolve;
@@ -103,6 +119,42 @@ it("replays a stable mutation after a lost acknowledgement and merges late repli
   online({ status: "applied", record: later.records[0], revision: 2 });
   await syncCardio(user);
   expect((await state()).queue).toHaveLength(0);
+});
+it("keeps a log queued after an unreadable reply but rejects a server refusal", async () => {
+  await saveCardio(user, data());
+  online({ status: "Invalid", record: null, revision: -1 });
+  await syncCardio(user);
+  expect((await state()).queue[0]?.status).toBe("queued");
+
+  const other = crypto.randomUUID();
+  user = other;
+  await saveCardio(user, data());
+  vi.mocked(supabase.rpc).mockReturnValue({
+    setHeader: vi.fn().mockReturnThis(),
+    abortSignal: () =>
+      Promise.resolve({
+        data: null,
+        error: { message: "Active member access required", code: "P0001" },
+        status: 400,
+      }),
+  } as never);
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: { id: user } },
+    error: null,
+  } as never);
+  vi.mocked(supabase.auth.getSession).mockResolvedValue({
+    data: { session: { user: { id: user }, access_token: "test-token" } },
+    error: null,
+  } as never);
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({ data: { id: user, access_active: true }, error: null }),
+      }),
+    }),
+  } as never);
+  await syncCardio(user);
+  expect((await state()).queue[0]?.status).toBe("rejected");
 });
 it("retains conflicts for explicit review and pauses for another signed-in member", async () => {
   const id = await saveCardio(user, data()),

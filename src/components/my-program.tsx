@@ -3,7 +3,7 @@ import { useState } from "react";
 import { LockKeyhole, CalendarDays, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { loadAssignedTraining } from "@/lib/training-assignment";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { parseVersionItems } from "@/lib/program-versions";
@@ -31,28 +31,15 @@ export function MyProgram({
   const catalogue = new Map(exercises.map((exercise) => [exercise.id, exercise]));
   const { data, error, isPending } = useQuery({
     queryKey: ["my-program", userId],
+    networkMode: "always",
     queryFn: async () => {
-      const assignment = await supabase
-        .from("program_assignments")
-        .select("id,program_version_id")
-        .eq("member_id", userId)
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (assignment.error) throw assignment.error;
-      if (!assignment.data) return null;
-      const version = await supabase
-        .from("program_versions")
-        .select("*")
-        .eq("id", assignment.data.program_version_id)
-        .single();
-      if (version.error) throw version.error;
+      const training = await loadAssignedTraining(userId);
+      if (!training) return null;
       return {
-        ...version.data,
-        program_items: parseVersionItems(version.data.items).map((i) => ({
-          ...i,
-          exercises: { name_en: i.name_en, name_ar: i.name_ar },
+        ...training.version,
+        program_items: parseVersionItems(training.version.items).map((item) => ({
+          ...item,
+          exercises: { name_en: item.name_en, name_ar: item.name_ar },
         })),
       };
     },

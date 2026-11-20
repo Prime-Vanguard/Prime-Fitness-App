@@ -22,8 +22,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DeviceSettings } from "@/components/device-settings";
 import { Camera, ChevronDown, ChevronRight, Cloud, LogOut, Settings2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { signOutMember, supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
+import { staffAccess } from "@/features/navigation/workspace";
+import { useMemberData } from "@/hooks/use-member-data";
+import { readMemberState } from "@/lib/member-store";
+import { isTransientConnectionError } from "@/lib/offline-access";
+import {
+  changedProfileSettings,
+  discardBlockedProfileSettings,
+  profileSettingsStatus,
+  queueProfileSettings,
+  type ProfileSettings,
+} from "@/lib/offline-profile-settings";
 import { useGamification } from "@/hooks/use-gamification";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
@@ -79,6 +90,9 @@ function Profile() {
     navigate = Route.useNavigate(),
     section = search.section ?? "account";
   const { data } = useMe(user.id);
+  const { state: memberState } = useMemberData(user.id);
+  const settingsStatus = profileSettingsStatus(memberState);
+  const settingsBlocked = settingsStatus === "conflict" || settingsStatus === "rejected";
   const { data: g } = useGamification(user.id);
   const { t, locale: cur, setLocale } = useI18n();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -94,7 +108,8 @@ function Profile() {
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const [baseline, setBaseline] = useState("");
-  const initializedProfile = useRef<unknown>(null);
+  const initializedProfile = useRef<typeof data>(undefined);
+  const settingsBaseline = useRef<ProfileSettings | null>(null);
   const signingOut = useRef(false);
   const signature = JSON.stringify([name, units, locale, optIn, rest]);
   const dirty = !!baseline && signature !== baseline;
@@ -137,9 +152,9 @@ function Profile() {
     setRest(Number(localStorage.getItem("pf-rest-seconds")) || 90);
   }, []);
   useEffect(() => {
-    if (!data?.profile || initializedProfile.current === data.profile) return;
-    initializedProfile.current = data.profile;
-    if (dirty) return;
+    if (!data?.profile || initializedProfile.current?.profile === data.profile || dirty) return;
+    initializedProfile.current = data;
+    settingsBaseline.current = data.profile;
     setName(data.profile.display_name ?? "");
     setUnits(data.profile.units);
     setLoc(data.profile.locale === "en" ? "en" : "ar");
@@ -155,7 +170,7 @@ function Profile() {
         savedRest,
       ]),
     );
-  }, [data?.profile, dirty]);
+  }, [data, dirty]);
 
   const avatarPath = data?.profile?.avatar_url;
   const { data: avatarUrl } = useQuery({
@@ -185,35 +200,73 @@ function Profile() {
   });
 
   async function save() {
-    if (busy) return;
+    const previous = settingsBaseline.current;
+    if (busy || !previous || !data?.profile?.access_active || settingsBlocked) return;
     setSaveMessage("");
     setSaveError(false);
     setBusy(true);
     try {
-      const { data: saved, error } = await supabase
-        .from("profiles")
-        .update({ display_name: name, units, locale, leaderboard_opt_in: optIn })
-        .eq("id", user.id)
-        .select("id")
-        .maybeSingle();
-      if (error) throw error;
-      if (!saved?.id)
-        throw new Error(
-          ar
-            ? "تعذر حفظ التفضيلات. حدّث الصفحة وحاول مجددًا."
-            : "Could not save preferences. Refresh and try again.",
-        );
+      const patch = changedProfileSettings(previous, {
+        display_name: name === (previous.display_name ?? "") ? previous.display_name : name,
+        units,
+        locale,
+        leaderboard_opt_in: optIn,
+      });
+      let savedOnDevice = false;
+      if (Object.keys(patch).length) {
+        const persistedState = await readMemberState(user.id).catch(() => null);
+        const persistedStatus = persistedState && profileSettingsStatus(persistedState);
+        if (persistedStatus === "conflict" || persistedStatus === "rejected")
+          throw new Error("Pending preferences need review");
+        if (navigator.onLine && !persistedStatus) {
+          const response = await supabase
+            .from("profiles")
+            .update(patch)
+            .eq("id", user.id)
+            .select("id")
+            .maybeSingle();
+          if (!response.error && response.data?.id === user.id) {
+            savedOnDevice = false;
+          } else if (
+            isTransientConnectionError(response.error) ||
+            isTransientConnectionError({ status: response.status })
+          ) {
+            savedOnDevice = true;
+          } else {
+            throw new Error("Profile update was not confirmed");
+          }
+        } else {
+          savedOnDevice = true;
+        }
+        if (savedOnDevice) {
+          if (!data.offlineAccountPrepared) throw new Error("Offline account unavailable");
+          await queueProfileSettings(user.id, previous, patch);
+        }
+        settingsBaseline.current = { ...previous, ...patch };
+      }
       localStorage.setItem("pf-rest-seconds", String(rest));
       setLocale(locale);
       setBaseline(signature);
       qc.invalidateQueries({ queryKey: ["me", user.id] });
-      setSaveMessage(t("saved"));
-    } catch (error) {
+      setSaveMessage(savedOnDevice ? "" : t("saved"));
+    } catch {
       setSaveError(true);
-      setSaveMessage(
-        (error as { message?: string }).message ??
-          (ar ? "تعذر حفظ التفضيلات." : "Could not save preferences."),
-      );
+      setSaveMessage(ar ? "تعذر حفظ التفضيلات." : "Could not save preferences.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function discardPendingSettings() {
+    setBusy(true);
+    setSaveMessage("");
+    try {
+      await discardBlockedProfileSettings(user.id);
+      discardDrafts();
+      await qc.invalidateQueries({ queryKey: ["me", user.id] });
+    } catch {
+      setSaveError(true);
+      setSaveMessage(ar ? "تعذر حذف التغييرات المعلقة." : "Could not discard pending changes.");
     } finally {
       setBusy(false);
     }
@@ -560,13 +613,43 @@ function Profile() {
                   {saveMessage}
                 </p>
               )}
-              <Button onClick={save} disabled={busy || !dirty}>
+              {settingsStatus === "pending" && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {ar
+                    ? "تم الحفظ على هذا الجهاز. بانتظار المزامنة."
+                    : "Saved on this device. Waiting to sync."}
+                </p>
+              )}
+              {settingsBlocked && (
+                <div className="space-y-2">
+                  <p role="alert" className="text-sm">
+                    {settingsStatus === "conflict"
+                      ? ar
+                        ? "تغيرت بعض التفضيلات على جهاز آخر. احذف التغييرات المعلقة لإعادة تعديلها."
+                        : "Some preferences changed on another device. Discard pending edits to edit them again."
+                      : ar
+                        ? "تعذرت مزامنة التفضيلات. احذف التغييرات المعلقة لإعادة تعديلها."
+                        : "Preferences could not sync. Discard pending edits to edit them again."}
+                  </p>
+                  <Button variant="secondary" onClick={discardPendingSettings} disabled={busy}>
+                    {ar ? "حذف التغييرات المعلقة" : "Discard pending edits"}
+                  </Button>
+                </div>
+              )}
+              <Button onClick={save} disabled={busy || !dirty || settingsBlocked}>
                 {t("save")}
               </Button>
             </div>
           </>
         )}
-        {section === "offline" && <DeviceSettings />}
+        {section === "offline" && (
+          <DeviceSettings
+            memberId={user.id}
+            showStaffDownloads={
+              staffAccess(data?.roles ?? [], data?.profile?.access_active === true).staff
+            }
+          />
+        )}
         {section === "account" && (
           <>
             {/* Show actual account details; the mockup's passkey and ecosystem claims
@@ -718,7 +801,7 @@ function Profile() {
               setSignOutError("");
               signingOut.current = true;
               discardDrafts();
-              const result = await supabase.auth.signOut();
+              const result = await signOutMember();
               if (result.error) {
                 signingOut.current = false;
                 setSignOutError(result.error.message);

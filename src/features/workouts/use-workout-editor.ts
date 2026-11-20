@@ -300,7 +300,8 @@ export function useWorkoutEditor({
     if (left)
       updateDraft({
         reps: String(left.duration_seconds ?? left.reps ?? ""),
-        weight: left.weight_kg == null ? "" : String(displayWeight(left.weight_kg, units)),
+        weight:
+          left.weight_kg == null ? "" : String(formatMeasure(displayWeight(left.weight_kg, units))),
         rpe: "",
       });
   }

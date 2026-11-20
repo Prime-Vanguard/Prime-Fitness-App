@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { targetInput } from "@/lib/numeric-input";
+import { readOfflineIdentity } from "./offline-access";
+import { loadStaffSummaryMember, verifyStaffDownloadAuthority } from "./staff-offline-access";
 
 type Role = Database["public"]["Enums"]["app_role"];
 export type TargetRow = Database["public"]["Tables"]["nutrition_targets"]["Row"];
@@ -94,20 +96,29 @@ export async function saveAdminTargets(
   member: string,
   values: TargetValues,
   original: TargetRow | null,
+  source: "online" | "device" = "online",
 ) {
-  await requireActiveAdmin(actor);
+  let authorization: string | undefined;
+  if (source === "device") {
+    const authority = await verifyStaffDownloadAuthority(actor);
+    if (!authority?.admin || !(await loadStaffSummaryMember(authority, member)))
+      throw new Error("Active administrator access is required. Your draft is retained.");
+    authorization = authority.authorization;
+  } else {
+    await requireActiveAdmin(actor);
+  }
   // Validate at the operation boundary too; blank means unset, never an invented zero.
   targetInput(
     Object.fromEntries(
       keys.map((key) => [key, values[key] == null ? "" : String(values[key])]),
     ) as Parameters<typeof targetInput>[0],
   );
-  const current = await supabase
-    .from("nutrition_targets")
-    .select("*")
-    .eq("member_id", member)
-    .maybeSingle();
+  const currentQuery = supabase.from("nutrition_targets").select("*").eq("member_id", member);
+  if (authorization) currentQuery.setHeader("Authorization", authorization);
+  const current = await currentQuery.maybeSingle();
   if (current.error) throw current.error;
+  if (authorization && readOfflineIdentity()?.id !== actor)
+    throw new Error("The signed-in account changed.");
   if (sameTargets(current.data, values)) return current.data!; // Reconcile a lost acknowledgement.
   if (
     (current.data?.updated_at ?? null) !== (original?.updated_at ?? null) ||
@@ -128,6 +139,7 @@ export async function saveAdminTargets(
       update = original[key] == null ? update.is(key, null) : update.eq(key, original[key]!);
     request = update.select("*").maybeSingle();
   } else request = supabase.from("nutrition_targets").insert(payload).select("*").single();
+  if (authorization) request.setHeader("Authorization", authorization);
   const result = await request;
   if (result.error) throw result.error;
   if (!result.data || !sameTargets(result.data, values))

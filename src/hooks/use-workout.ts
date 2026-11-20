@@ -9,6 +9,7 @@ import {
   type Workout,
 } from "@/lib/workout-store";
 import { syncWorkout } from "@/lib/workout-sync";
+import { clearQueuedSyncDelay } from "@/lib/queued-sync-access";
 import { mergeExerciseSnapshots, type PlanItem } from "@/lib/training-tools";
 import { fetchAll } from "@/lib/pagination";
 import { parseVersionItems } from "@/lib/program-versions";
@@ -48,7 +49,7 @@ export function useWorkout(userId: string) {
     window.addEventListener("online", retry);
     window.addEventListener("offline", retry);
     window.addEventListener("focus", retry);
-    // Shell WorkoutSync owns periodic retries; this view keeps immediate/manual triggers.
+    // The shell owns periodic retries; this view keeps immediate/manual triggers.
     // Seed reference data and any already-open remote session. Pending local
     // data always wins and is never replaced by a stale network response.
     void (async () => {
@@ -203,5 +204,17 @@ export function useWorkout(userId: string) {
     });
     void navigator.storage?.persist?.().catch(() => {});
   };
-  return { workout, ready, error, online, change, start, retry: () => syncWorkout(userId) };
+  return {
+    workout,
+    ready,
+    error,
+    online,
+    change,
+    start,
+    retry: () => {
+      clearQueuedSyncDelay(userId, "access");
+      clearQueuedSyncDelay(userId, "workout");
+      return syncWorkout(userId);
+    },
+  };
 }

@@ -20,6 +20,7 @@ export function pwaAssets(): Plugin {
         "/today",
         "/nutrition",
         "/progress",
+        "/profile",
         "/offline.html",
         "/manifest.webmanifest",
         "/icon-192.png",

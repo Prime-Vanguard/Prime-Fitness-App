@@ -3,9 +3,10 @@
 const BASE = __BASE_PATH__;
 const PREFIX = "pf-shell-" + encodeURIComponent(BASE) + "-";
 const CACHE = PREFIX + "__BUILD_ID__";
-const SHELLS = ["train", "today", "nutrition", "progress"].map((path) => BASE + path);
+const SHELLS = ["train", "today", "nutrition", "progress", "profile"].map((path) => BASE + path);
 const ASSETS = __PRECACHE__;
 const STATIC = new Set(ASSETS);
+const cachedResponse = (path) => caches.match(path, { cacheName: CACHE }).catch(() => undefined);
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
 });
@@ -30,26 +31,28 @@ self.addEventListener("fetch", (event) => {
   const path = url.pathname.replace(/\/$/, "") || "/";
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(async () => {
-        const cache = await caches.open(CACHE);
+      (async () => {
         if (SHELLS.includes(path)) {
-          const saved = (await cache.match(path)) || (await cache.match(BASE + "offline.html"));
+          // Keep the shell and its assets on the controlling worker's build
+          // while a newer worker waits for the existing clients to close.
+          const saved = await cachedResponse(path);
           // Pages redirects directories to trailing slashes. Navigation requests
           // cannot replay a Response with redirected=true while offline.
-          return saved
-            ? new Response(saved.body, { status: saved.status, headers: saved.headers })
-            : Response.error();
+          if (saved)
+            return new Response(saved.body, { status: saved.status, headers: saved.headers });
         }
-        if (url.pathname === BASE || url.pathname === BASE.slice(0, -1))
-          return Response.redirect(new URL(BASE + "train", self.location.origin), 302);
-        return cache.match(BASE + "offline.html");
-      }),
+        try {
+          return await fetch(request);
+        } catch {
+          if (url.pathname === BASE || url.pathname === BASE.slice(0, -1))
+            return Response.redirect(new URL(BASE + "train", self.location.origin), 302);
+          return (await cachedResponse(BASE + "offline.html")) || Response.error();
+        }
+      })(),
     );
     return;
   }
   if (STATIC.has(url.pathname) && !SHELLS.includes(path) && !url.search) {
-    event.respondWith(
-      caches.open(CACHE).then(async (cache) => (await cache.match(url.pathname)) || fetch(request)),
-    );
+    event.respondWith(cachedResponse(url.pathname).then((response) => response || fetch(request)));
   }
 });

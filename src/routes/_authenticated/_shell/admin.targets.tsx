@@ -1,5 +1,5 @@
-import { createFileRoute, useBlocker } from "@tanstack/react-router";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { createFileRoute, Link, useBlocker } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { targetInput } from "@/lib/numeric-input";
 import { fetchAll } from "@/lib/pagination";
+import {
+  downloadOfflineTargets,
+  loadOfflineTargetForReview,
+  markTargetDraftConfirmed,
+} from "@/lib/offline-target-drafts";
 
 export const Route = createFileRoute("/_authenticated/_shell/admin/targets")({
   head: () => ({
@@ -201,12 +206,19 @@ function TargetEditor({
   const { t, locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const qc = useQueryClient();
-  const [draft, setDraft] = useState<{ baseline: TargetRow | null; form: Form } | null>(null);
+  const [draft, setDraft] = useState<{
+    baseline: TargetRow | null;
+    form: Form;
+    deviceRevision?: string;
+  } | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [review, setReview] = useState<AdminReview | null>(null);
   const [reload, setReload] = useState(false);
   const [reloading, setReloading] = useState(false);
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState("");
+  const offlineOperation = useRef(false);
   const current = useQuery({
     queryKey: ["targets", member, actor],
     enabled,
@@ -245,6 +257,55 @@ function TargetEditor({
     current.data !== undefined &&
     (draft.baseline?.updated_at !== current.data?.updated_at ||
       fields.some(([key]) => draft.baseline?.[key] !== current.data?.[key]));
+  async function handleOfflineDraft(action: "download" | "load") {
+    if (offlineOperation.current || !enabled) return;
+    offlineOperation.current = true;
+    setOfflineBusy(true);
+    setOfflineNotice("");
+    setError("");
+    try {
+      if (action === "download") {
+        const result = await downloadOfflineTargets(actor, member);
+        const messages = {
+          saved: l("Targets saved on this device.", "تم حفظ الأهداف على هذا الجهاز."),
+          denied: l("This member’s targets are unavailable.", "أهداف هذا العضو غير متاحة."),
+          full: l("Remove a target copy to make room.", "أزل نسخة من الأهداف لإفساح المجال."),
+          "has-draft": l(
+            "A draft already exists for this member.",
+            "توجد مسودة لهذا العضو بالفعل.",
+          ),
+        };
+        setOfflineNotice(messages[result]);
+        return;
+      }
+      const loaded = await loadOfflineTargetForReview(actor, member);
+      if (!loaded) {
+        setOfflineNotice(l("No saved draft for this member.", "لا توجد مسودة محفوظة لهذا العضو."));
+        return;
+      }
+      qc.setQueryData(["targets", member, actor], loaded.baseline);
+      setDraft({ baseline: loaded.baseline, form: loaded.form, deviceRevision: loaded.revision });
+      setSaved(false);
+      setOfflineNotice(
+        loaded.conflict
+          ? l(
+              "Some targets you edited changed online. Compare the current and proposed values before confirming.",
+              "تغيرت بعض الأهداف التي عدّلتها عبر الإنترنت. قارن القيم الحالية والمقترحة قبل التأكيد.",
+            )
+          : l("Device draft loaded for review.", "تم تحميل مسودة الجهاز للمراجعة."),
+      );
+    } catch {
+      setError(
+        l(
+          "Could not open device targets. Check your connection and permissions.",
+          "تعذر فتح أهداف الجهاز. تحقق من الاتصال والصلاحيات.",
+        ),
+      );
+    } finally {
+      offlineOperation.current = false;
+      setOfflineBusy(false);
+    }
+  }
   async function reloadTargets() {
     setReloading(true);
     try {
@@ -265,7 +326,7 @@ function TargetEditor({
     event.preventDefault();
     setError("");
     setSaved(false);
-    if (!draft || current.error || reloading || !enabled) return;
+    if (!draft || current.error || reloading || offlineOperation.current || !enabled) return;
     try {
       const values = targetInput(draft.form);
       if (sameTargets(draft.baseline, values)) {
@@ -293,12 +354,32 @@ function TargetEditor({
           </dl>
         ),
         save: async () => {
-          const accepted = await saveAdminTargets(actor, member, values, draft.baseline);
+          const accepted = await saveAdminTargets(
+            actor,
+            member,
+            values,
+            draft.baseline,
+            draft.deviceRevision ? "device" : "online",
+          );
           setDraft({ baseline: accepted, form: formOf(accepted) });
           setSaved(true);
           qc.setQueryData(["targets", member, actor], accepted);
           void qc.invalidateQueries({ queryKey: ["targets", member] });
           void qc.invalidateQueries({ queryKey: ["coach-member-nutrition", actor, member] });
+          if (draft.deviceRevision) {
+            try {
+              await markTargetDraftConfirmed(actor, member, draft.deviceRevision, accepted);
+              setOfflineNotice("");
+              void qc.invalidateQueries({ queryKey: ["offline-nutrition-targets", actor] });
+            } catch {
+              setOfflineNotice(
+                l(
+                  "The server saved the targets. This device could not clear the reviewed draft.",
+                  "حفظ الخادم الأهداف. تعذر مسح المسودة التي راجعتها من هذا الجهاز.",
+                ),
+              );
+            }
+          }
         },
       });
     } catch (failure) {
@@ -354,7 +435,9 @@ function TargetEditor({
                         className="mt-1"
                         aria-label={label}
                         inputMode="numeric"
-                        disabled={!!review || !enabled || reloading || !!current.error}
+                        disabled={
+                          !!review || !enabled || reloading || offlineBusy || !!current.error
+                        }
                         value={draft.form[key]}
                         onChange={(event) => {
                           setDraft({
@@ -387,19 +470,54 @@ function TargetEditor({
           <div className="flex flex-wrap gap-3 border-t border-border pt-5">
             <Button
               type="submit"
-              disabled={!dirty || !enabled || reloading || !!review || !!current.error}
+              disabled={
+                !dirty || !enabled || reloading || offlineBusy || !!review || !!current.error
+              }
             >
               {l("Review targets", "مراجعة الأهداف")}
             </Button>
             <Button
               type="button"
               variant="outline"
-              disabled={reloading || !!review || !enabled}
+              disabled={reloading || offlineBusy || !!review || !enabled}
               onClick={() => setReload(true)}
             >
               {l("Reload saved targets", "إعادة تحميل الأهداف المحفوظة")}
             </Button>
           </div>
+          {actor !== member && (
+            <div className="space-y-2 border-t border-border pt-4">
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={offlineBusy || reloading || !!review || !enabled}
+                  onClick={() => void handleOfflineDraft("download")}
+                >
+                  {l(
+                    "Download targets for offline drafting",
+                    "تنزيل الأهداف لإعداد مسودة دون اتصال",
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={dirty || offlineBusy || reloading || !!review || !enabled}
+                  onClick={() => void handleOfflineDraft("load")}
+                >
+                  {l("Load device draft", "تحميل مسودة الجهاز")}
+                </Button>
+              </div>
+              {offlineNotice && (
+                <p role="status" className="text-sm">
+                  {offlineNotice}
+                </p>
+              )}
+              <Link className="text-sm underline" to="/profile" search={{ section: "offline" }}>
+                {l("Open App & offline", "فتح إعدادات التطبيق والعمل دون اتصال")}
+              </Link>
+            </div>
+          )}
         </form>
       )}
       <AdminChangeReview review={review} close={() => setReview(null)} />

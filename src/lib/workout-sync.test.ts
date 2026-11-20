@@ -14,16 +14,25 @@ const mock = vi.hoisted(() => ({
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    auth: { getSession: async () => ({ data: { session: { user: { id: mock.user } } } }) },
+    auth: {
+      getSession: async () => ({
+        data: { session: { user: { id: mock.user }, access_token: "test-token" } },
+      }),
+      getUser: async () => ({ data: { user: { id: mock.user } }, error: null }),
+    },
     from: (table: string) => {
       let row: Record<string, unknown> = {},
         operation = "read";
       const query = {
+        setHeader: () => query,
         select: () => query,
         eq: () => query,
         is: () => query,
         maybeSingle: async () => ({
-          data: { id: "session", finished_at: mock.serverFinished },
+          data:
+            table === "profiles"
+              ? { id: mock.user, access_active: true }
+              : { id: "session", finished_at: mock.serverFinished },
           error: null,
         }),
         update: () => {
@@ -169,4 +178,17 @@ it("recovers the same receipt after a lost finish acknowledgement without a seco
   await syncWorkout(mock.user);
   expect((await readWorkout(mock.user)).completion).toEqual(receipt);
   expect(mock.finishes).toBe(0);
+});
+
+it("skips an open workout that the server has fully acknowledged", async () => {
+  const { workoutNeedsSync } = await import("./workout-sync");
+  const base = emptyWorkout("member");
+  const session = { id: "session", started_at: "2026-11-20T10:00:00.000Z", synced: true };
+  const idle = { ...base, session } as unknown as Parameters<typeof workoutNeedsSync>[0];
+  expect(workoutNeedsSync(base)).toBe(false);
+  expect(workoutNeedsSync(idle)).toBe(false);
+  expect(workoutNeedsSync({ ...idle, session: { ...session, synced: false } } as never)).toBe(true);
+  expect(workoutNeedsSync({ ...idle, phase: "finishing" })).toBe(true);
+  expect(workoutNeedsSync({ ...idle, error: "Connection interrupted" })).toBe(true);
+  expect(workoutNeedsSync({ ...idle, sets: [{ id: "set", sync: "pending" }] } as never)).toBe(true);
 });

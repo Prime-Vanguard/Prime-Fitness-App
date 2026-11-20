@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   emptyMemberState,
   readMemberState,
-  changeMemberState,
   watchMemberState,
   syncMemberEntries,
   type MemberEntity,
@@ -10,44 +9,31 @@ import {
   cacheMemberRecords,
   beginMemberRead,
 } from "@/lib/member-store";
-import { activityDay, addDays } from "@/lib/dates";
-// Observe member-scoped device data and retain pending entries when pruning history.
+// Observe device data without pruning explicitly downloaded history or pending work.
 export function useMemberData(userId: string) {
-  const [state, setState] = useState(emptyMemberState);
-  const [error, setError] = useState("");
+  const [snapshot, setSnapshot] = useState(() => ({
+    memberId: userId,
+    state: emptyMemberState(),
+    error: "",
+  }));
   useEffect(() => {
     let alive = true;
     const read = () =>
       void readMemberState(userId)
         .then((s) => {
           if (alive) {
-            setState(s);
-            setError("");
+            setSnapshot({ memberId: userId, state: s, error: "" });
           }
         })
         .catch((e) => {
-          if (alive) setError(String(e.message));
+          if (alive)
+            setSnapshot((previous) => ({
+              memberId: userId,
+              state: previous.memberId === userId ? previous.state : emptyMemberState(),
+              error: String(e.message),
+            }));
         });
-    void changeMemberState(userId, (s) => {
-      const cutoff = addDays(activityDay(), -6);
-      const records = { ...s.records };
-      for (const entity of [
-        "food_logs",
-        "water_logs",
-        "body_measurements",
-        "wellness_checkins",
-      ] as const) {
-        const pending = new Set(s.queue.filter((m) => m.entity === entity).map((m) => m.record_id));
-        records[entity] = (records[entity] ?? []).filter(
-          (r) => pending.has(r.id) || String(r.log_date ?? r.measured_on ?? "") >= cutoff,
-        );
-      }
-      return { ...s, records };
-    })
-      .then(read)
-      .catch((e) => {
-        if (alive) setError(String(e.message));
-      });
+    read();
     const stop = watchMemberState(read);
     window.addEventListener("online", read);
     window.addEventListener("offline", read);
@@ -58,7 +44,11 @@ export function useMemberData(userId: string) {
       window.removeEventListener("offline", read);
     };
   }, [userId]);
-  return { state, error, retry: () => syncMemberEntries(userId) };
+  return {
+    state: snapshot.memberId === userId ? snapshot.state : emptyMemberState(),
+    error: snapshot.memberId === userId ? snapshot.error : "",
+    retry: () => syncMemberEntries(userId),
+  };
 }
 export { beginMemberRead };
 export async function retainMemberRows(

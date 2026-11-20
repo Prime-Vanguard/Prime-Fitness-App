@@ -11,6 +11,11 @@ import { Label } from "@/components/ui/label";
 import { useI18n } from "@/lib/i18n";
 import { authCopy, type AuthMessage } from "@/lib/auth-copy";
 import {
+  reauthenticationMemberId,
+  watchOfflineReauthentication,
+  withConnectionTimeout,
+} from "@/lib/offline-access";
+import {
   authErrorMessage,
   confirmationUrl,
   hasAuthLinkError,
@@ -39,6 +44,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const search = Route.useSearch();
   const target = safeAuthRedirect(search.redirect);
+  const [returningMemberId, setReturningMemberId] = useState(reauthenticationMemberId);
   const navigate = useNavigate();
   const { locale } = useI18n();
   const c = authCopy[locale];
@@ -57,14 +63,26 @@ function AuthPage() {
   const [deadline, setDeadline] = useState(0);
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
+    const readHint = () =>
+      setReturningMemberId((previous) => previous ?? reauthenticationMemberId());
+    const stop = watchOfflineReauthentication(readHint);
+    readHint();
+    return stop;
+  }, []);
+  useEffect(() => {
     let alive = true;
     void (async () => {
       try {
-        const session = await supabase.auth.getSession();
-        if (session.data.session) {
-          const verified = await supabase.auth.getUser();
+        if (navigator.onLine) {
+          const verified = await withConnectionTimeout(supabase.auth.getUser());
           if (!verified.error && verified.data.user && alive)
-            await navigate({ to: target, replace: true });
+            await navigate({
+              to:
+                returningMemberId && verified.data.user.id !== returningMemberId
+                  ? "/today"
+                  : target,
+              replace: true,
+            });
         }
       } catch {
         /* A failed check must not prevent manual sign-in. */
@@ -75,7 +93,7 @@ function AuthPage() {
     return () => {
       alive = false;
     };
-  }, [navigate, target]);
+  }, [navigate, returningMemberId, target]);
   useEffect(() => {
     const tick = () => setSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
     tick();
@@ -122,19 +140,26 @@ function AuthPage() {
         const r = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (r.error) throw r.error;
         setPassword("");
-        await navigate({ to: target, replace: true });
+        await navigate({
+          to: returningMemberId && r.data.user?.id !== returningMemberId ? "/today" : target,
+          replace: true,
+        });
       } else if (mode === "signup") {
         const r = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
-            emailRedirectTo: confirmationUrl(window.location.origin, target),
+            emailRedirectTo: confirmationUrl(
+              window.location.origin,
+              returningMemberId ? "/today" : target,
+            ),
             data: { display_name: name.trim() },
           },
         });
         if (r.error) throw r.error;
         setPassword("");
-        if (r.data.session) await navigate({ to: target, replace: true });
+        if (r.data.session)
+          await navigate({ to: returningMemberId ? "/today" : target, replace: true });
         else {
           setMode("confirm");
           setNotice("inbox");
@@ -149,7 +174,12 @@ function AuthPage() {
             : await supabase.auth.resend({
                 type: "signup",
                 email: cleanEmail,
-                options: { emailRedirectTo: confirmationUrl(window.location.origin, target) },
+                options: {
+                  emailRedirectTo: confirmationUrl(
+                    window.location.origin,
+                    returningMemberId ? "/today" : target,
+                  ),
+                },
               });
         if (r.error) throw r.error;
         setNotice(mode === "forgot" ? "resetSent" : "inbox");
@@ -180,6 +210,13 @@ function AuthPage() {
           : c.resend;
   return (
     <OnboardingShell title={c[mode]} subtitle={c.members} focusKey={mode} languageLocked={busy}>
+      {returningMemberId && mode === "signin" && (
+        <p role="status" className="rounded-lg border border-border bg-card p-3 text-sm">
+          {locale === "ar"
+            ? "سجّل الدخول مجددًا بالحساب نفسه لاستئناف العمل المحفوظ على هذا الجهاز."
+            : "Sign in again with the same account to resume work saved on this device."}
+        </p>
+      )}
       {checking ? (
         <p role="status" className="flex items-center gap-2 text-sm">
           <LoaderCircle

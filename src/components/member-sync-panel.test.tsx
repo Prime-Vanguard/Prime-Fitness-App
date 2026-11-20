@@ -106,3 +106,35 @@ it("keeps pending records when device removal encounters an unconfirmed reward r
   );
   expect(latest.queue).toHaveLength(1);
 });
+
+it("protects preference changes saved after the device removal review opened", async () => {
+  const latest = {
+    ...structuredClone(state),
+    references: {
+      profileSettingsQueue: {
+        version: 1,
+        entries: [
+          {
+            id: crypto.randomUUID(),
+            status: "pending",
+            baseline: {
+              display_name: "Before",
+              units: "metric",
+              locale: "en",
+              leaderboard_opt_in: false,
+            },
+            patch: { display_name: "After" },
+          },
+        ],
+      },
+    },
+  };
+  vi.mocked(changeMemberState).mockImplementation(async (_user, update) => update(latest));
+  await mount();
+  await click("Remove device data");
+  await click("Confirm changes");
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+    "Resolve pending preferences",
+  );
+  expect(latest.references.profileSettingsQueue.entries).toHaveLength(1);
+});

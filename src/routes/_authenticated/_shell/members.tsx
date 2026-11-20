@@ -8,6 +8,7 @@ import { useActivityDay } from "@/hooks/use-activity-day";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StaffSummaryDownloadButton } from "@/components/staff-offline-downloads";
 import { levelFor, rankFor } from "@/lib/levels";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -97,6 +98,15 @@ function Page() {
         eyebrow={l("People workspace", "مساحة الأعضاء والفرق")}
         eyebrowTone="accent"
       />
+      <p className="mt-3 text-sm text-muted-foreground">
+        {l(
+          "Save individual workout summaries for this device.",
+          "احفظ ملخصات تمارين الأعضاء على هذا الجهاز.",
+        )}{" "}
+        <Link to="/profile" search={{ section: "offline" }} className="underline">
+          {l("View saved staff summaries", "عرض ملخصات الفريق المحفوظة")}
+        </Link>
+      </p>
       <div className="mt-5 grid gap-4 rounded-xl bg-card p-4 sm:grid-cols-[1fr_14rem_auto]">
         <form
           className="text-sm"
@@ -256,6 +266,7 @@ function Page() {
                           </dd>
                         </div>
                       </dl>
+                      <StaffSummaryDownloadButton actor={user.id} memberId={member.id} />
                     </li>
                   );
                 })}
@@ -277,6 +288,7 @@ function Page() {
                           </th>
                         ),
                       )}
+                      <th className="p-3 text-start">{l("Offline", "دون اتصال")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -322,6 +334,9 @@ function Page() {
                             <bdi>{summary ? (summary.last ?? t("never")) : "—"}</bdi>
                           </td>
                           <td className="p-3 tabular-nums">{summary?.week ?? "—"}</td>
+                          <td className="p-3">
+                            <StaffSummaryDownloadButton actor={user.id} memberId={member.id} />
+                          </td>
                         </tr>
                       );
                     })}

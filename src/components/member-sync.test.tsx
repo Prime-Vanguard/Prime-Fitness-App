@@ -5,7 +5,13 @@ vi.mock("@tanstack/react-query", () => ({ useQueryClient: () => client }));
 vi.mock("@/hooks/use-member-data", () => ({ useMemberData: () => ({ state: {}, error: "" }) }));
 vi.mock("./member-sync-panel", () => ({ MemberSyncPanel: () => null }));
 vi.mock("@/lib/member-store", () => ({ syncMemberEntries: vi.fn(), watchMemberSync: vi.fn() }));
+vi.mock("@/lib/workout-sync", () => ({ syncWorkout: vi.fn() }));
+vi.mock("@/features/cardio/store", () => ({ syncCardio: vi.fn() }));
+vi.mock("@/lib/offline-profile-settings", () => ({ syncProfileSettings: vi.fn() }));
 import { syncMemberEntries, watchMemberSync } from "@/lib/member-store";
+import { syncWorkout } from "@/lib/workout-sync";
+import { syncCardio } from "@/features/cardio/store";
+import { syncProfileSettings } from "@/lib/offline-profile-settings";
 import { MemberSync } from "./member-sync";
 const client = { invalidateQueries: vi.fn().mockResolvedValue(undefined) };
 let root: Root;
@@ -73,4 +79,23 @@ it("stops old account callbacks and avoids remote refreshes while hidden", async
   expect(client.invalidateQueries).toHaveBeenCalledTimes(6);
   for (const [options] of client.invalidateQueries.mock.calls)
     expect(options.queryKey[1]).toBe("new");
+});
+
+it("starts the enabled queues together on reconnect and refreshes only a changed profile", async () => {
+  const connection = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  const pendingWorkout = new Promise<void>(() => {});
+  vi.mocked(syncWorkout).mockReturnValue(pendingWorkout);
+  vi.mocked(syncCardio).mockResolvedValue(undefined);
+  vi.mocked(syncProfileSettings).mockResolvedValue(true);
+  await act(async () => {
+    root.render(<MemberSync userId="member" workoutsEnabled cardioEnabled settingsEnabled />);
+  });
+  expect(syncWorkout).not.toHaveBeenCalled();
+  expect(syncMemberEntries).not.toHaveBeenCalled();
+  connection.mockReturnValue(true);
+  await act(async () => window.dispatchEvent(new Event("online")));
+  for (const sync of [syncWorkout, syncMemberEntries, syncCardio, syncProfileSettings]) {
+    expect(sync).toHaveBeenCalledExactlyOnceWith("member");
+  }
+  expect(client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["me", "member"] });
 });

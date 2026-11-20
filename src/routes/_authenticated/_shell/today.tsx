@@ -1,3 +1,4 @@
+import { offlineHistoryStart } from "@/lib/offline-window";
 import { fetchAll } from "@/lib/pagination";
 import { useShields } from "@/hooks/use-shields";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -16,10 +17,8 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { currentStreak, weekStart, weeklyQuests } from "@/lib/streaks";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
-import { useMemberData, retainMemberRows, beginMemberRead } from "@/hooks/use-member-data";
-import { changeMemberState } from "@/lib/member-store";
-import { addDays } from "@/lib/dates";
-import type { Json } from "@/integrations/supabase/types";
+import { useMemberData, beginMemberRead } from "@/hooks/use-member-data";
+import { cacheNutritionWindow } from "@/lib/member-store";
 import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 import { useWorkoutSummary } from "@/hooks/use-workout-summary";
 
@@ -115,7 +114,7 @@ function Today() {
               .from("food_logs")
               .select("*")
               .eq("member_id", user.id)
-              .gte("log_date", addDays(today, -6))
+              .gte("log_date", offlineHistoryStart(today))
               .lte("log_date", today)
               .order("log_date")
               .order("id")
@@ -128,7 +127,7 @@ function Today() {
               .from("water_logs")
               .select("*")
               .eq("member_id", user.id)
-              .gte("log_date", addDays(today, -6))
+              .gte("log_date", offlineHistoryStart(today))
               .lte("log_date", today)
               .order("id")
               .range(from, to),
@@ -154,18 +153,15 @@ function Today() {
           .maybeSingle(),
       ]);
       for (const r of [targets, body, claims, open]) if (r.error) throw r.error;
-      if (features?.offline) {
-        const foodCached = await retainMemberRows(user.id, "food_logs", food, cacheToken);
-        const waterCached = await retainMemberRows(user.id, "water_logs", water, cacheToken);
-        await changeMemberState(user.id, (state) => ({
-          ...state,
-          references: {
-            ...state.references,
-            targets: targets.data as Json,
-            foodWindow: { from: addDays(today, -6), to: today },
-          },
-        }));
-      }
+      if (features?.offline)
+        await cacheNutritionWindow(
+          user.id,
+          food,
+          water,
+          { from: offlineHistoryStart(today), to: today },
+          targets.data,
+          cacheToken,
+        );
       return {
         sessions,
         food,
@@ -331,7 +327,7 @@ function Today() {
           <StreakShields
             userId={user.id}
             today={today}
-            activeDays={[...workoutDays, ...foodDays]}
+            activeDays={activity?.flatMap((day) => (day.activity_date ? [day.activity_date] : []))}
           />
         </section>
         <section className="rounded-xl bg-card p-4">
