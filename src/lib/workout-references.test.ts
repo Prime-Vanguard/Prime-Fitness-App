@@ -117,3 +117,29 @@ it("keeps custom rest settings separate by member and exercise slot", async () =
   await expect(saveRestPreference(context.member, "bench:first", 0)).rejects.toThrow();
   expect(await readRestPreference(context.member, "bench:first")).toBe(141);
 });
+
+it("returns the previous session's working sets in logged order for the Prev column", async () => {
+  const last = crypto.randomUUID(),
+    older = crypto.randomUUID();
+  const row = (session: string, weight: number, at: string) => ({
+    id: crypto.randomUUID(),
+    session_id: session,
+    exercise_id: context.exercise,
+    reps: 8,
+    duration_seconds: null,
+    weight_kg: weight,
+    created_at: at,
+    slot_key: context.slot,
+    workout_sessions: { finished_at: "2026-10-20T11:00:00Z", origin: "native" },
+  });
+  // Newest first, as the query orders them.
+  backend.rows = [
+    row(last, 65, "2026-10-20T10:10:00Z"),
+    row(last, 62.5, "2026-10-20T10:05:00Z"),
+    row(last, 60, "2026-10-20T10:00:00Z"),
+    row(older, 55, "2026-10-13T10:00:00Z"),
+  ];
+  const result = await loadPreviousPerformance(context);
+  expect(result?.weight_kg).toBe(65);
+  expect(result?.sets.map((set) => set.weight_kg)).toEqual([60, 62.5, 65]);
+});

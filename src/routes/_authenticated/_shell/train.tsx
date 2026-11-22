@@ -138,6 +138,7 @@ function Train() {
         w.completion && (
           <WorkoutComplete
             receipt={w.completion}
+            memberId={user.id}
             units={units}
             onDismiss={() => {
               void controller

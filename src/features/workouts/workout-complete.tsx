@@ -1,4 +1,9 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/pagination";
+import { personalRecords } from "@/lib/records";
+import { MUSCLE_AR } from "@/lib/muscle-volume";
 import { CheckCircle2, Clock3, Dumbbell, Weight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
@@ -9,15 +14,49 @@ import type { WorkoutCompletion } from "@/lib/workout-completion";
 /** Presentation of the last server-accepted native session; never computes awards. */
 export function WorkoutComplete({
   receipt,
+  memberId,
   units,
   onDismiss,
 }: {
   receipt: WorkoutCompletion;
+  memberId: string;
   units: Units;
   onDismiss: () => void;
 }) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+  const top = receipt.topSets ?? [];
+  // Earlier bests decide "New best"; offline or failed reads simply show no badge.
+  const prior = useQuery({
+    queryKey: ["completion-prior-bests", memberId, receipt.id],
+    enabled: top.length > 0 && navigator.onLine,
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () =>
+      personalRecords(
+        await fetchAll(
+          (from, to) =>
+            supabase
+              .from("set_logs")
+              .select("id,exercise_id,weight_kg,reps,created_at,set_role,logging_mode,side")
+              .eq("member_id", memberId)
+              .in(
+                "exercise_id",
+                top.map((set) => set.exerciseId),
+              )
+              .neq("session_id", receipt.id)
+              .eq("set_role", "working")
+              .eq("logging_mode", "weighted_reps")
+              .eq("side", "bilateral")
+              .eq("load_convention", "external_total")
+              .order("id")
+              .range(from, to),
+          (row) => row.id,
+        ),
+      ),
+  });
+  const ranges = receipt.repRanges;
+  const rangeTotal = ranges ? ranges.strength + ranges.hypertrophy + ranges.endurance : 0;
   return (
     <section
       className="my-5 space-y-5"
@@ -25,10 +64,7 @@ export function WorkoutComplete({
       data-workout-complete
     >
       <header className="space-y-2">
-        <p
-          role="status"
-          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-400"
-        >
+        <p role="status" className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
           <CheckCircle2 aria-hidden className="size-4 shrink-0" />
           {l("Workout complete · synced", "اكتمل التمرين · تمت المزامنة")}
         </p>
@@ -63,7 +99,7 @@ export function WorkoutComplete({
           },
         ].map(({ label, value, Icon }) => (
           <div key={label} className="min-w-0 rounded-xl bg-card p-4">
-            <dt className="flex items-center justify-between gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+            <dt className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{label}</span>
               <Icon aria-hidden className="size-4 shrink-0" />
             </dt>
@@ -73,6 +109,85 @@ export function WorkoutComplete({
           </div>
         ))}
       </dl>
+      {!!receipt.muscles?.length && (
+        <section className="space-y-2" aria-label={l("Muscles worked", "العضلات المستهدفة")}>
+          <h3 className="font-heading text-base font-bold">
+            {l("Muscles worked", "العضلات المستهدفة")}
+          </h3>
+          <ul className="flex flex-wrap gap-2">
+            {receipt.muscles.map(({ muscle, sets }) => (
+              <li key={muscle} className="rounded-full bg-card px-3 py-1.5 text-sm">
+                {locale === "ar"
+                  ? MUSCLE_AR[muscle]
+                  : muscle.charAt(0).toUpperCase() + muscle.slice(1)}{" "}
+                <span className="tabular-nums text-muted-foreground">
+                  <bdi>{sets}</bdi> {sets === 1 ? l("set", "مجموعة") : l("sets", "مجموعات")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {ranges && rangeTotal > 0 && (
+        <section
+          className="space-y-2 rounded-xl bg-card p-4"
+          aria-label={l("Rep ranges", "نطاقات التكرار")}
+        >
+          <h3 className="font-heading text-base font-bold">{l("Rep ranges", "نطاقات التكرار")}</h3>
+          {(
+            [
+              ["strength", l("Strength · 1–5 reps", "القوة · 1–5 تكرارات")],
+              ["hypertrophy", l("Muscle · 6–12 reps", "العضلات · 6–12 تكرار")],
+              ["endurance", l("Endurance · 13+ reps", "التحمل · 13+ تكرار")],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{label}</span>
+                <span className="tabular-nums">
+                  <bdi>{ranges[key]}</bdi>{" "}
+                  {ranges[key] === 1 ? l("set", "مجموعة") : l("sets", "مجموعات")}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-background" aria-hidden>
+                <div
+                  className="h-full rounded-full bg-gold"
+                  style={{ width: `${(ranges[key] / rangeTotal) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      {top.length > 0 && (
+        <section className="space-y-2" aria-label={l("Top sets", "أفضل المجموعات")}>
+          <h3 className="font-heading text-base font-bold">{l("Top sets", "أفضل المجموعات")}</h3>
+          <ul className="divide-y divide-border rounded-xl bg-card px-4">
+            {top.map((set) => {
+              const earlier = prior.data?.get(set.exerciseId);
+              const newBest = !!earlier && set.e1rm > earlier.best1rm;
+              return (
+                <li key={set.exerciseId} className="flex items-center justify-between gap-3 py-3">
+                  <span className="min-w-0 break-words text-sm font-medium">
+                    {(locale === "ar" && set.nameAr) || set.name || l("Exercise", "تمرين")}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2 text-sm tabular-nums">
+                    {newBest && (
+                      <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold">
+                        {l("New best", "أفضل رقم جديد")}
+                      </span>
+                    )}
+                    <bdi dir="ltr">
+                      {formatMeasure(displayWeight(set.weightKg, units))} {weightUnit(units)} ×{" "}
+                      {set.reps}
+                    </bdi>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       <p className="text-sm text-muted-foreground">
         {receipt.loggedSets} {l("sets logged", "مجموعات مسجلة")}
         {receipt.holdSeconds > 0
@@ -86,8 +201,8 @@ export function WorkoutComplete({
         </summary>
         <p className="mt-3">
           {l(
-            "Volume includes working and drop segments, excluding warm-ups. Timed work is counted separately. Duration is elapsed session time.",
-            "يشمل الحجم مجموعات العمل والمجموعات المتناقصة، دون الإحماء. يُحسب الثبات بشكل منفصل. المدة هي الوقت المنقضي للجلسة.",
+            "Volume includes working and drop segments, excluding warm-ups. Timed work is counted separately. Duration is elapsed session time. Top sets use estimated one-rep max (Epley); New best compares with your earlier bilateral working sets.",
+            "يشمل الحجم مجموعات العمل والمجموعات المتناقصة، دون الإحماء. يُحسب الثبات بشكل منفصل. المدة هي الوقت المنقضي للجلسة. أفضل المجموعات تعتمد على الحد الأقصى المقدّر لتكرار واحد (Epley)، و«أفضل رقم جديد» يقارن بمجموعاتك السابقة.",
           )}
         </p>
       </details>

@@ -14,6 +14,16 @@ const previousSchema = z.object({
   slot_key: z.string(),
   workout_sessions: z.object({ finished_at: z.string(), origin: z.enum(["native", "import"]) }),
   match: z.enum(["slot", "exercise"]),
+  // That session's matching working sets, in the order they were logged.
+  sets: z
+    .array(
+      z.object({
+        reps: z.number().nullable(),
+        duration_seconds: z.number().nullable(),
+        weight_kg: z.number().nullable(),
+      }),
+    )
+    .default([]),
 });
 export type PreviousPerformance = z.infer<typeof previousSchema>;
 export type PreviousContext = {
@@ -59,7 +69,8 @@ export async function loadPreviousPerformance(c: PreviousContext) {
       .not("workout_sessions.finished_at", "is", null)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
-      .limit(1);
+      // ponytail: 20 rows covers the previous session's sets for one slot; more sets show "—".
+      .limit(20);
   try {
     let result = c.slot
       ? await query().eq("slot_key", c.slot).abortSignal(AbortSignal.timeout(12000))
@@ -71,7 +82,21 @@ export async function loadPreviousPerformance(c: PreviousContext) {
       if (result.error) throw result.error;
       match = "exercise";
     }
-    const record = result.data[0] ? previousSchema.parse({ ...result.data[0], match }) : null;
+    const latest = result.data[0];
+    const record = latest
+      ? previousSchema.parse({
+          ...latest,
+          match,
+          sets: result.data
+            .filter((row) => row.session_id === latest.session_id)
+            .reverse()
+            .map(({ reps, duration_seconds, weight_kg }) => ({
+              reps,
+              duration_seconds,
+              weight_kg,
+            })),
+        })
+      : null;
     const now = Date.now();
     await changeMemberState(c.member, (s) => {
       const references = { ...s.references };

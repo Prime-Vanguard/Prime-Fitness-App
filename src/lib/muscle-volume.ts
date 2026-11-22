@@ -12,6 +12,18 @@ export const MUSCLES = [
   "calves",
 ] as const;
 export type Muscle = (typeof MUSCLES)[number];
+export const MUSCLE_AR: Record<Muscle, string> = {
+  chest: "الصدر",
+  back: "الظهر",
+  shoulders: "الأكتاف",
+  biceps: "البايسبس",
+  triceps: "الترايسبس",
+  core: "الجذع",
+  quads: "الأفخاذ الأمامية",
+  hamstrings: "الأفخاذ الخلفية",
+  glutes: "الأرداف",
+  calves: "السمانة",
+};
 export function muscleGroup(raw: string): Muscle | null {
   const value = raw.toLowerCase().trim();
   if (MUSCLES.includes(value as Muscle)) return value as Muscle;

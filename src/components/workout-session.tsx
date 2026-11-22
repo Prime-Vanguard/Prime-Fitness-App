@@ -543,6 +543,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                           units={units}
                           timed={timed}
                           initial={plannedInitial}
+                          previous={previous.data?.sets}
                           ready={!previous.isPending || !online}
                           disabled={busy || !restPreference.ready}
                           onComplete={(id, value) =>
