@@ -477,7 +477,8 @@ function Train() {
                     </button>
                     <span className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <span>
-                        {s.set_logs[0]?.count ?? 0} {t("sets")}{" "}
+                        {s.set_logs[0]?.count ?? 0}{" "}
+                        {s.set_logs[0]?.count === 1 ? l("set", "مجموعة") : t("sets")}{" "}
                         {s.origin === "import" ? l("· Imported", "· مستورد") : ""}
                       </span>
                       <Button

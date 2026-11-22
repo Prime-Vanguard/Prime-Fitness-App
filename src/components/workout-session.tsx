@@ -141,6 +141,12 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
       0,
       slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
     ) + 1;
+  const prior = previous.data;
+  const lastSet =
+    prior &&
+    `${prior.duration_seconds != null ? formatDuration(prior.duration_seconds) : prior.reps} × ${
+      prior.weight_kg == null ? "—" : formatMeasure(displayWeight(prior.weight_kg, units))
+    } ${wu}`;
   const currentRows = sets.filter(
     (s) => s.exercise_id === exerciseId && (s.slot_key ?? "") === selection,
   );
@@ -492,16 +498,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                   active ? (
                     previous.data ? (
                       <p className="rounded-xl bg-row p-4 text-sm">
-                        <bdi dir="ltr">
-                          {previous.data.duration_seconds != null
-                            ? formatDuration(previous.data.duration_seconds)
-                            : previous.data.reps}{" "}
-                          ×{" "}
-                          {previous.data.weight_kg == null
-                            ? "—"
-                            : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                          {wu}
-                        </bdi>
+                        <bdi dir="ltr">{lastSet}</bdi>
                         <span className="mt-2 block text-xs text-muted-foreground">
                           {new Date(previous.data.created_at).toLocaleDateString(
                             locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
@@ -533,15 +530,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                       <>
                         {previous.data && (
                           <p className="text-xs text-muted-foreground">
-                            {l("Last completed set", "آخر مجموعة مكتملة")}:{" "}
-                            {previous.data.duration_seconds != null
-                              ? formatDuration(previous.data.duration_seconds)
-                              : previous.data.reps}{" "}
-                            ×{" "}
-                            {previous.data.weight_kg == null
-                              ? "—"
-                              : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                            {wu} ·{" "}
+                            {l("Last completed set", "آخر مجموعة مكتملة")}: {lastSet} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
                               locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}
@@ -614,15 +603,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                             className="mt-3 min-h-11 text-start text-xs text-gold"
                             onClick={editor.copyPrevious}
                           >
-                            {l("Use previous", "استخدام السابق")}:{" "}
-                            {previous.data.duration_seconds != null
-                              ? formatDuration(previous.data.duration_seconds)
-                              : previous.data.reps}{" "}
-                            ×{" "}
-                            {previous.data.weight_kg == null
-                              ? "—"
-                              : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                            {wu} ·{" "}
+                            {l("Use previous", "استخدام السابق")}: {lastSet} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
                               locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}

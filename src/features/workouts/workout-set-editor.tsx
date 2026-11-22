@@ -98,7 +98,6 @@ export function DraftFields({
           variant="ghost"
           size="sm"
           className="text-muted-foreground"
-          aria-expanded={false}
           onClick={() => setEffort(true)}
         >
           {l("Add effort (RPE)", "إضافة الجهد (RPE)")}

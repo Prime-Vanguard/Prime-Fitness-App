@@ -1,5 +1,6 @@
 import { useRecordFeedback } from "@/hooks/use-record-feedback";
 import { muscleLabel } from "@/lib/muscle-volume";
+import { exerciseClassification } from "@/lib/exercise-classification";
 import { formatDuration } from "@/lib/duration";
 import { useState, type ReactNode } from "react";
 import {
@@ -23,18 +24,7 @@ import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/unit
 import type { WorkoutSet } from "@/lib/workout-store";
 import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 
-const EQUIPMENT_AR: Record<string, string> = {
-  barbell: "بار",
-  dumbbell: "دمبل",
-  machine: "جهاز",
-  cable: "كابل",
-  kettlebell: "كيتل بل",
-  bodyweight: "وزن الجسم",
-  band: "مطاط",
-};
-
 /** Card presentation consumes rows and callbacks, never the persistence controller. */
-
 export function WorkoutExerciseCard({
   slot,
   cardExercise,
@@ -108,14 +98,12 @@ export function WorkoutExerciseCard({
       >
         <div data-exercise-preview className="rounded-xl bg-card p-4">
           <div className="flex items-center gap-3">
-            {
-              <ExerciseThumbnail
-                exercise={cardExercise}
-                name={name}
-                enabled={guidance}
-                onOpen={onOpenMedia}
-              />
-            }
+            <ExerciseThumbnail
+              exercise={cardExercise}
+              name={name}
+              enabled={guidance}
+              onOpen={onOpenMedia}
+            />
             <button
               className="flex min-h-7 min-w-0 flex-1 items-center justify-between gap-3 text-start focus-visible:ring-2 focus-visible:ring-gold"
               aria-expanded={active}
@@ -139,7 +127,8 @@ export function WorkoutExerciseCard({
                   className={`mt-1 text-xs text-muted-foreground ${active ? "sr-only" : "block"}`}
                 >
                   {count}
-                  {slot.sets ? ` / ${slot.sets}` : ""} {t("sets")}
+                  {slot.sets ? ` / ${slot.sets}` : ""}{" "}
+                  {(slot.sets || count) === 1 ? l("set", "مجموعة") : t("sets")}
                 </span>
               </span>
               {!active && (
@@ -173,10 +162,7 @@ export function WorkoutExerciseCard({
                 )}
                 {cardExercise?.equipment && (
                   <span className="rounded-full bg-background px-3 py-1 capitalize">
-                    {locale === "ar"
-                      ? (EQUIPMENT_AR[cardExercise.equipment.toLowerCase()] ??
-                        cardExercise.equipment)
-                      : cardExercise.equipment}
+                    {exerciseClassification(cardExercise.equipment.toLowerCase(), locale)}
                   </span>
                 )}
               </p>
