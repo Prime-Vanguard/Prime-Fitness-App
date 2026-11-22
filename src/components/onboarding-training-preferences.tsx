@@ -205,7 +205,7 @@ export function OnboardingTrainingPreferences({
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           {l(
             "RPE describes how hard a set felt on a 1–10 scale. Log your actual effort; it is separate from the prescribed target. Progression suggestions appear only when your coach enables them.",
-            "يصف تقييم الجهد RPE صعوبة المجموعة على مقياس من ١ إلى ١٠. سجل جهدك الفعلي؛ فهو منفصل عن الهدف المقرر. تظهر اقتراحات التقدم فقط عندما يفعلها مدربك.",
+            "يصف تقييم الجهد RPE صعوبة المجموعة على مقياس من 1 إلى 10. سجل جهدك الفعلي؛ فهو منفصل عن الهدف المقرر. تظهر اقتراحات التقدم فقط عندما يفعلها مدربك.",
           )}
         </p>
       </details>

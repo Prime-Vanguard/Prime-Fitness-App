@@ -67,11 +67,11 @@ export function OfflineHistoryRangeControls({
         {isPersonal
           ? translate(
               "Choose up to 366 days of food, water, measurements and wellness check-ins. Existing downloads and pending edits are retained.",
-              "اختر حتى ٣٦٦ يومًا من سجلات الطعام والماء والقياسات والمتابعة اليومية. تُحفظ التنزيلات السابقة والتغييرات المعلقة.",
+              "اختر حتى 366 يومًا من سجلات الطعام والماء والقياسات والمتابعة اليومية. تُحفظ التنزيلات السابقة والتغييرات المعلقة.",
             )
           : translate(
               "Choose up to 366 days of completed workouts and their sets. Existing downloads and pending edits are retained.",
-              "اختر حتى ٣٦٦ يومًا من التمارين المكتملة ومجموعاتها. تُحفظ التنزيلات السابقة والتغييرات المعلقة.",
+              "اختر حتى 366 يومًا من التمارين المكتملة ومجموعاتها. تُحفظ التنزيلات السابقة والتغييرات المعلقة.",
             )}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -118,7 +118,7 @@ export function OfflineHistoryRangeControls({
         <p id={`${inputId}-error`} role="alert" className="text-sm text-destructive">
           {translate(
             "Choose valid dates, ending no later than today, with at most 366 days per download.",
-            "اختر تواريخ صحيحة لا تتجاوز اليوم، وبحد أقصى ٣٦٦ يومًا لكل تنزيل.",
+            "اختر تواريخ صحيحة لا تتجاوز اليوم، وبحد أقصى 366 يومًا لكل تنزيل.",
           )}
         </p>
       )}

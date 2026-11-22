@@ -21,7 +21,7 @@ export function selectExercises(
     (replace && choices.length !== 1) ||
     new Set(choices.map((choice) => choice.slot)).size !== choices.length
   )
-    throw new Error(l("Choose between 1 and 20 exercises.", "اختر من تمرين واحد إلى ٢٠ تمريناً."));
+    throw new Error(l("Choose between 1 and 20 exercises.", "اختر من تمرين واحد إلى 20 تمريناً."));
   const catalogue = new Map(
     workout.exercises.map((exercise) => [exercise.id, exercise as ExerciseGuidance]),
   );

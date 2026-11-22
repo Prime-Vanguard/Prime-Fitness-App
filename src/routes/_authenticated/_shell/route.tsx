@@ -212,9 +212,12 @@ function Shell() {
       >
         <div className="min-w-0">
           <BrandLockup />
-          <p className="mt-1 text-xs text-muted-foreground">
-            {workspaceName(workspace, locale === "ar")}
-          </p>
+          {/* Members have one workspace; only staff need to see which one is active. */}
+          {workspace !== "fitness" && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {workspaceName(workspace, locale === "ar")}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0">
           <NotificationBell userId={user.id} className={controlClass} />
@@ -269,7 +272,7 @@ function Shell() {
         {/* Staff tables use the wider reference canvas; member reading width stays bounded. */}
         <div
           ref={pageRef}
-          className={`app-page-flow mx-auto w-full ${adminRoute ? "max-w-[1440px]" : "max-w-[1200px]"}`}
+          className={`app-page-flow mx-auto w-full ${adminRoute ? "max-w-[1440px]" : "max-w-[960px]"}`}
         >
           {data?.profile && !data.offlineAccountPrepared && (
             <p role="status" className="my-4 rounded-lg border border-gold/40 p-3 text-sm">

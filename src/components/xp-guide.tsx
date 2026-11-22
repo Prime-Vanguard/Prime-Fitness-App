@@ -1,3 +1,4 @@
+import { numberLocale } from "@/lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -14,7 +15,7 @@ export function XpGuide() {
       return result.data;
     },
   });
-  const number = (value: number) => value.toLocaleString(locale);
+  const number = (value: number) => value.toLocaleString(numberLocale(locale));
   const weekly = data
     ? 4 * (data.workout_xp ?? 0) + 7 * (data.nutrition_day_xp ?? 0) + (data.body_week_xp ?? 0)
     : 0;
@@ -38,9 +39,9 @@ export function XpGuide() {
       ) : (
         <>
           <p className="mt-2 text-sm text-muted-foreground">
-            {number(data.level_100_xp ?? 0)} XP · {l("Level 100", "المستوى ١٠٠")}
+            {number(data.level_100_xp ?? 0)} XP · {l("Level 100", "المستوى 100")}
             {" · "}
-            {l("Prime Legend: Levels 91–100", "أسطورة برايم: المستويات ٩١–١٠٠")}
+            {l("Prime Legend: Levels 91–100", "أسطورة برايم: المستويات 91–100")}
           </p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3">
             {[
@@ -75,7 +76,7 @@ export function XpGuide() {
           <p className="mt-4 text-sm text-muted-foreground">
             {l(
               `Four workouts, seven nutrition days and one check-in earn ${number(weekly)} XP a week—about one year to Level 100 from zero, with milestone bonuses. Your pace can vary. Rest days are part of the plan.`,
-              `أربعة تمارين وسبعة أيام تغذية وقياس واحد تمنحك ${number(weekly)} نقطة أسبوعياً، أي نحو عام من الصفر للمستوى ١٠٠ مع مكافآت الإنجازات. قد تختلف سرعتك. أيام الراحة جزء من الخطة.`,
+              `أربعة تمارين وسبعة أيام تغذية وقياس واحد تمنحك ${number(weekly)} نقطة أسبوعياً، أي نحو عام من الصفر للمستوى 100 مع مكافآت الإنجازات. قد تختلف سرعتك. أيام الراحة جزء من الخطة.`,
             )}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">

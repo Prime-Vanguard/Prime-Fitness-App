@@ -113,7 +113,7 @@ export function OfflinePreparationPanel({ memberId }: { memberId: string }) {
       <p className="text-sm">
         {translate(
           "The app automatically prepares 30 days of personal records, your assigned program, schedule and exercise text when connected. Download again to refresh them. Private photos and exercise videos need a connection.",
-          "يجهّز التطبيق تلقائيًا ٣٠ يومًا من سجلاتك الشخصية وبرنامجك وجدولك ونصوص التمارين عند الاتصال. أعد التنزيل لتحديثها. تحتاج الصور الخاصة وفيديوهات التمارين إلى اتصال.",
+          "يجهّز التطبيق تلقائيًا 30 يومًا من سجلاتك الشخصية وبرنامجك وجدولك ونصوص التمارين عند الاتصال. أعد التنزيل لتحديثها. تحتاج الصور الخاصة وفيديوهات التمارين إلى اتصال.",
         )}
       </p>
       <p className="text-sm">

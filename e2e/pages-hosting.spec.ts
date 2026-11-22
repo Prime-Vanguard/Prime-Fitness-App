@@ -795,7 +795,7 @@ for (const expectation of [
       } finally {
         await secondTab.close();
       }
-      await page.getByRole("button", { name: "App & offline", exact: true }).click();
+      await page.getByRole("button", { name: "App", exact: true }).click();
       await expect(preferences).toContainText("Waiting to sync");
       paused = false;
       await sync.getByRole("button", { name: "Retry sync", exact: true }).click();

@@ -1,3 +1,4 @@
+import { numberLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n";
 
 /** Neutral comparison of two recorded values; no success or health interpretation. */
@@ -17,7 +18,7 @@ export function RecordComparison({
   const delta = Math.round((after.value - before.value) * 100) / 100;
   const percent =
     before.value !== 0 ? Math.round((delta / Math.abs(before.value)) * 1000) / 10 : null;
-  const fmt = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString(locale)}`;
+  const fmt = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString(numberLocale(locale))}`;
   return (
     <p className="mt-2 text-xs text-muted-foreground" data-record-comparison>
       <bdi>

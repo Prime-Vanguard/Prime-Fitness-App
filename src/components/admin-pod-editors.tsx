@@ -118,7 +118,7 @@ export function PodCreator({
     const name = draft.name.trim();
     if (!name || name.length > 100) {
       setError(
-        l("Enter a Pod name of 1–100 characters.", "أدخل اسماً للمجموعة من حرف إلى ١٠٠ حرف."),
+        l("Enter a Pod name of 1–100 characters.", "أدخل اسماً للمجموعة من حرف إلى 100 حرف."),
       );
       return;
     }

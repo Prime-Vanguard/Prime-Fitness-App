@@ -1,3 +1,4 @@
+import { numberLocale } from "@/lib/i18n";
 import { Wallet } from "lucide-react";
 import { RankCrest } from "@/components/rank-crest";
 import { useI18n } from "@/lib/i18n";
@@ -30,13 +31,13 @@ export function RewardSummary({
       >
         <p className="text-sm">
           <span className="text-muted-foreground">{t("level")}</span> {data?.level ?? "—"} ·{" "}
-          <bdi>{data?.xp.toLocaleString(locale) ?? "—"} XP</bdi>
+          <bdi>{data?.xp.toLocaleString(numberLocale(locale)) ?? "—"} XP</bdi>
         </p>
         <p className="flex items-center gap-2 text-sm">
           <Wallet aria-hidden className="size-4 text-muted-foreground" />
           {t("pvWallet")}:{" "}
           <strong className="text-gold">
-            <bdi>{data?.pv.toLocaleString(locale) ?? "—"} PV</bdi>
+            <bdi>{data?.pv.toLocaleString(numberLocale(locale)) ?? "—"} PV</bdi>
           </strong>
         </p>
         {!data && (
@@ -51,7 +52,7 @@ export function RewardSummary({
       <div className="flex items-center gap-4">
         <RankCrest rank={data?.rank.key ?? "Recruit"} size={72} />
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {l("Your Vanguard rank", "رتبتك في فانغارد")}
           </p>
           <h2 className="mt-1 font-heading text-lg font-bold">
@@ -65,13 +66,15 @@ export function RewardSummary({
             />
           </div>
           <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-            <bdi className="tabular-nums">{data?.xp.toLocaleString(locale) ?? "—"} XP</bdi>
+            <bdi className="tabular-nums">
+              {data?.xp.toLocaleString(numberLocale(locale)) ?? "—"} XP
+            </bdi>
             <span>
               {!data
                 ? l("Progress unavailable", "التقدم غير متاح")
                 : data.next == null
                   ? t("maxLevel")
-                  : `${(data.next - data.xp).toLocaleString(locale)} ${t("toNext")}`}
+                  : `${(data.next - data.xp).toLocaleString(numberLocale(locale))} ${t("toNext")}`}
             </span>
           </div>
         </div>
@@ -82,7 +85,7 @@ export function RewardSummary({
           {t("pvWallet")}
         </p>
         <p className="font-heading text-xl font-bold tabular-nums text-gold">
-          <bdi>{data?.pv.toLocaleString(locale) ?? "—"} PV</bdi>
+          <bdi>{data?.pv.toLocaleString(numberLocale(locale)) ?? "—"} PV</bdi>
         </p>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

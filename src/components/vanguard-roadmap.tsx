@@ -1,3 +1,4 @@
+import { numberLocale } from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Lock, Map } from "lucide-react";
@@ -7,17 +8,7 @@ import { RANKS, rankFor } from "@/lib/levels";
 import { RankCrest } from "@/components/rank-crest";
 import { useI18n } from "@/lib/i18n";
 
-export function VanguardRoadmap({
-  level,
-  xp,
-  displayName,
-  avatarPath,
-}: {
-  level: number;
-  xp: number;
-  displayName: string;
-  avatarPath: string | null | undefined;
-}) {
+export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
   const { locale, t } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [selected, setSelected] = useState(level);
@@ -35,16 +26,6 @@ export function VanguardRoadmap({
       button = container?.querySelector<HTMLElement>('[aria-current="step"]');
     if (container && button) container.scrollTop = button.offsetTop - container.clientHeight / 2;
   }, [level]);
-  const { data: avatar } = useQuery({
-    queryKey: ["avatar", avatarPath],
-    enabled: !!avatarPath,
-    staleTime: 3000000,
-    queryFn: async () => {
-      const r = await supabase.storage.from("progress-photos").createSignedUrl(avatarPath!, 3600);
-      if (r.error) throw r.error;
-      return r.data.signedUrl;
-    },
-  });
   const { data: thresholds } = useQuery({
     queryKey: ["roadmap-thresholds"],
     queryFn: async () => {
@@ -60,46 +41,24 @@ export function VanguardRoadmap({
   const nextRank = RANKS.find((tier) => tier.min > level);
   const nextThreshold = thresholds?.find((row) => row.level === nextRank?.min);
   return (
-    <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="mt-4 overflow-hidden rounded-xl bg-card p-4 sm:p-5">
       <div className="flex items-center gap-2">
         <Map size={20} className="text-gold" />
         <h2 className="font-display text-lg font-bold">
           {l("Your Vanguard journey", "رحلتك في فانغارد")}
         </h2>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {l(
-          "100 levels. Six ranks. Select a level to preview your next milestone.",
-          "١٠٠ مستوى. ست رتب. اختر مستوى لاستكشاف محطتك التالية.",
-        )}
+      <p className="mt-1 text-sm text-muted-foreground">
+        {l("Select a level to preview it.", "اختر مستوى لمعاينته.")}
       </p>
-      <div className="mt-4 flex items-center gap-3 rounded-xl bg-background p-3">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt={displayName}
-            className="h-12 w-12 rounded-full border border-gold object-cover"
-          />
-        ) : (
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-gold font-bold text-gold">
-            {displayName.slice(0, 2).toUpperCase()}
-          </span>
-        )}
-        <div>
-          <p className="text-sm font-semibold">{displayName}</p>
-          <p className="text-xs text-gold">
-            {t("level")} {level} · {xp} XP
-          </p>
-        </div>
-      </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <Button variant="outline" onClick={jumpCurrent}>
+        <Button variant="outline" size="sm" onClick={jumpCurrent}>
           {l("Jump to my level", "الانتقال إلى مستواي")}
         </Button>
         {nextRank && nextThreshold && (
           <p className="text-xs text-muted-foreground">
             {l("Next rank", "الرتبة التالية")}: {locale === "ar" ? nextRank.ar : nextRank.key} ·{" "}
-            {Math.max(0, nextThreshold.xp_required - xp).toLocaleString(locale)} XP
+            {Math.max(0, nextThreshold.xp_required - xp).toLocaleString(numberLocale(locale))} XP
           </p>
         )}
       </div>
@@ -146,7 +105,7 @@ export function VanguardRoadmap({
         className="mt-4 flex items-center gap-4 rounded-xl border border-border p-4"
         aria-live="polite"
       >
-        <RankCrest rank={rank.key} size={104} />
+        <RankCrest rank={rank.key} size={64} />
         <div className="min-w-0 flex-1">
           <h3 className="font-bold">
             {t("level")} {selected} · {locale === "ar" ? rank.ar : rank.key}
@@ -156,9 +115,6 @@ export function VanguardRoadmap({
             {target
               ? `${target.xp_required} XP · ${Math.max(0, target.xp_required - xp)} ${l("XP to reach", "نقطة للوصول")}`
               : l("XP threshold unavailable", "حد نقاط الخبرة غير متاح")}
-          </p>
-          <p className="mt-1 text-xs text-gold">
-            {l("Title & crest", "اللقب والشعار")}: {locale === "ar" ? rank.ar : rank.key}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {l(

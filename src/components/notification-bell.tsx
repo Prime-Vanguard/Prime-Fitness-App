@@ -139,13 +139,16 @@ export function NotificationBell({
                     {locale === "ar" ? n.title_ar || n.title_en : n.title_en}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {new Date(n.created_at).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB", {
-                      timeZone: "Africa/Cairo",
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {new Date(n.created_at).toLocaleString(
+                      locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+                      {
+                        timeZone: "Africa/Cairo",
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
                   </p>
                 </>
               );

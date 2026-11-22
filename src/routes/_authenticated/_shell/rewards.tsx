@@ -311,7 +311,7 @@ function Page() {
 
   return (
     <>
-      <PageHeader title={t("rewards")} eyebrow="PRIME VANGUARD" eyebrowTone="accent" />
+      <PageHeader title={t("rewards")} />
       <RewardSummary data={g} compact={section !== "journey"} />
       <Sheet
         open={!!purchase}
@@ -457,6 +457,7 @@ function Page() {
       )}
       {section === "journey" && (
         <>
+          {g && <VanguardRoadmap level={g.level} xp={g.xp} />}
           <details className="mt-4 rounded-lg bg-card px-4">
             <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
               {l("XP earning rules", "قواعد كسب نقاط الخبرة")}
@@ -465,14 +466,6 @@ function Page() {
               <XpGuide />
             </div>
           </details>
-          {g && (
-            <VanguardRoadmap
-              level={g.level}
-              xp={g.xp}
-              displayName={me?.profile?.display_name || t("member")}
-              avatarPath={me?.profile?.avatar_url}
-            />
-          )}
           {g && (
             <div className="mt-3">
               <ShareAchievement
@@ -673,7 +666,7 @@ function Page() {
                     <p className="mt-1 text-[11px] tabular-nums text-gold">
                       {b.unlockedAt
                         ? new Date(b.unlockedAt).toLocaleDateString(
-                            locale === "ar" ? "ar-EG" : "en-GB",
+                            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                           )
                         : `+${b.xp_bonus} ${t("xp")}`}
                     </p>
@@ -804,7 +797,7 @@ function Page() {
                         <p className="mt-1 text-xs text-muted-foreground">
                           <time dateTime={r.created_at}>
                             {new Date(r.created_at).toLocaleDateString(
-                              locale === "ar" ? "ar-EG" : "en-GB",
+                              locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                               { timeZone: "Africa/Cairo" },
                             )}
                           </time>

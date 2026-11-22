@@ -81,11 +81,11 @@ function TrainingImportAccount({ userId }: { userId: string }) {
         className="grid grid-cols-2 gap-2 sm:grid-cols-5"
       >
         {[
-          l("1. File", "١. الملف"),
-          l("2. Mapping", "٢. التعيين"),
-          l("3. Review", "٣. المراجعة"),
-          l("4. Import", "٤. الاستيراد"),
-          l("5. Receipt", "٥. الإيصال"),
+          l("1. File", "1. الملف"),
+          l("2. Mapping", "2. التعيين"),
+          l("3. Review", "3. المراجعة"),
+          l("4. Import", "4. الاستيراد"),
+          l("5. Receipt", "5. الإيصال"),
         ].map((label, i) => (
           <Button
             key={i}
@@ -124,7 +124,7 @@ function TrainingImportAccount({ userId }: { userId: string }) {
         <p role="status" className="rounded-lg border border-gold/30 p-3 text-sm">
           {l(
             "File read successfully. Step 2: confirm an exercise match for each name below, then choose Review import.",
-            "تمت قراءة الملف بنجاح. الخطوة ٢: أكد مطابقة كل تمرين أدناه ثم اختر مراجعة الاستيراد.",
+            "تمت قراءة الملف بنجاح. الخطوة 2: أكد مطابقة كل تمرين أدناه ثم اختر مراجعة الاستيراد.",
           )}
         </p>
       )}

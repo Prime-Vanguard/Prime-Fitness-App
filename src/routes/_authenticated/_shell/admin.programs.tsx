@@ -284,7 +284,7 @@ function Programs() {
         title={l("Create program", "إنشاء برنامج")}
         description={l(
           "Choose a name, notes and a length of 1–52 weeks.",
-          "اختر اسماً وملاحظات ومدة من أسبوع إلى ٥٢ أسبوعاً.",
+          "اختر اسماً وملاحظات ومدة من أسبوع إلى 52 أسبوعاً.",
         )}
       >
         <form onSubmit={create} className="space-y-4">

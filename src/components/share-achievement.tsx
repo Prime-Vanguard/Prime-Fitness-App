@@ -142,7 +142,7 @@ export function ShareAchievement({
         <DialogDescription>
           {l(
             "Preview a 1080 × 1920 story. Only the name and achievement shown here are exported. Nothing is posted automatically.",
-            "عاين قصة ١٠٨٠ × ١٩٢٠. يُصدَّر الاسم والإنجاز المعروضان فقط. لا يُنشر شيء تلقائياً.",
+            "عاين قصة 1080 × 1920. يُصدَّر الاسم والإنجاز المعروضان فقط. لا يُنشر شيء تلقائياً.",
           )}
         </DialogDescription>
         {preview ? (

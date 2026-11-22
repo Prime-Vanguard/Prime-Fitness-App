@@ -138,7 +138,7 @@ export function RestTimer({
                   variant="outline"
                   size="icon"
                   className="border-transparent bg-background text-muted-foreground"
-                  aria-label={locale === "ar" ? "تقليل الراحة ١٥ ثانية" : "Shorten rest 15 seconds"}
+                  aria-label={locale === "ar" ? "تقليل الراحة 15 ثانية" : "Shorten rest 15 seconds"}
                   onClick={() => onChange(Math.max(now, end - 15000))}
                 >
                   −15
@@ -147,7 +147,7 @@ export function RestTimer({
                   variant="outline"
                   size="icon"
                   className="border-transparent bg-background text-muted-foreground"
-                  aria-label={locale === "ar" ? "زيادة الراحة ١٥ ثانية" : "Extend rest 15 seconds"}
+                  aria-label={locale === "ar" ? "زيادة الراحة 15 ثانية" : "Extend rest 15 seconds"}
                   onClick={() => onChange(end + 15000)}
                 >
                   +15
@@ -183,7 +183,7 @@ export function RestTimer({
             </SheetTitle>
             <SheetDescription>
               {locale === "ar"
-                ? "يُحفظ لهذا العضو وهذه الخانة. لا تتغير بقية التمارين. المدة من ١٥ إلى ٦٠٠ ثانية."
+                ? "يُحفظ لهذا العضو وهذه الخانة. لا تتغير بقية التمارين. المدة من 15 إلى 600 ثانية."
                 : "Saved for this member and slot. Other exercises keep their settings. Choose 15–600 seconds."}
             </SheetDescription>
             <label className="block text-sm">

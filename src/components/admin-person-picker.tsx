@@ -68,7 +68,7 @@ export function AdminPersonPicker({
       <p role="status" className="text-xs text-muted-foreground">
         {matches.length > 50
           ? locale === "ar"
-            ? "تظهر أول ٥٠ نتيجة. استخدم البحث لتضييق الاختيار."
+            ? "تظهر أول 50 نتيجة. استخدم البحث لتضييق الاختيار."
             : "Showing the first 50 matches. Search to narrow your selection."
           : locale === "ar"
             ? `${matches.length} نتيجة`

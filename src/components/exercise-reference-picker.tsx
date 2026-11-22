@@ -67,7 +67,7 @@ export function ExerciseReferencePicker({
               {matches.length} / {data.exercises.length} ·{" "}
               {l(
                 "Showing up to 40 matches; narrow your search.",
-                "نعرض حتى ٤٠ نتيجة؛ حدد البحث أكثر.",
+                "نعرض حتى 40 نتيجة؛ حدد البحث أكثر.",
               )}
             </p>
           )}

@@ -121,7 +121,7 @@ function Invites() {
             <p>
               {l(
                 "New invitations use the existing 14-day validity. This saves signup eligibility; email delivery is not confirmed here.",
-                "تستخدم الدعوات الجديدة فترة الصلاحية الحالية البالغة ١٤ يوماً. يُحفظ السماح بالتسجيل؛ لا يتم تأكيد تسليم البريد الإلكتروني هنا.",
+                "تستخدم الدعوات الجديدة فترة الصلاحية الحالية البالغة 14 يوماً. يُحفظ السماح بالتسجيل؛ لا يتم تأكيد تسليم البريد الإلكتروني هنا.",
               )}
             </p>
           </div>
@@ -454,7 +454,7 @@ function Invites() {
           <p className="rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground">
             {l(
               "Signup eligibility · 14-day validity · Email delivery not tracked",
-              "السماح بالتسجيل · صلاحية ١٤ يوماً · لا تتم متابعة تسليم البريد",
+              "السماح بالتسجيل · صلاحية 14 يوماً · لا تتم متابعة تسليم البريد",
             )}
           </p>
           <label className="block text-sm">

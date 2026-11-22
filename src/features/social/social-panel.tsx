@@ -437,7 +437,7 @@ function SocialContent({
               <p className="text-xs">
                 {l(
                   "A shared total across accepted participants, up to 10 people. Cardio contribution is capped at 180 active minutes per member per day; strength counts qualifying workout days. Imported workouts never contribute.",
-                  "إجمالي مشترك للمشاركين الموافقين حتى ١٠ أشخاص. حد الكارديو ١٨٠ دقيقة نشطة لكل عضو يومياً؛ القوة تحسب أيام التدريب المؤهلة. لا تُحتسب التمارين المستوردة.",
+                  "إجمالي مشترك للمشاركين الموافقين حتى 10 أشخاص. حد الكارديو 180 دقيقة نشطة لكل عضو يومياً؛ القوة تحسب أيام التدريب المؤهلة. لا تُحتسب التمارين المستوردة.",
                 )}
               </p>
               <label className="block">

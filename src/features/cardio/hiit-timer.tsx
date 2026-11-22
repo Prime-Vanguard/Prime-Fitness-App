@@ -66,7 +66,7 @@ export function HiitTimer({
       throw new Error(
         l(
           "Use 1–100 rounds, 1–3600 work seconds, 0–3600 rest seconds and 0–600 preparation seconds. Total duration must be within 24 hours.",
-          "استخدم ١–١٠٠ جولة، و١–٣٦٠٠ ثانية للعمل، و٠–٣٦٠٠ ثانية للراحة، و٠–٦٠٠ ثانية للاستعداد. يجب ألا تتجاوز المدة ٢٤ ساعة.",
+          "استخدم 1–100 جولة، و1–3600 ثانية للعمل، و0–3600 ثانية للراحة، و0–600 ثانية للاستعداد. يجب ألا تتجاوز المدة 24 ساعة.",
         ),
       );
     }

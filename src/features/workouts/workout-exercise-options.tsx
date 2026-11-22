@@ -222,7 +222,7 @@ export function WorkoutExerciseOptions({
                   ))}
                 </div>
                 <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  {l("Custom interval · 15–600 seconds", "راحة مخصصة · ١٥–٦٠٠ ثانية")}
+                  {l("Custom interval · 15–600 seconds", "راحة مخصصة · 15–600 ثانية")}
                   <Input
                     aria-label={l("Additional-set rest seconds", "ثواني راحة المجموعة الإضافية")}
                     disabled={!rest.ready}
@@ -305,7 +305,7 @@ export function WorkoutExerciseOptions({
             <span role="status" className="mt-1 block text-xs text-muted-foreground">
               {l(
                 "Showing up to 100 matches. Search to find any exercise.",
-                "يُعرض حتى ١٠٠ نتيجة. ابحث للوصول إلى أي تمرين.",
+                "يُعرض حتى 100 نتيجة. ابحث للوصول إلى أي تمرين.",
               )}
             </span>
           </label>

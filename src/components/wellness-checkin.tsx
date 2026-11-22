@@ -48,7 +48,7 @@ export function WellnessCheckIn({ memberId, userId }: { memberId: string; userId
       <p className="mt-1 text-xs text-muted-foreground">
         {l(
           "Visible to you, your current coach and active admins. No XP. Energy: 1 very low → 5 high. Soreness: 1 none → 5 severe.",
-          "مرئي لك ولمدربك الحالي وللإدارة النشطة. بدون نقاط. الطاقة: ١ منخفضة جداً إلى ٥ مرتفعة. الإجهاد العضلي: ١ لا يوجد إلى ٥ شديد.",
+          "مرئي لك ولمدربك الحالي وللإدارة النشطة. بدون نقاط. الطاقة: 1 منخفضة جداً إلى 5 مرتفعة. الإجهاد العضلي: 1 لا يوجد إلى 5 شديد.",
         )}
       </p>
       {readError && <p role="alert">{readError.message}</p>}
@@ -179,8 +179,8 @@ function WellnessEditor({
         {(
           [
             ["sleep_hours", l("Sleep hours", "ساعات النوم")],
-            ["energy", l("Energy 1–5", "الطاقة ١–٥")],
-            ["soreness", l("Soreness 1–5", "الإجهاد ١–٥")],
+            ["energy", l("Energy 1–5", "الطاقة 1–5")],
+            ["soreness", l("Soreness 1–5", "الإجهاد 1–5")],
           ] as const
         ).map(([k, label]) => (
           <label key={k} className="text-xs">

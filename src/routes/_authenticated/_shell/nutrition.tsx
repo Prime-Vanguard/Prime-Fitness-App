@@ -187,16 +187,19 @@ function Page() {
       {features?.offline && (
         <p className="mt-2 text-xs text-muted-foreground">
           {locale === "ar"
-            ? "نسخة الجهاز لآخر ٧ أيام؛ الأهداف مخزنة والمكافآت بعد المزامنة."
+            ? "نسخة الجهاز لآخر 7 أيام؛ الأهداف مخزنة والمكافآت بعد المزامنة."
             : "7-day device cache · cached targets · rewards after sync."}{" "}
           {local.lastSync
-            ? new Date(local.lastSync).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB", {
-                timeZone: "Africa/Cairo",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+            ? new Date(local.lastSync).toLocaleString(
+                locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+                {
+                  timeZone: "Africa/Cairo",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                },
+              )
             : locale === "ar"
               ? "لم تتم المزامنة"
               : "Not yet synced"}
@@ -284,18 +287,12 @@ function Page() {
         model={workflow.entry}
         onMode={(entry) => void navigate({ search: { ...search, entry }, replace: true })}
       />
-      <div className="mt-6 space-y-4" data-stitch-meals>
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <h2>{locale === "ar" ? "الوجبات اليومية" : "Daily meals"}</h2>
-          <span>
-            {totalsAvailable
-              ? `${MEALS.filter((meal) => data?.food.some((row) => row.meal === meal)).length} / 4`
-              : "—"}{" "}
-            {locale === "ar" ? "مسجلة" : "recorded"}
-          </span>
-        </div>
-        {/* Keep optional copying beside meal records, after the primary daily summary. */}
-        <div className="mt-3">
+      <div className="mt-6" data-stitch-meals>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="font-heading text-base font-bold">
+            {locale === "ar" ? "الوجبات" : "Meals"}
+          </h2>
+          {/* Optional copying stays beside meal records as a secondary action. */}
           <MealCopyReview
             userId={user.id}
             day={day}
@@ -306,97 +303,99 @@ function Page() {
             disabled={adding}
           />
         </div>
-        {MEALS.map((m) => {
-          const rows = data?.food.filter((x) => x.meal === m) ?? [];
+        <div className="divide-y divide-border rounded-xl bg-card px-3">
+          {MEALS.map((m) => {
+            const rows = data?.food.filter((x) => x.meal === m) ?? [];
 
-          return (
-            <section key={m} className="rounded-xl bg-card p-3">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <span
-                    aria-hidden
-                    className={
-                      "size-2 rounded-full " +
-                      (rows.length ? "bg-emerald-400" : "bg-muted-foreground")
-                    }
-                  />
-                  {t(m as TKey)}
-                </h3>
-                <p className="text-sm tabular-nums text-muted-foreground">
-                  {totalsAvailable
-                    ? rows.reduce((sum, row) => sum + row.calories, 0) + " kcal"
-                    : "—"}
-                </p>
-              </div>
-              {totalsAvailable && !rows.length && (
-                <p className="rounded-lg bg-background p-5 text-center text-sm text-muted-foreground">
-                  {t("noFood")}
-                </p>
-              )}
-              <ul className="space-y-3">
-                {rows.map((x) => (
-                  <li
-                    key={x.id}
-                    data-feedback-record={x.id}
-                    className="space-y-2 rounded-lg bg-background p-3 text-sm"
-                  >
-                    <FoodSaveState
-                      sending={local.queue.some(
-                        (change) =>
-                          change.entity === "food_logs" &&
-                          change.record_id === x.id &&
-                          change.status === "sending",
-                      )}
-                      pending={local.queue.some(
-                        (change) => change.entity === "food_logs" && change.record_id === x.id,
-                      )}
-                      review={local.queue.some(
-                        (change) =>
-                          change.entity === "food_logs" &&
-                          change.record_id === x.id &&
-                          (change.status === "conflict" || change.status === "rejected"),
-                      )}
+            return (
+              <section key={m} className="py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <span
+                      aria-hidden
+                      className={
+                        "size-2 rounded-full " +
+                        (rows.length ? "bg-emerald-400" : "bg-muted-foreground")
+                      }
                     />
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 break-words font-medium">{x.name}</span>
-                      <span className="shrink-0 tabular-nums">{x.calories} kcal</span>
-                    </div>
-                    <span className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-muted-foreground">
-                      P{Number(x.protein_g)} C{Number(x.carbs_g)} F{Number(x.fat_g)}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={adding}
-                        aria-label={`${locale === "ar" ? "تعديل" : "Edit"} ${x.name}`}
-                        onClick={() => void beginEdit(x)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`${t("delete")} ${x.name}`}
-                        disabled={adding || !!recoveryError}
-                        onClick={() => void del(x)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                variant="secondary"
-                className="mt-3 w-full bg-background"
-                aria-label={`${t("addFood")} ${t(m as TKey)}`}
-                onClick={() => openEntry("search", m)}
-              >
-                <Plus aria-hidden className="size-4" />
-                {t("addFood")} · {t(m as TKey)}
-              </Button>
-            </section>
-          );
-        })}
+                    {t(m as TKey)}
+                  </h3>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm tabular-nums text-muted-foreground">
+                      <bdi dir="ltr">
+                        {totalsAvailable
+                          ? rows.reduce((sum, row) => sum + row.calories, 0) + " kcal"
+                          : "—"}
+                      </bdi>
+                    </p>
+                    {/* One add control per meal; empty meals need no separate placeholder. */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gold"
+                      aria-label={`${t("addFood")} ${t(m as TKey)}`}
+                      onClick={() => openEntry("search", m)}
+                    >
+                      <Plus aria-hidden className="size-5" />
+                    </Button>
+                  </div>
+                </div>
+                <ul className="space-y-3 empty:hidden [&:not(:empty)]:mt-3">
+                  {rows.map((x) => (
+                    <li
+                      key={x.id}
+                      data-feedback-record={x.id}
+                      className="space-y-2 rounded-lg bg-background p-3 text-sm"
+                    >
+                      <FoodSaveState
+                        sending={local.queue.some(
+                          (change) =>
+                            change.entity === "food_logs" &&
+                            change.record_id === x.id &&
+                            change.status === "sending",
+                        )}
+                        pending={local.queue.some(
+                          (change) => change.entity === "food_logs" && change.record_id === x.id,
+                        )}
+                        review={local.queue.some(
+                          (change) =>
+                            change.entity === "food_logs" &&
+                            change.record_id === x.id &&
+                            (change.status === "conflict" || change.status === "rejected"),
+                        )}
+                      />
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="min-w-0 break-words font-medium">{x.name}</span>
+                        <span className="shrink-0 tabular-nums">{x.calories} kcal</span>
+                      </div>
+                      <span className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-muted-foreground">
+                        P{Number(x.protein_g)} C{Number(x.carbs_g)} F{Number(x.fat_g)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={adding}
+                          aria-label={`${locale === "ar" ? "تعديل" : "Edit"} ${x.name}`}
+                          onClick={() => void beginEdit(x)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`${t("delete")} ${x.name}`}
+                          disabled={adding || !!recoveryError}
+                          onClick={() => void del(x)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       </div>
       <p className="mt-8 text-xs text-muted-foreground">{t("nutritionSafety")}</p>
     </div>
