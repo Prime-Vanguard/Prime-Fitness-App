@@ -216,7 +216,12 @@ async function flush(userId: string) {
     if (!authorization) return;
     const result = await supabase
       .from("workout_sessions")
-      .update({ notes: w.notes || null, finished_at: w.finishedAt })
+      // A rename after the first sync travels with finish; server-set program titles stay otherwise.
+      .update({
+        ...(w.session.titleEdited ? { title: w.session.title } : {}),
+        notes: w.notes || null,
+        finished_at: w.finishedAt,
+      })
       .eq("id", session.id)
       .eq("member_id", userId)
       .select("id")

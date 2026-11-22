@@ -1,4 +1,6 @@
 import { useRecordFeedback } from "@/hooks/use-record-feedback";
+import { muscleLabel } from "@/lib/muscle-volume";
+import { formatDuration } from "@/lib/duration";
 import { useState, type ReactNode } from "react";
 import {
   Check,
@@ -14,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ExerciseThumbnail } from "@/components/exercise-thumbnail";
-import { ExerciseHero } from "@/components/exercise-hero";
 import { useI18n } from "@/lib/i18n";
 import { trainingLabel } from "@/lib/training-labels";
 import { workingCount } from "@/lib/workout-editor";
@@ -22,7 +23,18 @@ import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/unit
 import type { WorkoutSet } from "@/lib/workout-store";
 import type { ExerciseGuidance } from "@/lib/exercise-guidance";
 
+const EQUIPMENT_AR: Record<string, string> = {
+  barbell: "بار",
+  dumbbell: "دمبل",
+  machine: "جهاز",
+  cable: "كابل",
+  kettlebell: "كيتل بل",
+  bodyweight: "وزن الجسم",
+  band: "مطاط",
+};
+
 /** Card presentation consumes rows and callbacks, never the persistence controller. */
+
 export function WorkoutExerciseCard({
   slot,
   cardExercise,
@@ -40,8 +52,6 @@ export function WorkoutExerciseCard({
   onDelete,
   children,
   history,
-  position,
-  total,
   primaryAction,
   actions,
   onOptions,
@@ -62,8 +72,6 @@ export function WorkoutExerciseCard({
   onDelete: (row: WorkoutSet) => Promise<void>;
   children: ReactNode;
   history?: ReactNode;
-  position?: number;
-  total?: number;
   primaryAction?: ReactNode;
   actions?: ReactNode;
   onOptions?: () => void;
@@ -99,20 +107,15 @@ export function WorkoutExerciseCard({
         dir={locale === "ar" ? "rtl" : "ltr"}
       >
         <div data-exercise-preview className="rounded-xl bg-card p-4">
-          {active && position != null && total != null && (
-            <p className="text-xs font-medium uppercase tracking-wider text-gold">
-              {l(`Exercise ${position} of ${total}`, `التمرين ${position} من ${total}`)}
-            </p>
-          )}
           <div className="flex items-center gap-3">
-            {!active && (
+            {
               <ExerciseThumbnail
                 exercise={cardExercise}
                 name={name}
                 enabled={guidance}
                 onOpen={onOpenMedia}
               />
-            )}
+            }
             <button
               className="flex min-h-7 min-w-0 flex-1 items-center justify-between gap-3 text-start focus-visible:ring-2 focus-visible:ring-gold"
               aria-expanded={active}
@@ -165,21 +168,18 @@ export function WorkoutExerciseCard({
               <p className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 {cardExercise?.muscle && (
                   <span className="rounded-full bg-background px-3 py-1">
-                    {trainingLabel(cardExercise.muscle, locale)}
+                    {muscleLabel(cardExercise.muscle, locale)}
                   </span>
                 )}
                 {cardExercise?.equipment && (
-                  <span className="rounded-full bg-background px-3 py-1">
-                    {cardExercise.equipment}
+                  <span className="rounded-full bg-background px-3 py-1 capitalize">
+                    {locale === "ar"
+                      ? (EQUIPMENT_AR[cardExercise.equipment.toLowerCase()] ??
+                        cardExercise.equipment)
+                      : cardExercise.equipment}
                   </span>
                 )}
               </p>
-              <ExerciseHero
-                exercise={cardExercise}
-                name={name}
-                enabled={guidance}
-                onOpen={onOpenMedia}
-              />
               <TabsList
                 aria-label={l("Exercise details", "تفاصيل التمرين")}
                 className="flex h-auto w-full gap-1 rounded-lg bg-background p-1"
@@ -213,49 +213,64 @@ export function WorkoutExerciseCard({
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="flex items-center gap-2 text-sm font-bold">
                     <Dumbbell aria-hidden className="size-4 text-gold" />
-                    {l("Execution Table", "جدول الأداء")}
+                    {l("Sets", "المجموعات")}
                   </h3>
-                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {wu} ·{" "}
-                    {l(
-                      units === "metric" ? "Metric" : "Imperial",
-                      units === "metric" ? "متري" : "إمبريالي",
-                    )}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {trainingLabel(cardExercise?.load_convention ?? "external_total", locale)}
                   {(slot.sets > 0 || slot.reps) && (
-                    <span className="ms-2">
-                      {l("Prescription", "الأهداف المخططة")}:{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {l("Target", "الهدف")}{" "}
                       <bdi dir="ltr">
                         {slot.sets} × {slot.reps || "—"}
                       </bdi>
                     </span>
                   )}
-                </p>
+                </div>
+                {/* Only unusual load conventions need explaining. */}
+                {cardExercise?.load_convention &&
+                  cardExercise.load_convention !== "external_total" && (
+                    <p className="text-xs text-muted-foreground">
+                      {trainingLabel(cardExercise.load_convention, locale)}
+                    </p>
+                  )}
                 {!!rows.length && (
-                  <ul className="space-y-2" aria-label={l("Completed sets", "المجموعات المكتملة")}>
+                  <ul className="space-y-1" aria-label={l("Completed sets", "المجموعات المكتملة")}>
                     {rows.map((row) => (
                       <li
                         key={row.id}
                         data-feedback-record={row.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/20 bg-success/5 px-3 py-2 text-sm"
+                        className="flex min-h-11 items-center gap-3 rounded-lg bg-success/5 ps-3 text-sm"
                       >
-                        <span>
-                          <Check className="me-2 inline h-4 w-4 text-success" />
-                          {row.set_number} ·{" "}
-                          {row.logging_mode === "timed" ? `${row.duration_seconds}s` : row.reps} ×{" "}
-                          {row.weight_kg == null
-                            ? "—"
-                            : formatMeasure(displayWeight(row.weight_kg, units))}{" "}
-                          {wu}
-                          {row.rpe != null ? ` · RPE ${row.rpe}` : ""}
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            {trainingLabel(row.set_role ?? "working", locale)} ·{" "}
-                            {trainingLabel(row.side ?? "bilateral", locale)}
-                            {row.sync === "pending" ? ` · ${l("On device", "على الجهاز")}` : ""}
-                          </span>
+                        <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
+                        <span className="w-4 shrink-0 text-center text-xs text-muted-foreground">
+                          {row.set_number}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <bdi dir="ltr" className="font-semibold tabular-nums">
+                            {row.weight_kg != null &&
+                              `${formatMeasure(displayWeight(row.weight_kg, units))} ${wu} × `}
+                            {row.logging_mode === "timed"
+                              ? formatDuration(row.duration_seconds ?? 0)
+                              : row.weight_kg != null
+                                ? row.reps
+                                : l(`${row.reps} reps`, `${row.reps} تكرار`)}
+                          </bdi>
+                          {/* Only say what differs from a normal working set. */}
+                          {[
+                            (row.set_role ?? "working") !== "working" &&
+                              trainingLabel(row.set_role!, locale),
+                            (row.side ?? "bilateral") !== "bilateral" &&
+                              trainingLabel(row.side!, locale),
+                            row.rpe != null && `RPE ${row.rpe}`,
+                            row.sync === "pending" && l("On device", "على الجهاز"),
+                          ]
+                            .filter(Boolean)
+                            .map((tag) => (
+                              <span
+                                key={String(tag)}
+                                className="ms-2 text-xs text-muted-foreground"
+                              >
+                                {tag}
+                              </span>
+                            ))}
                         </span>
                         {!locked && (
                           <span className="flex">

@@ -1,4 +1,5 @@
 import { useI18n } from "@/lib/i18n";
+import { formatDuration } from "@/lib/duration";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { workingCount, workoutSlots } from "@/lib/workout-editor";
@@ -116,9 +117,7 @@ export function WorkoutReview({
                   {[
                     {
                       label: l("Duration", "المدة"),
-                      value: Number.isFinite(seconds)
-                        ? Math.floor(seconds / 60) + "m " + (seconds % 60) + "s"
-                        : "—",
+                      value: Number.isFinite(seconds) ? formatDuration(seconds) : "—",
                       Icon: Timer,
                     },
                     {

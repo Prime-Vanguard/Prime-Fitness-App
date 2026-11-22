@@ -1,4 +1,5 @@
 import { NativeSelect } from "@/components/ui/native-select";
+import { formatDuration } from "@/lib/duration";
 import { useState, useEffect, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function HoldTimer({ started, onToggle }: { started: number | null; onTog
   return (
     <Button variant="outline" className="mt-3 w-full" onClick={onToggle}>
       {started
-        ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${Math.max(0, Math.floor((now - started) / 1000))}s`
+        ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${formatDuration((now - started) / 1000)}`
         : locale === "ar"
           ? "بدء الثبات"
           : "Start hold"}
@@ -46,6 +47,7 @@ export function RestTimer({
   end,
   seconds,
   locked,
+  canStart,
   onChange,
   onDuration,
   ready,
@@ -53,6 +55,8 @@ export function RestTimer({
   end: number;
   seconds: number;
   locked: boolean;
+  /** Manual rest only makes sense once a set is logged. */
+  canStart: boolean;
   onChange: (end: number) => void;
   onDuration: (n: number) => Promise<void>;
   ready: boolean;
@@ -101,7 +105,7 @@ export function RestTimer({
                 ...(![30, 60, 90, 120, 180].includes(seconds) ? [seconds] : []),
               ].map((s) => (
                 <option key={s} value={s}>
-                  {s}s
+                  {formatDuration(s)}
                 </option>
               ))}
             </NativeSelect>
@@ -158,15 +162,17 @@ export function RestTimer({
               </div>
             </>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => {
-                primeAudio();
-                onChange(Date.now() + seconds * 1000);
-              }}
-            >
-              {locale === "ar" ? "بدء الراحة" : "Start rest"}
-            </Button>
+            canStart && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  primeAudio();
+                  onChange(Date.now() + seconds * 1000);
+                }}
+              >
+                {locale === "ar" ? "بدء الراحة" : "Start rest"}
+              </Button>
+            )
           )}
         </div>
         {preferenceError && (

@@ -23,6 +23,8 @@ export type Workout = {
     member_id: string;
     started_at: string;
     title: string | null;
+    // Set when the member renames or the app names an untitled workout; finish then saves the title.
+    titleEdited?: boolean | undefined;
     synced: boolean;
     occurrence_id?: string | undefined;
   } | null;

@@ -18,6 +18,7 @@ import {
   slotReference,
   togglePlannedHold,
   supersetChoices,
+  stepMeasure,
 } from "./workout-editor";
 
 function fixture() {
@@ -259,5 +260,16 @@ describe("workout editor", () => {
         { ...row, side: "left" },
       ]),
     ).toBe(0.5);
+  });
+});
+
+describe("stepMeasure", () => {
+  it("steps typed values, floors at zero and leaves unreadable input alone", () => {
+    expect(stepMeasure("", 2.5)).toBe("2.5");
+    expect(stepMeasure("60", 2.5)).toBe("62.5");
+    expect(stepMeasure("١٠", -1)).toBe("9");
+    expect(stepMeasure("1", -2.5)).toBe("0");
+    expect(stepMeasure("60kg", 2.5)).toBe("62.5");
+    expect(stepMeasure("1.2.3", 1)).toBe("1.2.3");
   });
 });
