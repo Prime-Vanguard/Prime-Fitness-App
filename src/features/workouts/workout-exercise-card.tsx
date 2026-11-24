@@ -2,7 +2,7 @@ import { useRecordFeedback } from "@/hooks/use-record-feedback";
 import { muscleLabel } from "@/lib/muscle-volume";
 import { exerciseClassification } from "@/lib/exercise-classification";
 import { formatDuration } from "@/lib/duration";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   Check,
   ChevronDown,
@@ -70,6 +70,8 @@ export function WorkoutExerciseCard({
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const count = workingCount(rows),
     wu = weightUnit(units);
+  // Rows already logged when the card opened do not stamp again.
+  const shownRows = useRef(new Set(rows.map((row) => row.id)));
   const [tab, setTab] = useState<"log" | "about" | "history">("log");
   const feedbackRef = useRecordFeedback(
     slot.key,
@@ -225,7 +227,10 @@ export function WorkoutExerciseCard({
                         data-feedback-record={row.id}
                         className="flex min-h-11 items-center gap-3 rounded-lg bg-success/5 ps-3 text-sm"
                       >
-                        <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
+                        <Check
+                          aria-hidden
+                          className={`h-4 w-4 shrink-0 text-success ${shownRows.current.has(row.id) || Date.now() - Date.parse(row.created_at) > 10000 ? "" : "set-stamp"}`}
+                        />
                         <span className="w-4 shrink-0 text-center text-xs text-muted-foreground">
                           {row.set_number}
                         </span>

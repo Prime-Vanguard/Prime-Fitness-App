@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import { numberLocale } from "@/lib/i18n";
+import { RollingNumber } from "@/components/rolling-number";
+import { celebrationLevel } from "@/lib/celebrate";
 import { Wallet } from "lucide-react";
 import { RankCrest } from "@/components/rank-crest";
 import { useI18n } from "@/lib/i18n";
@@ -25,6 +28,20 @@ export function RewardSummary({
   const { t, locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const n = (value: number) => value.toLocaleString(numberLocale(locale));
+  // Confirmed XP that arrives while this is on screen rises into the crest as "+XP".
+  const [gain, setGain] = useState({ amount: 0, key: 0 });
+  const lastXp = useRef<number | null>(null);
+  const xp = data?.xp;
+  useEffect(() => {
+    if (xp == null) return;
+    const before = lastXp.current;
+    lastXp.current = xp;
+    if (!compact && before != null && xp > before && celebrationLevel() !== "off")
+      setGain((g) => ({ amount: xp - before, key: g.key + 1 }));
+  }, [xp, compact]);
+  useEffect(() => {
+    if (compact) setGain((g) => (g.amount ? { ...g, amount: 0 } : g));
+  }, [compact]);
   if (compact)
     return (
       <section
@@ -33,13 +50,13 @@ export function RewardSummary({
       >
         <p className="text-sm">
           <span className="text-muted-foreground">{t("level")}</span> {data?.level ?? "—"} ·{" "}
-          <bdi>{data?.xp.toLocaleString(numberLocale(locale)) ?? "—"} XP</bdi>
+          <bdi>{data ? <RollingNumber value={data.xp} format={n} /> : "—"} XP</bdi>
         </p>
         <p className="flex items-center gap-2 text-sm">
           <Wallet aria-hidden className="size-4 text-muted-foreground" />
           {t("pvWallet")}:{" "}
           <strong className="text-gold">
-            <bdi>{data?.pv.toLocaleString(numberLocale(locale)) ?? "—"} PV</bdi>
+            <bdi>{data ? <RollingNumber value={data.pv} format={n} /> : "—"} PV</bdi>
           </strong>
         </p>
         {!data && (
@@ -52,7 +69,21 @@ export function RewardSummary({
   return (
     <section className="mt-4 rounded-xl bg-card p-4 sm:p-5" data-stitch-reward-summary>
       <div className="flex items-center gap-4">
-        <RankCrest rank={data?.rank.key ?? "Recruit"} size={72} />
+        <div className="relative shrink-0">
+          <div key={gain.key} className={gain.key ? "crest-pulse rounded-full" : undefined}>
+            <RankCrest rank={data?.rank.key ?? "Recruit"} size={72} />
+          </div>
+          {gain.amount > 0 && (
+            <span
+              key={gain.key}
+              role="status"
+              className="xp-chip absolute inset-x-0 top-1/2 mx-auto w-max rounded-full bg-gold px-2 py-0.5 text-xs font-bold text-gold-foreground"
+              onAnimationEnd={() => setGain((g) => ({ ...g, amount: 0 }))}
+            >
+              <bdi>+{n(gain.amount)} XP</bdi>
+            </span>
+          )}
+        </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">
             {l("Your Vanguard rank", "رتبتك في فانغارد")}
@@ -62,7 +93,10 @@ export function RewardSummary({
             {data?.level ?? "—"}
           </h2>
           <p className="text-xs text-muted-foreground">
-            <bdi className="tabular-nums">{data ? n(data.xp) : "—"} XP</bdi> {l("total", "إجمالي")}
+            <bdi className="tabular-nums">
+              {data ? <RollingNumber value={data.xp} format={n} /> : "—"} XP
+            </bdi>{" "}
+            {l("total", "إجمالي")}
           </p>
           <div
             className="mt-3 h-2 overflow-hidden rounded-full bg-background"
@@ -71,7 +105,7 @@ export function RewardSummary({
             aria-valuenow={Math.round((data?.pct ?? 0) * 100)}
           >
             <div
-              className="h-full rounded-full bg-gold"
+              className="h-full rounded-full bg-gold transition-[width] duration-300 ease-out motion-reduce:transition-none"
               style={{ width: `${Math.round((data?.pct ?? 0) * 100)}%` }}
             />
           </div>
@@ -100,7 +134,7 @@ export function RewardSummary({
           {t("pvWallet")}
         </p>
         <p className="font-heading text-xl font-bold tabular-nums text-gold">
-          <bdi>{data?.pv.toLocaleString(numberLocale(locale)) ?? "—"} PV</bdi>
+          <bdi>{data ? <RollingNumber value={data.pv} format={n} /> : "—"} PV</bdi>
         </p>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

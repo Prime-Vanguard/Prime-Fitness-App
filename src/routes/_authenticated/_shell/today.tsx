@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { currentStreak, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
 import { celebrationLevel } from "@/lib/celebrate";
+import { RollingNumber } from "@/components/rolling-number";
 import { haptic } from "@/lib/device-feedback";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { useMemberData, beginMemberRead } from "@/hooks/use-member-data";
@@ -412,7 +413,7 @@ function Today() {
                           </bdi>
                         )}
                         <bdi>
-                          {q.progress}/{q.goal}
+                          <RollingNumber value={q.progress} format={String} />/{q.goal}
                         </bdi>
                       </span>
                     </div>

@@ -18,7 +18,9 @@ import { XpGuide } from "@/components/xp-guide";
 import { PodCommunity } from "@/components/pod-community";
 import { SocialPanel } from "@/features/social/social-panel";
 import { ShareAchievement } from "@/components/share-achievement";
-import { Trophy, Award, Gift } from "lucide-react";
+import { Trophy, Award, Gift, ArrowDown, ArrowUp } from "lucide-react";
+import { useSinceLastVisit } from "@/hooks/use-since-last-visit";
+import { celebrationMoves } from "@/hooks/use-count-up";
 import { BadgeArt } from "@/components/badge-art";
 import { badgeArt, RARITY_LABEL, type Rarity } from "@/lib/badges";
 import { supabase } from "@/integrations/supabase/client";
@@ -273,6 +275,16 @@ function Page() {
       ? [...listed, { member_id: user.id, xp: 0, display_name: null, outside: board.length >= 50 }]
       : listed;
   const number = (n: number) => n.toLocaleString(numberLocale(locale));
+  // Places gained or lost since this device last showed this week's board.
+  const places = useSinceLastVisit(
+    `pf-board-${user.id}-${ws}`,
+    board ? rows.filter((r) => !r.outside).map((r, i) => [r.member_id, i + 1]) : undefined,
+  );
+  // Requests whose status changed since the last visit get a stamp (new ones: "Requested").
+  const requestStamps = useSinceLastVisit(
+    `pf-requests-${user.id}`,
+    data?.reds.map((r) => [r.id, r.status]),
+  );
   const xpSource = (source: string) =>
     ({
       workout: l("Workout", "تمرين"),
@@ -486,524 +498,565 @@ function Page() {
           ["community", l("Community", "المجتمع")],
           ["activity", l("Earn PV", "اكسب PV")],
         ]}
-        onSelect={(section) =>
-          void navigate({ search: { section: section === "journey" ? undefined : section } })
-        }
+        onSelect={(next) => {
+          const order = ["journey", "shop", "community", "activity"];
+          const forward = order.indexOf(next) > order.indexOf(section);
+          void navigate({
+            search: { section: next === "journey" ? undefined : next },
+            viewTransition: celebrationMoves()
+              ? { types: [forward ? "rewards-forward" : "rewards-back"] }
+              : false,
+          });
+        }}
       />
-
-      {redemptionError && (
-        <p role="alert" className="mt-4 text-sm text-destructive">
-          {redemptionError}
-        </p>
-      )}
-      {intents.length > 0 && (
-        <section
-          className="mt-4 rounded-xl border border-gold/40 p-4"
-          aria-label={l("Unconfirmed reward requests", "طلبات مكافآت غير مؤكدة")}
-        >
-          <h2 className="font-semibold">
-            {l("Unconfirmed reward requests", "طلبات مكافآت غير مؤكدة")}
-          </h2>
-          <p className="my-2 text-sm">
-            {l(
-              "These requests survive refresh. Checking/retrying uses the same request ID and cannot debit it twice.",
-              "تبقى هذه الطلبات بعد تحديث الصفحة. إعادة المحاولة تستخدم نفس رقم الطلب ولا تخصم النقاط مرتين.",
-            )}
+      <div className="rewards-panel">
+        {redemptionError && (
+          <p role="alert" className="mt-4 text-sm text-destructive">
+            {redemptionError}
           </p>
-          {intents.map((i) => (
-            <div key={i.id} className="mt-2 flex flex-wrap items-center gap-2">
-              <span>
-                {i.title} · {i.cost} PV
-              </span>
-              <Button
-                disabled={redeeming}
-                variant="outline"
-                onClick={() => reviewPurchase(i.reward_id)}
-              >
-                {l("Check / retry request", "تحقق / أعد محاولة الطلب")}
-              </Button>
-            </div>
-          ))}
-        </section>
-      )}
-      {section === "journey" && (
-        <>
-          {g && <VanguardRoadmap level={g.level} xp={g.xp} />}
-          <details className="mt-4 rounded-lg bg-card px-4">
-            <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
-              {l("XP earning rules", "قواعد كسب نقاط الخبرة")}
-            </summary>
-            <div className="pb-4">
-              <XpGuide />
-            </div>
-          </details>
-          {g && (
-            <div className="mt-3">
-              <ShareAchievement
-                name={me?.profile?.display_name || t("member")}
-                title={`${t("level")} ${g.level}`}
-                detail={locale === "ar" ? g.rank.ar : g.rank.key}
-                rank={g.rank.key}
-              />
-            </div>
-          )}
-        </>
-      )}
-      {section === "community" && (
-        <>
-          <MemberSections
-            label={l("Community destinations", "وجهات المجتمع")}
-            value={community}
-            appearance="segmented"
-            items={[
-              ["pods", l("Pods", "المجموعات")],
-              ...(features?.social
-                ? [
-                    ["friends", l("Friends", "الأصدقاء")] as const,
-                    ["challenges", l("Challenges", "التحديات")] as const,
-                  ]
-                : []),
-              ["leaderboard", t("leaderboard")],
-            ]}
-            onSelect={(community) =>
-              void navigate({
-                search: {
-                  section: "community",
-                  community: community === "pods" ? undefined : community,
-                },
-              })
-            }
-          />
-          <div hidden={community !== "pods"}>
-            <PodCommunity userId={user.id} active={community === "pods"} />
-          </div>
-          <div hidden={community !== "friends" && community !== "challenges"}>
-            <SocialPanel
-              userId={user.id}
-              view={community === "challenges" ? "challenges" : "friends"}
-              active={community === "friends" || community === "challenges"}
-            />
-          </div>
-          {!features?.social && (community === "friends" || community === "challenges") && (
-            <p role="status" className="mt-4 text-sm">
+        )}
+        {intents.length > 0 && (
+          <section
+            className="mt-4 rounded-xl border border-gold/40 p-4"
+            aria-label={l("Unconfirmed reward requests", "طلبات مكافآت غير مؤكدة")}
+          >
+            <h2 className="font-semibold">
+              {l("Unconfirmed reward requests", "طلبات مكافآت غير مؤكدة")}
+            </h2>
+            <p className="my-2 text-sm">
               {l(
-                "Social availability could not be confirmed. Choose Pods or reconnect.",
-                "تعذر تأكيد إتاحة الميزات الاجتماعية. اختر المجموعات أو أعد الاتصال.",
+                "These requests survive refresh. Checking/retrying uses the same request ID and cannot debit it twice.",
+                "تبقى هذه الطلبات بعد تحديث الصفحة. إعادة المحاولة تستخدم نفس رقم الطلب ولا تخصم النقاط مرتين.",
               )}
             </p>
-          )}
-        </>
-      )}
-      {section === "activity" && (
-        <>
-          <section className="mt-6 rounded-xl border border-border bg-card p-5">
-            <h2 className="font-display text-lg font-bold">{t("tasks")}</h2>
-            {data?.tasks.length === 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">{t("noTasks")}</p>
-            )}
-            <ul className="mt-3 space-y-3">
-              {data?.tasks.map((x) => (
-                <li key={x.id} className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium">{title(x)}</p>
-                    <span className="text-sm font-semibold tabular-nums text-gold">
-                      +{x.points} PV
-                    </span>
-                  </div>
-                  {x.description && (
-                    <p className="mt-1 text-xs text-muted-foreground">{x.description}</p>
-                  )}
-                  {data?.pending.has(x.id) ? (
-                    <p className="mt-3 text-sm text-muted-foreground" role="status">
-                      {l("Claim under review", "الطلب قيد المراجعة")}
-                    </p>
-                  ) : claimOpen === x.id ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Input
-                        autoFocus
-                        aria-label={t("claimNote")}
-                        placeholder={t("claimNote")}
-                        value={notes[x.id] ?? ""}
-                        maxLength={500}
-                        onChange={(e) => setNotes({ ...notes, [x.id]: e.target.value })}
-                      />
-                      <Button disabled={!!claiming} onClick={() => claim(x.id)}>
-                        {t("claim")}
-                      </Button>
-                      <Button variant="ghost" onClick={() => setClaimOpen(null)}>
-                        {l("Cancel", "إلغاء")}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="outline" className="mt-3" onClick={() => setClaimOpen(x.id)}>
-                      {l("Claim PV", "اطلب النقاط")}
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      )}
-      {section === "community" && (
-        <>
-          <section
-            id="community-leaderboard"
-            hidden={community !== "leaderboard"}
-            className="mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-5"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                <Trophy className="h-5 w-5 text-gold" />
-                {t("leaderboard")}
-              </h2>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch disabled={!me} checked={optedIn} onCheckedChange={setOptIn} />
-                {t("showMe")}
-              </label>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("lbHint")}</p>
-            {boardPending && (
-              <p role="status" className="mt-3 text-sm text-muted-foreground">
-                {l("Loading weekly leaderboard…", "جارٍ تحميل الصدارة الأسبوعية…")}
-              </p>
-            )}
-            {boardError && (
-              <p role="alert" className="mt-3 text-sm">
-                {l("Leaderboard unavailable.", "الصدارة غير متاحة.")}{" "}
-                <Button variant="outline" onClick={() => void retryBoard()}>
-                  {l("Retry leaderboard", "إعادة تحميل الصدارة")}
+            {intents.map((i) => (
+              <div key={i.id} className="mt-2 flex flex-wrap items-center gap-2">
+                <span>
+                  {i.title} · {i.cost} PV
+                </span>
+                <Button
+                  disabled={redeeming}
+                  variant="outline"
+                  onClick={() => reviewPurchase(i.reward_id)}
+                >
+                  {l("Check / retry request", "تحقق / أعد محاولة الطلب")}
                 </Button>
+              </div>
+            ))}
+          </section>
+        )}
+        {section === "journey" && (
+          <>
+            {g && <VanguardRoadmap level={g.level} xp={g.xp} />}
+            <details className="mt-4 rounded-lg bg-card px-4">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
+                {l("XP earning rules", "قواعد كسب نقاط الخبرة")}
+              </summary>
+              <div className="pb-4">
+                <XpGuide />
+              </div>
+            </details>
+            {g && (
+              <div className="mt-3">
+                <ShareAchievement
+                  name={me?.profile?.display_name || t("member")}
+                  title={`${t("level")} ${g.level}`}
+                  detail={locale === "ar" ? g.rank.ar : g.rank.key}
+                  rank={g.rank.key}
+                />
+              </div>
+            )}
+          </>
+        )}
+        {section === "community" && (
+          <>
+            <MemberSections
+              label={l("Community destinations", "وجهات المجتمع")}
+              value={community}
+              appearance="segmented"
+              items={[
+                ["pods", l("Pods", "المجموعات")],
+                ...(features?.social
+                  ? [
+                      ["friends", l("Friends", "الأصدقاء")] as const,
+                      ["challenges", l("Challenges", "التحديات")] as const,
+                    ]
+                  : []),
+                ["leaderboard", t("leaderboard")],
+              ]}
+              onSelect={(community) =>
+                void navigate({
+                  search: {
+                    section: "community",
+                    community: community === "pods" ? undefined : community,
+                  },
+                })
+              }
+            />
+            <div hidden={community !== "pods"}>
+              <PodCommunity userId={user.id} active={community === "pods"} />
+            </div>
+            <div hidden={community !== "friends" && community !== "challenges"}>
+              <SocialPanel
+                userId={user.id}
+                view={community === "challenges" ? "challenges" : "friends"}
+                active={community === "friends" || community === "challenges"}
+              />
+            </div>
+            {!features?.social && (community === "friends" || community === "challenges") && (
+              <p role="status" className="mt-4 text-sm">
+                {l(
+                  "Social availability could not be confirmed. Choose Pods or reconnect.",
+                  "تعذر تأكيد إتاحة الميزات الاجتماعية. اختر المجموعات أو أعد الاتصال.",
+                )}
               </p>
             )}
-            {rows.length === 0 && !boardPending && !boardError ? (
-              <p className="mt-3 text-sm text-muted-foreground">{t("lbEmpty")}</p>
-            ) : (
-              <ol className="mt-3 space-y-2 text-sm">
-                {rows.map((r, i) => (
-                  <li
-                    key={r.member_id}
-                    className={`flex items-center justify-between gap-3 rounded-lg bg-background p-3 ${r.member_id === user.id ? "font-semibold text-gold" : ""}`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span
-                        className={`w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
-                      >
-                        {r.outside ? "50+" : i + 1}
+          </>
+        )}
+        {section === "activity" && (
+          <>
+            <section className="mt-6 rounded-xl border border-border bg-card p-5">
+              <h2 className="font-display text-lg font-bold">{t("tasks")}</h2>
+              {data?.tasks.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">{t("noTasks")}</p>
+              )}
+              <ul className="mt-3 space-y-3">
+                {data?.tasks.map((x) => (
+                  <li key={x.id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium">{title(x)}</p>
+                      <span className="text-sm font-semibold tabular-nums text-gold">
+                        +{x.points} PV
                       </span>
-                      {r.member_id === user.id ? t("you") : r.display_name || "—"}
-                    </span>
-                    <bdi className="tabular-nums">
-                      {number(r.xp)} {t("xp")}
-                    </bdi>
+                    </div>
+                    {x.description && (
+                      <p className="mt-1 text-xs text-muted-foreground">{x.description}</p>
+                    )}
+                    {data?.pending.has(x.id) ? (
+                      <p className="mt-3 text-sm text-muted-foreground" role="status">
+                        {l("Claim under review", "الطلب قيد المراجعة")}
+                      </p>
+                    ) : claimOpen === x.id ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Input
+                          autoFocus
+                          aria-label={t("claimNote")}
+                          placeholder={t("claimNote")}
+                          value={notes[x.id] ?? ""}
+                          maxLength={500}
+                          onChange={(e) => setNotes({ ...notes, [x.id]: e.target.value })}
+                        />
+                        <Button disabled={!!claiming} onClick={() => claim(x.id)}>
+                          {t("claim")}
+                        </Button>
+                        <Button variant="ghost" onClick={() => setClaimOpen(null)}>
+                          {l("Cancel", "إلغاء")}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button variant="outline" className="mt-3" onClick={() => setClaimOpen(x.id)}>
+                        {l("Claim PV", "اطلب النقاط")}
+                      </Button>
+                    )}
                   </li>
                 ))}
-              </ol>
-            )}
-          </section>
-        </>
-      )}
-      {section === "journey" && (
-        <>
-          <section className="mt-6 rounded-xl border border-border bg-card p-5">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-              <Award className="h-5 w-5 text-gold" />
-              {t("badges")}
-              <span className="text-sm font-normal text-muted-foreground tabular-nums">
-                {badges ? `${badges.filter((b) => b.unlockedAt).length}/${badges.length}` : "—"}
-              </span>
-            </h2>
-            {badgesPending && (
-              <p role="status" className="mt-3 text-sm text-muted-foreground">
-                {l("Loading badges…", "جارٍ تحميل الأوسمة…")}
-              </p>
-            )}
-            {badgeError && (
-              <p role="alert" className="mt-3 text-sm">
-                {l("Badges unavailable.", "الأوسمة غير متاحة.")}{" "}
-                <Button variant="outline" onClick={() => void retryBadges()}>
-                  {l("Retry badges", "إعادة تحميل الأوسمة")}
-                </Button>
-              </p>
-            )}
-            {badges?.length === 0 && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                {l("No badges are available yet.", "لا توجد أوسمة متاحة بعد.")}
-              </p>
-            )}
-            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {badges?.map((b) => {
-                const rarity = badgeArt(b.code).rarity;
-                return (
-                  <li key={b.code}>
-                    <button
-                      className="flex h-full w-full flex-col items-center gap-2 rounded-xl bg-background px-2 py-4 text-center transition-colors hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-gold"
-                      onClick={() => setBadge(b.code)}
+              </ul>
+            </section>
+          </>
+        )}
+        {section === "community" && (
+          <>
+            <section
+              id="community-leaderboard"
+              hidden={community !== "leaderboard"}
+              className="mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                  <Trophy className="h-5 w-5 text-gold" />
+                  {t("leaderboard")}
+                </h2>
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch disabled={!me} checked={optedIn} onCheckedChange={setOptIn} />
+                  {t("showMe")}
+                </label>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{t("lbHint")}</p>
+              {boardPending && (
+                <p role="status" className="mt-3 text-sm text-muted-foreground">
+                  {l("Loading weekly leaderboard…", "جارٍ تحميل الصدارة الأسبوعية…")}
+                </p>
+              )}
+              {boardError && (
+                <p role="alert" className="mt-3 text-sm">
+                  {l("Leaderboard unavailable.", "الصدارة غير متاحة.")}{" "}
+                  <Button variant="outline" onClick={() => void retryBoard()}>
+                    {l("Retry leaderboard", "إعادة تحميل الصدارة")}
+                  </Button>
+                </p>
+              )}
+              {rows.length === 0 && !boardPending && !boardError ? (
+                <p className="mt-3 text-sm text-muted-foreground">{t("lbEmpty")}</p>
+              ) : (
+                <ol className="mt-3 space-y-2 text-sm">
+                  {rows.map((r, i) => (
+                    <li
+                      key={r.member_id}
+                      className={`flex items-center justify-between gap-3 rounded-lg bg-background p-3 ${places.fresh ? "board-in" : ""} ${r.member_id === user.id ? "font-semibold text-gold" : ""}`}
+                      style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
                     >
-                      <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={72} />
-                      <span
-                        className={`text-sm font-semibold ${b.unlockedAt ? "" : "text-muted-foreground"}`}
+                      <span className="flex items-center gap-3">
+                        <span
+                          className={`w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
+                        >
+                          {r.outside ? "50+" : i + 1}
+                        </span>
+                        {r.member_id === user.id ? t("you") : r.display_name || "—"}
+                        {(() => {
+                          const before = places.changed.get(r.member_id);
+                          if (r.outside || typeof before !== "number" || before === i + 1)
+                            return null;
+                          const up = before > i + 1;
+                          const moved = Math.abs(before - (i + 1));
+                          const label = up
+                            ? l(
+                                `Up ${moved} since your last visit`,
+                                `تقدم ${moved} منذ زيارتك الأخيرة`,
+                              )
+                            : l(
+                                `Down ${moved} since your last visit`,
+                                `تراجع ${moved} منذ زيارتك الأخيرة`,
+                              );
+                          const Arrow = up ? ArrowUp : ArrowDown;
+                          return (
+                            <span
+                              role="img"
+                              aria-label={label}
+                              title={label}
+                              className={`flex items-center text-xs tabular-nums ${up ? "text-success" : "text-muted-foreground"}`}
+                            >
+                              <Arrow aria-hidden className="size-3" />
+                              {number(moved)}
+                            </span>
+                          );
+                        })()}
+                      </span>
+                      <bdi className="tabular-nums">
+                        {number(r.xp)} {t("xp")}
+                      </bdi>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </>
+        )}
+        {section === "journey" && (
+          <>
+            <section className="mt-6 rounded-xl border border-border bg-card p-5">
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                <Award className="h-5 w-5 text-gold" />
+                {t("badges")}
+                <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                  {badges ? `${badges.filter((b) => b.unlockedAt).length}/${badges.length}` : "—"}
+                </span>
+              </h2>
+              {badgesPending && (
+                <p role="status" className="mt-3 text-sm text-muted-foreground">
+                  {l("Loading badges…", "جارٍ تحميل الأوسمة…")}
+                </p>
+              )}
+              {badgeError && (
+                <p role="alert" className="mt-3 text-sm">
+                  {l("Badges unavailable.", "الأوسمة غير متاحة.")}{" "}
+                  <Button variant="outline" onClick={() => void retryBadges()}>
+                    {l("Retry badges", "إعادة تحميل الأوسمة")}
+                  </Button>
+                </p>
+              )}
+              {badges?.length === 0 && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {l("No badges are available yet.", "لا توجد أوسمة متاحة بعد.")}
+                </p>
+              )}
+              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {badges?.map((b) => {
+                  const rarity = badgeArt(b.code).rarity;
+                  return (
+                    <li key={b.code}>
+                      <button
+                        className="flex h-full w-full flex-col items-center gap-2 rounded-xl bg-background px-2 py-4 text-center transition-colors hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-gold"
+                        onClick={() => setBadge(b.code)}
                       >
+                        <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={72} />
+                        <span
+                          className={`text-sm font-semibold ${b.unlockedAt ? "" : "text-muted-foreground"}`}
+                        >
+                          {locale === "ar" ? b.title_ar : b.title_en}
+                        </span>
+                        <span className={`text-xs ${RARITY_TEXT[rarity]}`}>
+                          {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+            <Sheet open={!!badge} onOpenChange={(open) => !open && setBadge(null)}>
+              <SheetContent side="bottom" className="rounded-t-2xl p-6">
+                {(() => {
+                  const b = badges?.find((x) => x.code === badge);
+                  if (!b) return null;
+                  const rarity = badgeArt(b.code).rarity;
+                  return (
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
+                      <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={168} />
+                      <SheetTitle className="font-display text-xl">
                         {locale === "ar" ? b.title_ar : b.title_en}
-                      </span>
-                      <span className={`text-xs ${RARITY_TEXT[rarity]}`}>
+                      </SheetTitle>
+                      <p className={`text-sm font-semibold ${RARITY_TEXT[rarity]}`}>
                         {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-          <Sheet open={!!badge} onOpenChange={(open) => !open && setBadge(null)}>
-            <SheetContent side="bottom" className="rounded-t-2xl p-6">
-              {(() => {
-                const b = badges?.find((x) => x.code === badge);
-                if (!b) return null;
-                const rarity = badgeArt(b.code).rarity;
-                return (
-                  <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-                    <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={168} />
-                    <SheetTitle className="font-display text-xl">
-                      {locale === "ar" ? b.title_ar : b.title_en}
-                    </SheetTitle>
-                    <p className={`text-sm font-semibold ${RARITY_TEXT[rarity]}`}>
-                      {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
-                    </p>
-                    <SheetDescription>
-                      {locale === "ar" ? b.description_ar : b.description_en}
-                    </SheetDescription>
-                    <p className="text-sm tabular-nums text-gold">
-                      {b.unlockedAt
-                        ? `${l("Earned", "حصلت عليه")} ${new Date(b.unlockedAt).toLocaleDateString(
-                            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
-                            {
+                      </p>
+                      <SheetDescription>
+                        {locale === "ar" ? b.description_ar : b.description_en}
+                      </SheetDescription>
+                      <p className="text-sm tabular-nums text-gold">
+                        {b.unlockedAt
+                          ? `${l("Earned", "حصلت عليه")} ${new Date(
+                              b.unlockedAt,
+                            ).toLocaleDateString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
                               timeZone: "Africa/Cairo",
                               day: "numeric",
                               month: "short",
                               year: "numeric",
-                            },
-                          )}`
-                        : `${l("Unlock to earn", "افتحه لتحصل على")} +${b.xp_bonus.toLocaleString(numberLocale(locale))} ${t("xp")}`}
-                    </p>
-                  </div>
-                );
-              })()}
-            </SheetContent>
-          </Sheet>
-        </>
-      )}
-      {section === "shop" && (
-        <>
-          <section className="mt-6 rounded-xl border border-gold/30 bg-card p-5">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-              <Gift className="h-5 w-5 text-gold" />
-              {t("shop")}
-            </h2>
-            {data?.rewards.length === 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">{t("noRewards")}</p>
-            )}
-            {!!data?.rewards.length && (
-              <div className="mt-4 space-y-2">
-                <label className="block text-sm">
-                  {l("Find a reward", "البحث عن مكافأة")}
-                  <Input
-                    className="mt-1"
-                    value={shopSearch}
-                    onChange={(event) => setShopSearch(event.target.value)}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex min-h-11 items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={affordable}
-                      disabled={!g}
-                      onCheckedChange={(v) => setAffordable(v === true)}
-                    />
-                    {l("Within my PV balance", "ضمن رصيدي من PV")}
-                  </label>
-                  <label className="flex min-h-11 items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={available}
-                      onCheckedChange={(v) => setAvailable(v === true)}
-                    />
-                    {l("In stock", "متاح")}
-                  </label>
-                </div>
-              </div>
-            )}
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {filteredRewards?.map((r) => {
-                const out = r.stock !== null && r.stock <= 0;
-                const short = g ? r.cost_pv - g.pv : 0,
-                  poor = short > 0;
-                return (
-                  <li
-                    key={r.id}
-                    className="flex min-w-0 flex-col justify-between gap-4 rounded-xl bg-background p-4"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium">{title(r)}</p>
-                        <bdi className="font-semibold tabular-nums text-gold">
-                          {number(r.cost_pv)} PV
-                        </bdi>
-                      </div>
-                      {r.description && (
-                        <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
-                      )}
-                      {r.stock !== null && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {r.stock} {t("left")}
-                        </p>
-                      )}
+                            })}`
+                          : `${l("Unlock to earn", "افتحه لتحصل على")} +${b.xp_bonus.toLocaleString(numberLocale(locale))} ${t("xp")}`}
+                      </p>
                     </div>
-                    <Button
-                      variant="secondary"
-                      disabled={
-                        !g ||
-                        redeeming ||
-                        !intentsReady ||
-                        intents.some((i) => i.reward_id === r.id) ||
-                        out ||
-                        poor
-                      }
-                      onClick={() => reviewPurchase(r.id)}
-                    >
-                      {redeeming
-                        ? "…"
-                        : intents.some((i) => i.reward_id === r.id)
-                          ? l("Request unconfirmed", "طلب غير مؤكد")
-                          : out
-                            ? t("outOfStock")
-                            : poor
-                              ? l(`${number(short)} PV more`, `تحتاج ${number(short)} PV أخرى`)
-                              : t("redeem")}
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-            {data && filteredRewards?.length === 0 && data.rewards.length > 0 && (
-              <p role="status" className="mt-3 text-sm text-muted-foreground">
-                {l("No rewards match these filters.", "لا توجد مكافآت تطابق هذه الفلاتر.")}{" "}
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShopSearch("");
-                    setAffordable(false);
-                    setAvailable(false);
-                  }}
-                >
-                  {l("Clear reward filters", "مسح فلاتر المكافآت")}
-                </Button>
-              </p>
-            )}
-            {!!data?.reds.length && (
-              <>
-                <h3 className="mt-5 text-sm font-semibold">{t("myRedemptions")}</h3>
-                <ul className="mt-2 space-y-2 text-sm">
-                  {data.reds.map((r) => (
+                  );
+                })()}
+              </SheetContent>
+            </Sheet>
+          </>
+        )}
+        {section === "shop" && (
+          <>
+            <section className="mt-6 rounded-xl border border-gold/30 bg-card p-5">
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                <Gift className="h-5 w-5 text-gold" />
+                {t("shop")}
+              </h2>
+              {data?.rewards.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">{t("noRewards")}</p>
+              )}
+              {!!data?.rewards.length && (
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm">
+                    {l("Find a reward", "البحث عن مكافأة")}
+                    <Input
+                      className="mt-1"
+                      value={shopSearch}
+                      onChange={(event) => setShopSearch(event.target.value)}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex min-h-11 items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={affordable}
+                        disabled={!g}
+                        onCheckedChange={(v) => setAffordable(v === true)}
+                      />
+                      {l("Within my PV balance", "ضمن رصيدي من PV")}
+                    </label>
+                    <label className="flex min-h-11 items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={available}
+                        onCheckedChange={(v) => setAvailable(v === true)}
+                      />
+                      {l("In stock", "متاح")}
+                    </label>
+                  </div>
+                </div>
+              )}
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {filteredRewards?.map((r) => {
+                  const out = r.stock !== null && r.stock <= 0;
+                  const short = g ? r.cost_pv - g.pv : 0,
+                    poor = short > 0;
+                  return (
                     <li
                       key={r.id}
-                      className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-background p-3"
+                      className="flex min-w-0 flex-col justify-between gap-4 rounded-xl bg-background p-4"
                     >
                       <div>
-                        <p>
-                          {title(r.rewards)} ·{" "}
-                          <span className="tabular-nums text-muted-foreground">{r.cost_pv} PV</span>
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          <time dateTime={r.created_at}>
-                            {new Date(r.created_at).toLocaleDateString(
-                              locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
-                              { timeZone: "Africa/Cairo" },
-                            )}
-                          </time>
-                        </p>
-                        {r.review_note && (
-                          <p className="text-xs text-muted-foreground">{r.review_note}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium">{title(r)}</p>
+                          <bdi className="font-semibold tabular-nums text-gold">
+                            {number(r.cost_pv)} PV
+                          </bdi>
+                        </div>
+                        {r.description && (
+                          <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
+                        )}
+                        {r.stock !== null && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {r.stock} {t("left")}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="secondary"
+                        disabled={
+                          !g ||
+                          redeeming ||
+                          !intentsReady ||
+                          intents.some((i) => i.reward_id === r.id) ||
+                          out ||
+                          poor
+                        }
+                        onClick={() => reviewPurchase(r.id)}
+                      >
+                        {redeeming
+                          ? "…"
+                          : intents.some((i) => i.reward_id === r.id)
+                            ? l("Request unconfirmed", "طلب غير مؤكد")
+                            : out
+                              ? t("outOfStock")
+                              : poor
+                                ? l(`${number(short)} PV more`, `تحتاج ${number(short)} PV أخرى`)
+                                : t("redeem")}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {data && filteredRewards?.length === 0 && data.rewards.length > 0 && (
+                <p role="status" className="mt-3 text-sm text-muted-foreground">
+                  {l("No rewards match these filters.", "لا توجد مكافآت تطابق هذه الفلاتر.")}{" "}
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShopSearch("");
+                      setAffordable(false);
+                      setAvailable(false);
+                    }}
+                  >
+                    {l("Clear reward filters", "مسح فلاتر المكافآت")}
+                  </Button>
+                </p>
+              )}
+              {!!data?.reds.length && (
+                <>
+                  <h3 className="mt-5 text-sm font-semibold">{t("myRedemptions")}</h3>
+                  <ul className="mt-2 space-y-2 text-sm">
+                    {data.reds.map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex flex-wrap items-start justify-between gap-3 rounded-lg bg-background p-3"
+                      >
+                        <div>
+                          <p>
+                            {title(r.rewards)} ·{" "}
+                            <span className="tabular-nums text-muted-foreground">
+                              {r.cost_pv} PV
+                            </span>
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            <time dateTime={r.created_at}>
+                              {new Date(r.created_at).toLocaleDateString(
+                                locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+                                { timeZone: "Africa/Cairo" },
+                              )}
+                            </time>
+                          </p>
+                          {r.review_note && (
+                            <p className="text-xs text-muted-foreground">{r.review_note}</p>
+                          )}
+                        </div>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${requestStamps.changed.has(r.id) ? "stamp-in" : ""} ${r.status === "fulfilled" ? statusCls["approved"] : (statusCls[r.status] ?? "")}`}
+                        >
+                          {t(r.status as TKey)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          </>
+        )}
+        {section === "activity" && (
+          <>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <section className="rounded-xl border border-border bg-card p-5">
+                <h2 className="font-display text-lg font-bold">{t("myClaims")}</h2>
+                {data?.claims.length === 0 && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {l(
+                      "No claims yet. Pick a task above and claim its PV.",
+                      "لا توجد طلبات بعد. اختر مهمة بالأعلى واطلب نقاطها.",
+                    )}
+                  </p>
+                )}
+                <ul className="mt-3 space-y-2 text-sm">
+                  {data?.claims.map((c) => (
+                    <li key={c.id} className="flex items-start justify-between gap-3">
+                      <div>
+                        <p>{title(c.pv_tasks)}</p>
+                        <time dateTime={c.created_at} className="text-xs text-muted-foreground">
+                          {friendlyDay(c.created_at, locale, today)}
+                        </time>
+                        {c.review_note && (
+                          <p className="text-xs text-muted-foreground">{c.review_note}</p>
                         )}
                       </div>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${r.status === "fulfilled" ? statusCls["approved"] : (statusCls[r.status] ?? "")}`}
+                        className={`rounded-full px-2 py-0.5 text-xs ${statusCls[c.status] ?? ""}`}
                       >
-                        {t(r.status as TKey)}
+                        {t(c.status as TKey)}
                       </span>
                     </li>
                   ))}
                 </ul>
-              </>
-            )}
-          </section>
-        </>
-      )}
-      {section === "activity" && (
-        <>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <section className="rounded-xl border border-border bg-card p-5">
-              <h2 className="font-display text-lg font-bold">{t("myClaims")}</h2>
-              {data?.claims.length === 0 && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {l(
-                    "No claims yet. Pick a task above and claim its PV.",
-                    "لا توجد طلبات بعد. اختر مهمة بالأعلى واطلب نقاطها.",
-                  )}
-                </p>
-              )}
-              <ul className="mt-3 space-y-2 text-sm">
-                {data?.claims.map((c) => (
-                  <li key={c.id} className="flex items-start justify-between gap-3">
-                    <div>
-                      <p>{title(c.pv_tasks)}</p>
-                      <time dateTime={c.created_at} className="text-xs text-muted-foreground">
-                        {friendlyDay(c.created_at, locale, today)}
-                      </time>
-                      {c.review_note && (
-                        <p className="text-xs text-muted-foreground">{c.review_note}</p>
-                      )}
-                    </div>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${statusCls[c.status] ?? ""}`}
+              </section>
+              <section className="rounded-xl border border-border bg-card p-5">
+                <h2 className="font-display text-lg font-bold">{t("recentXp")}</h2>
+                {g?.recent.length === 0 && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {l(
+                      "No XP yet. Finish a workout or log food to earn your first.",
+                      "لا توجد نقاط خبرة بعد. أنهِ تمريناً أو سجّل طعامك لتكسب أولها.",
+                    )}
+                  </p>
+                )}
+                <ul className="mt-3 space-y-2 text-sm">
+                  {g?.recent.map((x) => (
+                    <li
+                      key={x.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background p-3"
                     >
-                      {t(c.status as TKey)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section className="rounded-xl border border-border bg-card p-5">
-              <h2 className="font-display text-lg font-bold">{t("recentXp")}</h2>
-              {g?.recent.length === 0 && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {l(
-                    "No XP yet. Finish a workout or log food to earn your first.",
-                    "لا توجد نقاط خبرة بعد. أنهِ تمريناً أو سجّل طعامك لتكسب أولها.",
-                  )}
-                </p>
-              )}
-              <ul className="mt-3 space-y-2 text-sm">
-                {g?.recent.map((x) => (
-                  <li
-                    key={x.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background p-3"
-                  >
-                    <span>
-                      {xpSource(x.source)}
-                      <time dateTime={x.created_at} className="block text-xs text-muted-foreground">
-                        {friendlyDay(x.created_at, locale, today)}
-                      </time>
-                    </span>
-                    <bdi className="tabular-nums text-gold">
-                      +{number(x.amount)} {t("xp")}
-                    </bdi>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
-        </>
-      )}
+                      <span>
+                        {xpSource(x.source)}
+                        <time
+                          dateTime={x.created_at}
+                          className="block text-xs text-muted-foreground"
+                        >
+                          {friendlyDay(x.created_at, locale, today)}
+                        </time>
+                      </span>
+                      <bdi className="tabular-nums text-gold">
+                        +{number(x.amount)} {t("xp")}
+                      </bdi>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

@@ -1031,3 +1031,139 @@ details[open] > summary .disclosure-chevron {
     }
   }
 }
+/* Phase 4 "everyday feel" (docs/gamification-plan.md): small, fast, never blocking. */
+.set-stamp {
+  animation: set-stamp 180ms var(--motion-spring) both;
+}
+@keyframes set-stamp {
+  from {
+    transform: scale(1.15);
+    opacity: 0.4;
+  }
+}
+/* Confirmed XP rises into the rank crest, which pulses once. */
+.xp-chip {
+  pointer-events: none;
+  animation: xp-chip 900ms ease-out both;
+}
+@keyframes xp-chip {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.9);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(8px);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-36px) scale(0.85);
+  }
+}
+.crest-pulse {
+  animation: crest-pulse 600ms ease-out 650ms both;
+}
+@keyframes crest-pulse {
+  40% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 10px rgb(212 175 55 / 0.7));
+  }
+}
+/* Journey map. */
+.journey-pulse {
+  animation: journey-pulse 900ms ease-out 300ms;
+}
+@keyframes journey-pulse {
+  from {
+    box-shadow: 0 0 0 0 rgb(212 175 55 / 0.6);
+  }
+  to {
+    box-shadow: 0 0 0 12px rgb(212 175 55 / 0);
+  }
+}
+.journey-fog {
+  background-image: radial-gradient(circle at 30% 30%, rgb(148 163 184 / 0.14), transparent 70%);
+}
+.lock-shake {
+  animation: lock-shake 360ms ease-in-out both;
+}
+@keyframes lock-shake {
+  25% {
+    transform: rotate(-14deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+  75% {
+    transform: rotate(-6deg);
+  }
+}
+/* Leaderboard: a new week's rows slide into place. */
+.board-in {
+  animation: board-in 280ms ease-out both;
+}
+@keyframes board-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+/* Rewards sections slide in the direction of travel; mirrored in Arabic. */
+.rewards-panel {
+  view-transition-name: rewards-panel;
+}
+html:active-view-transition-type(rewards-forward, rewards-back)::view-transition-old(root),
+html:active-view-transition-type(rewards-forward, rewards-back)::view-transition-new(root) {
+  animation: none;
+}
+html:active-view-transition-type(rewards-forward)::view-transition-old(rewards-panel) {
+  animation: rewards-out 160ms ease-in both;
+  --dir: -1;
+}
+html:active-view-transition-type(rewards-forward)::view-transition-new(rewards-panel) {
+  animation: rewards-in 200ms ease-out both;
+  --dir: 1;
+}
+html:active-view-transition-type(rewards-back)::view-transition-old(rewards-panel) {
+  animation: rewards-out 160ms ease-in both;
+  --dir: 1;
+}
+html:active-view-transition-type(rewards-back)::view-transition-new(rewards-panel) {
+  animation: rewards-in 200ms ease-out both;
+  --dir: -1;
+}
+html[dir="rtl"]:active-view-transition-type(rewards-forward, rewards-back)::view-transition-group(
+    rewards-panel
+  ) {
+  --rtl: -1;
+}
+@keyframes rewards-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(24px * var(--dir, 1) * var(--rtl, 1)));
+  }
+}
+@keyframes rewards-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(24px * var(--dir, 1) * var(--rtl, 1)));
+  }
+}
+[data-celebrate="subtle"] :is(.set-stamp, .xp-chip, .board-in, .lock-shake) {
+  animation: badge-fade 200ms ease-out both;
+}
+[data-celebrate="subtle"] :is(.crest-pulse, .journey-pulse),
+[data-celebrate="off"] :is(.set-stamp, .crest-pulse, .journey-pulse, .board-in, .lock-shake) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.set-stamp, .xp-chip, .board-in, .lock-shake) {
+    animation: badge-fade 200ms ease-out both !important;
+  }
+  :is(.crest-pulse, .journey-pulse) {
+    animation: none !important;
+  }
+}

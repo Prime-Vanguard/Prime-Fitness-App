@@ -168,6 +168,13 @@ shows anything negative, just "Start a new streak".
 
 ## Phase 4: everyday feel
 
+Built 2026-11-24 on `feat/gamification-everyday`, except "New best set" during a
+workout (it would need a history read per exercise while training; the debrief already
+shows new bests) and the set-logged spark (the stamp only). The "+XP" chip rises into
+the rank crest on Rewards rather than flying from where XP was earned. Browsers without
+View Transitions switch Rewards sections instantly. "Since last visit" marks
+(leaderboard arrows, request stamps) are kept per member on this device.
+
 | Moment | Effect |
 | ------ | ------ |
 | Set logged | Check "stamps" into the row (scale 1.15 → 1, 180ms) with a tiny spark. Replaces the inset glow. |
