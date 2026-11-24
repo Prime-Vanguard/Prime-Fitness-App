@@ -119,6 +119,16 @@ function MemberSyncAccount({
       document.removeEventListener("visibilitychange", foregroundRetry);
     };
   }, [userId, qc, sync]);
+  // Preferences turn on once the profile loads, after the first sync on mount.
+  // Sync them then instead of waiting for the next timer (for example right after sign-in).
+  useEffect(() => {
+    if (!settingsEnabled || !navigator.onLine) return;
+    void syncProfileSettings(userId)
+      .then(async (changed) => {
+        if (changed) await qc.invalidateQueries({ queryKey: ["me", userId] });
+      })
+      .catch(() => {});
+  }, [settingsEnabled, userId, qc]);
   useEffect(() => {
     if (!recordsEnabled) return;
     // A notice can arrive after this account's effect is gone; ignore it then.

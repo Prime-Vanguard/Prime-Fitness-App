@@ -80,6 +80,14 @@ export async function overlayPendingProfileSettings(profile: Profile): Promise<P
   }
 }
 
+/** The edits held back by a conflict or rejection, so the member can see what discarding drops. */
+export function blockedProfileSettings(state: MemberState): SettingsPatch | undefined {
+  const queue = queueSchema.safeParse(state.references[queueKey]);
+  if (!queue.success || !queue.data.entries[0] || queue.data.entries[0].status === "pending")
+    return undefined;
+  return Object.assign({}, ...queue.data.entries.map(({ patch }) => patch)) as SettingsPatch;
+}
+
 export async function queueProfileSettings(
   memberId: string,
   baseline: ProfileSettings,
