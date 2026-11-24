@@ -30,6 +30,7 @@ import { readMemberState } from "@/lib/member-store";
 import { isTransientConnectionError } from "@/lib/offline-access";
 import {
   changedProfileSettings,
+  blockedProfileSettings,
   discardBlockedProfileSettings,
   profileSettingsStatus,
   queueProfileSettings,
@@ -93,6 +94,8 @@ function Profile() {
   const { state: memberState } = useMemberData(user.id);
   const settingsStatus = profileSettingsStatus(memberState);
   const settingsBlocked = settingsStatus === "conflict" || settingsStatus === "rejected";
+  // While blocked, show the held-back edits so the member sees what discarding drops.
+  const blockedEdits = JSON.stringify(blockedProfileSettings(memberState) ?? null);
   const { data: g } = useGamification(user.id);
   const { t, locale: cur, setLocale } = useI18n();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -108,7 +111,7 @@ function Profile() {
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const [baseline, setBaseline] = useState("");
-  const initializedProfile = useRef<typeof data>(undefined);
+  const initializedProfile = useRef<[typeof data, string]>(undefined);
   const settingsBaseline = useRef<ProfileSettings | null>(null);
   const signingOut = useRef(false);
   const signature = JSON.stringify([name, units, locale, optIn, rest]);
@@ -152,25 +155,28 @@ function Profile() {
     setRest(Number(localStorage.getItem("pf-rest-seconds")) || 90);
   }, []);
   useEffect(() => {
-    if (!data?.profile || initializedProfile.current?.profile === data.profile || dirty) return;
-    initializedProfile.current = data;
+    const [seen, seenEdits] = initializedProfile.current ?? [];
+    if (!data?.profile || (seen?.profile === data.profile && seenEdits === blockedEdits) || dirty)
+      return;
+    initializedProfile.current = [data, blockedEdits];
     settingsBaseline.current = data.profile;
-    setName(data.profile.display_name ?? "");
-    setUnits(data.profile.units);
-    setLoc(data.profile.locale === "en" ? "en" : "ar");
-    setOptIn(data.profile.leaderboard_opt_in);
+    const shown = { ...data.profile, ...(JSON.parse(blockedEdits) as object | null) };
+    setName(shown.display_name ?? "");
+    setUnits(shown.units);
+    setLoc(shown.locale === "en" ? "en" : "ar");
+    setOptIn(shown.leaderboard_opt_in);
     const savedRest = Number(localStorage.getItem("pf-rest-seconds")) || 90;
     setRest(savedRest);
     setBaseline(
       JSON.stringify([
-        data.profile.display_name ?? "",
-        data.profile.units,
-        data.profile.locale === "en" ? "en" : "ar",
-        data.profile.leaderboard_opt_in,
+        shown.display_name ?? "",
+        shown.units,
+        shown.locale === "en" ? "en" : "ar",
+        shown.leaderboard_opt_in,
         savedRest,
       ]),
     );
-  }, [data, dirty]);
+  }, [data, dirty, blockedEdits]);
 
   const avatarPath = data?.profile?.avatar_url;
   const { data: avatarUrl } = useQuery({
