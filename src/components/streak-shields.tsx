@@ -26,6 +26,7 @@ export function StreakShields({
   const [choice, setChoice] = useState<"today" | "yesterday">("today");
   const day = choice === "today" ? today : yesterday;
   const [busy, setBusy] = useState(false);
+  const [slam, setSlam] = useState(0);
   const { data, error } = useShields(userId);
   const qc = useQueryClient();
   const used = data?.filter((d) => d.startsWith(day.slice(0, 7))).length ?? 0;
@@ -39,7 +40,12 @@ export function StreakShields({
       className="group mt-3 rounded-lg border border-gold/30 px-3 text-start"
     >
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-semibold text-gold">
-        <Shield size={16} aria-hidden />
+        <Shield
+          key={slam}
+          size={16}
+          aria-hidden
+          className={slam ? "shield-slam rounded-full" : undefined}
+        />
         <bdi dir="ltr">{Math.max(0, 2 - used)}/2</bdi> {l("shields left", "دروع متبقية")}
         <ChevronDown
           aria-hidden
@@ -84,6 +90,7 @@ export function StreakShields({
                     ),
                   );
                 void qc.invalidateQueries({ queryKey: ["shields", userId] });
+                setSlam((n) => n + 1);
                 toast.success(l("Streak protected", "تمت حماية التتابع"));
               });
           }}

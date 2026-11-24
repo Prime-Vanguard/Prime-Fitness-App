@@ -1,4 +1,5 @@
-import { holdForWorkout } from "@/lib/celebrate";
+import { holdForWorkout, rememberStartXp } from "@/lib/celebrate";
+import { useGamification } from "@/hooks/use-gamification";
 import { useWorkoutEditor } from "@/features/workouts/use-workout-editor";
 import { RenameWorkoutSheet } from "./rename-workout-sheet";
 import { muscleLabel } from "@/lib/muscle-volume";
@@ -155,6 +156,12 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   useWorkoutWakeLock();
   // Big celebrations wait until the workout view closes.
   useEffect(() => holdForWorkout(), []);
+  // Remember confirmed XP at the start, so the debrief can show what this workout added.
+  const startXp = useGamification(w.userId).data?.xp;
+  const sessionId = w.session!.id;
+  useEffect(() => {
+    if (startXp != null) rememberStartXp(sessionId, startXp);
+  }, [sessionId, startXp]);
 
   const group = supersetPair(w),
     reference = slotReference(exerciseId, selection);

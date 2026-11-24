@@ -10,6 +10,7 @@ import {
   type RedemptionIntent,
 } from "@/lib/redemption-intents";
 import { watchMemberState } from "@/lib/member-store";
+import { setRewardsNew } from "@/lib/celebrate";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { VanguardRoadmap } from "@/components/vanguard-roadmap";
@@ -118,6 +119,7 @@ function Page() {
     retry: boolean;
   } | null>(null);
   const intentsReady = intentOwner === user.id;
+  useEffect(() => setRewardsNew(user.id, false), [user.id]);
   const intents = intentsReady ? storedIntents : [];
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { offlineHistoryStart } from "@/lib/offline-window";
 import { fetchAll } from "@/lib/pagination";
 import { useShields } from "@/hooks/use-shields";
@@ -8,7 +9,7 @@ import { useXpRules } from "@/hooks/use-xp-rules";
 import { TodaySessionHero } from "@/features/workouts/today-session-hero";
 import { TrainingSchedule } from "@/components/training-schedule";
 import { useActivityDay } from "@/hooks/use-activity-day";
-import { CheckCircle2, Flame, Sparkles } from "lucide-react";
+import { CheckCircle2, Crown, Flame, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
 import { useGamification } from "@/hooks/use-gamification";
@@ -16,7 +17,9 @@ import { RankCrest } from "@/components/rank-crest";
 import { numberLocale, useI18n } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { currentStreak, weekStart, weeklyQuests } from "@/lib/streaks";
+import { currentStreak, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
+import { celebrationLevel } from "@/lib/celebrate";
+import { haptic } from "@/lib/device-feedback";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { useMemberData, beginMemberRead } from "@/hooks/use-member-data";
 import { cacheNutritionWindow } from "@/lib/member-store";
@@ -203,6 +206,23 @@ function Today() {
     (activity ?? []).flatMap((day) => (day.activity_date ? [day.activity_date] : [])),
     today,
   );
+  const tier = streakTier(streak);
+  // A new flame tier flares once; the first read on a device is only a baseline.
+  const [flare, setFlare] = useState(false);
+  useEffect(() => {
+    if (!activity) return;
+    try {
+      const key = `pf-streak-tier-${user.id}`;
+      const seen = localStorage.getItem(key);
+      localStorage.setItem(key, String(tier));
+      if (seen != null && tier > Number(seen) && celebrationLevel() !== "off") {
+        setFlare(true);
+        haptic("badge");
+      }
+    } catch {
+      /* The flare is optional when device storage is restricted. */
+    }
+  }, [activity, tier, user.id]);
   const ws = weekStart(today);
   const quests = weeklyQuests({
     workouts: workoutDays.filter((d) => d >= ws).length,
@@ -328,10 +348,22 @@ function Today() {
       <div className="mt-4 space-y-4">
         <section className="rounded-xl bg-card p-4">
           <div className="flex items-center gap-2">
-            <Flame
-              aria-hidden
-              className={`size-5 ${streak > 0 ? "text-gold" : "text-muted-foreground"}`}
-            />
+            <span
+              className={`relative inline-grid ${flare ? "flame-flare" : ""}`}
+              onAnimationEnd={() => setFlare(false)}
+              data-flame-tier={tier}
+            >
+              <Flame
+                aria-hidden
+                className={`${tier >= 3 ? "size-6" : "size-5"} ${tier ? `flame-tier-${Math.min(tier, 4)}` : "text-muted-foreground"}`}
+              />
+              {tier === 5 && (
+                <Crown
+                  aria-hidden
+                  className="absolute -top-2 start-1/2 size-3 -translate-x-1/2 text-gold rtl:translate-x-1/2"
+                />
+              )}
+            </span>
             <h2 className="font-heading text-base font-bold tabular-nums">
               {!activity
                 ? t("streak")

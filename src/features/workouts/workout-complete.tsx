@@ -7,9 +7,36 @@ import { MUSCLE_AR } from "@/lib/muscle-volume";
 import { CheckCircle2, Clock3, Dumbbell, Weight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
-import { activityDay } from "@/lib/dates";
+import { friendlyDay } from "@/lib/dates";
 import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
 import type { WorkoutCompletion } from "@/lib/workout-completion";
+import { useEffect, useState } from "react";
+import { numberLocale } from "@/lib/i18n";
+import { useGamification } from "@/hooks/use-gamification";
+import { useCountUp } from "@/hooks/use-count-up";
+import { debriefRecord, holdForWorkout, updateDebrief } from "@/lib/celebrate";
+import { RankCrest } from "@/components/rank-crest";
+
+const DEBRIEF_MS = 3500;
+
+/** One stat that counts up from zero; the final value is what assistive tech reads. */
+function CountStat({
+  value,
+  format,
+  animate,
+}: {
+  value: number;
+  format: (value: number) => string;
+  animate: boolean;
+}) {
+  const shown = useCountUp(value, 900, 0, 250, animate);
+  return (
+    <dd className="mt-4 break-words font-heading text-3xl font-extrabold tabular-nums">
+      <bdi aria-hidden>{format(shown)}</bdi>
+      <span className="sr-only">{format(value)}</span>
+    </dd>
+  );
+}
 
 /** Presentation of the last server-accepted native session; never computes awards. */
 export function WorkoutComplete({
@@ -23,9 +50,32 @@ export function WorkoutComplete({
   units: Units;
   onDismiss: () => void;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const top = receipt.topSets ?? [];
+  const { data: g } = useGamification(memberId);
+  // The sequence plays once; returning to the summary later shows the same numbers, still.
+  const [first] = useState(() => !debriefRecord(receipt.id)?.shown);
+  const record = debriefRecord(receipt.id);
+  const live = g && record ? Math.max(0, g.xp - record.start) : 0;
+  // Freeze the gain when first confirmed, so later food logs or workouts never add to it.
+  const gained = record?.gain ?? live;
+  useEffect(() => {
+    if (record && record.gain == null && live > 0) updateDebrief(receipt.id, { gain: live });
+  }, [record, live, receipt.id]);
+  const shownGain = useCountUp(gained, 900, 0, 1200, first);
+  // Level-ups and badges earned during the workout play once the debrief has had its moment.
+  useEffect(() => {
+    updateDebrief(receipt.id, { shown: true });
+    if (!first) return;
+    const release = holdForWorkout();
+    const timer = window.setTimeout(release, DEBRIEF_MS);
+    return () => {
+      window.clearTimeout(timer);
+      release();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Earlier bests decide "New best"; offline or failed reads simply show no badge.
   const prior = useQuery({
     queryKey: ["completion-prior-bests", memberId, receipt.id],
@@ -68,47 +118,92 @@ export function WorkoutComplete({
           <CheckCircle2 aria-hidden className="size-4 shrink-0" />
           {l("Workout complete · synced", "اكتمل التمرين · تمت المزامنة")}
         </p>
+        <p
+          className={`${first ? "stamp-in" : ""} origin-center font-display text-3xl font-black text-gold`}
+        >
+          {l("Mission complete", "اكتملت المهمة")}
+        </p>
         <h2 className="break-words font-heading text-2xl font-bold">
           {receipt.title || l("Workout", "تمرين")}
         </h2>
         <p className="text-sm text-muted-foreground">
-          <bdi>{activityDay(receipt.finishedAt)}</bdi> · {l("Cairo time", "بتوقيت القاهرة")}
+          <bdi>{friendlyDay(receipt.finishedAt, locale)}</bdi> · {l("Cairo time", "بتوقيت القاهرة")}
         </p>
       </header>
       <dl className="grid grid-cols-2 gap-3">
         {[
           {
             label: l("External-load volume", "حجم الحمل الخارجي"),
-            value: `${formatMeasure(displayWeight(receipt.volumeKg, units))} ${weightUnit(units)}`,
+            value: receipt.volumeKg,
+            format: (v: number) =>
+              `${formatMeasure(displayWeight(Math.round(v), units))} ${weightUnit(units)}`,
             Icon: Weight,
           },
           {
             label: l("Working sets", "مجموعات العمل"),
-            value: String(receipt.workingSets),
+            value: receipt.workingSets,
+            format: (v: number) => String(Math.round(v)),
             Icon: CheckCircle2,
           },
           {
             label: l("Session duration", "مدة الجلسة"),
-            value: `${Math.floor(receipt.durationSeconds / 60)}:${String(receipt.durationSeconds % 60).padStart(2, "0")}`,
+            value: receipt.durationSeconds,
+            format: (v: number) =>
+              `${Math.floor(Math.round(v) / 60)}:${String(Math.round(v) % 60).padStart(2, "0")}`,
             Icon: Clock3,
           },
           {
             label: l("Exercises logged", "تمارين مسجلة"),
-            value: String(receipt.exercises),
+            value: receipt.exercises,
+            format: (v: number) => String(Math.round(v)),
             Icon: Dumbbell,
           },
-        ].map(({ label, value, Icon }) => (
+        ].map(({ label, value, format, Icon }) => (
           <div key={label} className="min-w-0 rounded-xl bg-card p-4">
             <dt className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{label}</span>
               <Icon aria-hidden className="size-4 shrink-0" />
             </dt>
-            <dd className="mt-4 break-words font-heading text-3xl font-extrabold tabular-nums">
-              <bdi>{value}</bdi>
-            </dd>
+            <CountStat value={value} format={format} animate={first} />
           </div>
         ))}
       </dl>
+      {g && (
+        <section
+          className="flex items-center gap-4 rounded-xl border border-gold/40 bg-card p-4"
+          aria-label={l("Level progress", "تقدم المستوى")}
+        >
+          <RankCrest rank={g.rank.key} size={56} />
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+              <span className="font-semibold">
+                {locale === "ar" ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
+              </span>
+              {gained > 0 && (
+                <bdi className="font-heading text-lg font-bold tabular-nums text-gold">
+                  +{Math.round(shownGain).toLocaleString(numberLocale(locale))} XP
+                </bdi>
+              )}
+            </p>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-background" aria-hidden>
+              <div
+                className="h-full rounded-full bg-gold"
+                style={{
+                  width: `${Math.round((gained > 0 ? (shownGain / gained) * g.pct : g.pct) * 100)}%`,
+                }}
+              />
+            </div>
+            {gained > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {l(
+                  "Confirmed XP since you started this workout",
+                  "نقاط خبرة مؤكدة منذ بدء هذا التمرين",
+                )}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
       {!!receipt.muscles?.length && (
         <section className="space-y-2" aria-label={l("Muscles worked", "العضلات المستهدفة")}>
           <h3 className="font-heading text-base font-bold">
@@ -173,7 +268,7 @@ export function WorkoutComplete({
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-sm tabular-nums">
                     {newBest && (
-                      <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold">
+                      <span className="best-plate rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold">
                         {l("New best", "أفضل رقم جديد")}
                       </span>
                     )}

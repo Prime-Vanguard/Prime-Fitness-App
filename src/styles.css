@@ -573,6 +573,278 @@
 [data-celebrate="subtle"] .crest-reveal {
   animation: badge-fade 200ms ease-out both;
 }
+/* Phase 3 "big moments" (docs/gamification-plan.md). Every effect has a fade fallback
+   below for Subtle and reduced motion; nothing loops. */
+.stamp-in {
+  animation: stamp-in var(--motion-celebrate) var(--motion-spring) both;
+}
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.6) rotate(-4deg);
+    letter-spacing: 0.08em;
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* New best: a gold plate slams in, then one glint crosses it. */
+.best-plate {
+  position: relative;
+  overflow: hidden;
+  animation: plate-slam 420ms var(--motion-spring) both;
+  animation-delay: var(--plate-delay, 0ms);
+}
+.best-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 236 170 / 0.7) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: plate-glint 700ms ease-out both;
+  animation-delay: calc(var(--plate-delay, 0ms) + 380ms);
+}
+@keyframes plate-slam {
+  from {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+@keyframes plate-glint {
+  to {
+    transform: translateX(120%);
+  }
+}
+/* Level up: four crest shards fly in and lock with a strike; a ring pulses once. */
+.forge-crest {
+  position: relative;
+  display: grid;
+}
+.forge-crest > * {
+  grid-area: 1 / 1;
+}
+.forge-shard {
+  animation: forge-shard 520ms var(--motion-ease) both;
+}
+.forge-shard:nth-child(1) {
+  clip-path: inset(0 50% 50% 0);
+  --dx: -60%;
+  --dy: -60%;
+}
+.forge-shard:nth-child(2) {
+  clip-path: inset(0 0 50% 50%);
+  --dx: 60%;
+  --dy: -60%;
+}
+.forge-shard:nth-child(3) {
+  clip-path: inset(50% 50% 0 0);
+  --dx: -60%;
+  --dy: 60%;
+}
+.forge-shard:nth-child(4) {
+  clip-path: inset(50% 0 0 50%);
+  --dx: 60%;
+  --dy: 60%;
+}
+@keyframes forge-shard {
+  from {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(12deg);
+  }
+}
+.forge-lock {
+  animation: forge-strike var(--motion-strike) ease-out 500ms both;
+}
+@keyframes forge-strike {
+  50% {
+    transform: scale(1.08);
+    filter: brightness(1.6);
+  }
+}
+.forge-ring {
+  border-radius: 50%;
+  border: 3px solid rgb(212 175 55 / 0.9);
+  pointer-events: none;
+  animation: badge-burst 800ms ease-out 560ms both;
+}
+.level-drop {
+  display: inline-block;
+  animation: level-drop 420ms var(--motion-spring) 620ms both;
+}
+@keyframes level-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-80%);
+  }
+}
+/* Share and Keep going appear once the moment has landed. */
+.reveal-late {
+  animation: badge-fade 300ms ease-out both;
+}
+/* Rank up: the old crest cracks away, the new one rises, the name is struck in. */
+.ascend-old {
+  animation: ascend-crack 600ms ease-in both;
+}
+@keyframes ascend-crack {
+  30% {
+    transform: rotate(-3deg) scale(1.02);
+    filter: brightness(1.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: brightness(2) blur(4px);
+  }
+}
+.ascend-new {
+  animation: ascend-rise 700ms var(--motion-spring) 550ms both;
+}
+@keyframes ascend-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30%) scale(0.85);
+  }
+}
+/* A wipe instead of per-letter animation keeps Arabic letters joined. */
+.strike-text {
+  animation: strike-wipe 700ms ease-out 1100ms both;
+}
+@keyframes strike-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+[dir="rtl"] .strike-text {
+  animation-name: strike-wipe-rtl;
+}
+@keyframes strike-wipe-rtl {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* Badge card shrinks toward the Rewards tab (bottom, inline end) when it times out. */
+.badge-pin-out {
+  animation: badge-pin-out 450ms ease-in both;
+}
+@keyframes badge-pin-out {
+  to {
+    opacity: 0;
+    transform: translate(var(--pin-x, 35vw), 80vh) scale(0.15);
+  }
+}
+[dir="rtl"] .badge-pin-out {
+  --pin-x: -35vw;
+}
+/* Desktop has no bottom tab bar to fly into; the medal just fades. */
+@media (min-width: 768px) {
+  .badge-pin-out {
+    animation: badge-fade 200ms ease-out reverse both;
+  }
+}
+/* Streak flame tiers and the one-time flare on reaching a new tier. */
+.flame-tier-1 {
+  color: rgb(212 175 55 / 0.75);
+}
+.flame-tier-2 {
+  color: rgb(212 175 55);
+}
+.flame-tier-3 {
+  color: rgb(255 205 90);
+  filter: drop-shadow(0 0 4px rgb(255 205 90 / 0.6));
+}
+.flame-tier-4 {
+  color: rgb(255 240 200);
+  filter: drop-shadow(0 0 6px rgb(255 220 140 / 0.8));
+}
+.flame-flare {
+  animation: flame-flare 700ms var(--motion-spring) both;
+}
+@keyframes flame-flare {
+  40% {
+    transform: scale(1.6);
+    filter: drop-shadow(0 0 10px rgb(255 205 90));
+  }
+}
+.shield-slam {
+  animation: shield-slam 500ms var(--motion-spring) both;
+}
+@keyframes shield-slam {
+  0% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.9);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(212 175 55 / 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(212 175 55 / 0);
+  }
+}
+[data-celebrate="subtle"]
+  :is(
+    .stamp-in,
+    .best-plate,
+    .forge-shard,
+    .forge-lock,
+    .level-drop,
+    .ascend-new,
+    .strike-text,
+    .flame-flare,
+    .shield-slam
+  ) {
+  animation: badge-fade 200ms ease-out both;
+}
+/* Calm modes show the actions at once. */
+[data-celebrate="subtle"] .reveal-late {
+  animation-delay: 0ms !important;
+}
+[data-celebrate="subtle"] .best-plate::after,
+[data-celebrate="subtle"] :is(.forge-ring, .ascend-old),
+[data-celebrate="off"] :is(.forge-ring, .ascend-old) {
+  display: none;
+}
+[data-celebrate="subtle"] .badge-pin-out,
+[data-celebrate="off"] .badge-pin-out {
+  animation: badge-fade 200ms ease-out reverse both;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .stamp-in,
+    .best-plate,
+    .forge-shard,
+    .forge-lock,
+    .level-drop,
+    .ascend-new,
+    .strike-text,
+    .flame-flare,
+    .shield-slam
+  ) {
+    animation: badge-fade 200ms ease-out both !important;
+  }
+  .best-plate::after,
+  .forge-ring,
+  .ascend-old {
+    display: none;
+  }
+  .reveal-late {
+    animation-delay: 0ms !important;
+  }
+  .badge-pin-out {
+    animation: badge-fade 200ms ease-out reverse both !important;
+  }
+}
 .ember-canvas {
   position: fixed;
   inset: 0;
