@@ -959,7 +959,7 @@ function Page() {
                           <p>
                             {title(r.rewards)} ·{" "}
                             <span className="tabular-nums text-muted-foreground">
-                              {r.cost_pv} PV
+                              {number(r.cost_pv)} PV
                             </span>
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
