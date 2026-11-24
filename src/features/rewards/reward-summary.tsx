@@ -61,6 +61,9 @@ export function RewardSummary({
             {data ? (locale === "ar" ? data.rank.ar : data.rank.key) : "—"} · {t("level")}{" "}
             {data?.level ?? "—"}
           </h2>
+          <p className="text-xs text-muted-foreground">
+            <bdi className="tabular-nums">{data ? n(data.xp) : "—"} XP</bdi> {l("total", "إجمالي")}
+          </p>
           <div
             className="mt-3 h-2 overflow-hidden rounded-full bg-background"
             role="progressbar"

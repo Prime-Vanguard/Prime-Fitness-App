@@ -11283,3 +11283,86 @@ test("badges show rarity artwork and celebrate a newly earned badge once", async
   await expect(page.getByRole("button", { name: /Centurion/ })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "New badge" })).toHaveCount(0);
 });
+
+test("celebration settings: reduced motion plays subtly and Off shows plain text", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  backend.tables.badges = [
+    {
+      code: "first_food",
+      title_en: "First Fuel",
+      title_ar: "أول وقود",
+      description_en: "Log food",
+      description_ar: "سجل الطعام",
+      xp_bonus: 500,
+      position: 1,
+    },
+    {
+      code: "first_body",
+      title_en: "First Check",
+      title_ar: "أول قياس",
+      description_en: "Body check",
+      description_ar: "قياس",
+      xp_bonus: 500,
+      position: 2,
+    },
+  ];
+  backend.tables.member_badges = [];
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/today");
+  // With no saved choice, a reduced-motion device gets Subtle.
+  await expect(page.locator("html")).toHaveAttribute("data-celebrate", "subtle");
+  backend.tables.member_badges.push({
+    member_id: userId,
+    badge_code: "first_food",
+    unlocked_at: "2026-11-24T10:00:00Z",
+  });
+  await page.reload();
+  await expect(page.getByRole("status").filter({ hasText: "New badge" })).toContainText(
+    "First Fuel",
+  );
+  // Off: no badge card, just a plain message, and it never repeats.
+  await page.evaluate(() => localStorage.setItem("pf-celebrations", "off"));
+  backend.tables.member_badges.push({
+    member_id: userId,
+    badge_code: "first_body",
+    unlocked_at: "2026-11-24T11:00:00Z",
+  });
+  await page.reload();
+  await expect(page.getByText("New badge: First Check")).toBeVisible();
+  await expect(page.locator(".badge-unlock-card")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("New badge: First Check")).toHaveCount(0);
+});
+
+test("leaderboard always shows an opted-in member, at 0 XP and outside the top 50", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(new Date());
+  const day = new Date(`${today}T12:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  const week_start = day.toISOString().slice(0, 10);
+  backend.tables.profiles![0]!.leaderboard_opt_in = true;
+  backend.tables.leaderboard_weekly = [];
+  await page.goto("/rewards?section=community&community=leaderboard");
+  const board = page.locator("#community-leaderboard");
+  // Opted in but no XP yet this week: still listed, at 0 XP.
+  await expect(board.getByRole("listitem")).toHaveText(/1\s*You\s*0 XP/);
+  backend.tables.leaderboard_weekly = [
+    ...Array.from({ length: 50 }, (_, i) => ({
+      member_id: `member-${i}`,
+      xp: 5000 - i,
+      display_name: `Member ${i}`,
+      opted_in: true,
+      week_start,
+    })),
+    { member_id: userId, xp: 1200, display_name: "Test Athlete", opted_in: true, week_start },
+  ];
+  await page.reload();
+  await expect(board.getByRole("listitem")).toHaveCount(51);
+  await expect(board.getByRole("listitem").last()).toHaveText(/50\+\s*You\s*1,200 XP/);
+});

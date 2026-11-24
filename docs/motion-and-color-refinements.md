@@ -2,6 +2,13 @@
 
 Implemented locally on 2026-11-11 as presentation refinements to the Stitch redesign.
 
+## Gamification override (approved 2026-11-23)
+
+Celebrations, count-ups and badge pop-ups now follow `docs/gamification-plan.md`, which
+overrides the Rewards row below. All celebrations go through one queue, play one at a
+time, and wait while a workout is open. Members choose Full, Subtle (fade only) or Off.
+Off shows plain text instead. Reduced motion defaults to Subtle.
+
 ## Interaction behavior
 
 | Area              | Behavior                                                                                                                                                                                                  |

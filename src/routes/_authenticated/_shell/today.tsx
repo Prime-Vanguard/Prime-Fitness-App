@@ -211,10 +211,11 @@ function Today() {
   });
   const { data: rules } = useXpRules();
   // Quests earn the XP of the activities they count; there is no separate quest bonus yet.
-  const questXp: Record<string, number> = {
-    q_workouts: 3 * (rules?.workout_xp ?? 0),
-    q_nutrition: 5 * (rules?.nutrition_day_xp ?? 0),
-    q_body: rules?.body_week_xp ?? 0,
+  // Shown per activity ("3 × 3,500 XP") so it never reads as a separate quest bonus.
+  const questXp: Record<string, [number, number]> = {
+    q_workouts: [3, rules?.workout_xp ?? 0],
+    q_nutrition: [5, rules?.nutrition_day_xp ?? 0],
+    q_body: [1, rules?.body_week_xp ?? 0],
   };
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const todayFood = fuelFood.filter((f) => f.log_date === today);
@@ -374,7 +375,8 @@ function Today() {
                       <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
                         {rules && (
                           <bdi className="text-xs text-gold">
-                            +{(questXp[q.key] ?? 0).toLocaleString(numberLocale(locale))} XP
+                            {(questXp[q.key]?.[0] ?? 1) > 1 && `${questXp[q.key]![0]} × `}
+                            {(questXp[q.key]?.[1] ?? 0).toLocaleString(numberLocale(locale))} XP
                           </bdi>
                         )}
                         <bdi>
