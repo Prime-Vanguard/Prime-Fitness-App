@@ -18,25 +18,24 @@ import { XpGuide } from "@/components/xp-guide";
 import { PodCommunity } from "@/components/pod-community";
 import { SocialPanel } from "@/features/social/social-panel";
 import { ShareAchievement } from "@/components/share-achievement";
-import { Trophy, Award, Gift, ArrowDown, ArrowUp } from "lucide-react";
+import { Gift } from "lucide-react";
 import { useSinceLastVisit } from "@/hooks/use-since-last-visit";
-import { celebrationMoves } from "@/hooks/use-count-up";
-import { BadgeArt } from "@/components/badge-art";
-import { badgeArt, RARITY_LABEL, type Rarity } from "@/lib/badges";
+import { celebrationMoves } from "@/lib/celebrate";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RewardSummary } from "@/features/rewards/reward-summary";
+import { LeaderboardPanel } from "@/features/rewards/leaderboard-panel";
+import { BadgesPanel } from "@/features/rewards/badges-panel";
 import { useActivityDay } from "@/hooks/use-activity-day";
-import { numberLocale, useI18n, type TKey } from "@/lib/i18n";
+import { useI18n, type TKey } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useGamification } from "@/hooks/use-gamification";
 import { useMe } from "@/hooks/use-me";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
-import { weekStart } from "@/lib/streaks";
 import { friendlyDay } from "@/lib/dates";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
   SheetContent,
@@ -75,15 +74,6 @@ export const Route = createFileRoute("/_authenticated/_shell/rewards")({
   }),
 });
 
-const RARITY_TEXT: Record<Rarity, string> = {
-  common: "text-muted-foreground",
-  uncommon: "text-[#d4925a]",
-  rare: "text-info",
-  epic: "text-[#c4a5ff]",
-  legendary: "text-gold",
-  mythic: "text-gold",
-};
-
 const statusCls: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
   approved: "bg-success/15 text-success",
@@ -113,7 +103,6 @@ function Page() {
   const claimLock = useRef(false);
   const [claiming, setClaiming] = useState("");
   const [claimOpen, setClaimOpen] = useState<string | null>(null);
-  const [badge, setBadge] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<{
     rewardId: string;
     cost: number;
@@ -196,90 +185,9 @@ function Page() {
     },
   });
 
-  const {
-    data: badges,
-    isPending: badgesPending,
-    error: badgeError,
-    refetch: retryBadges,
-  } = useQuery({
-    queryKey: ["badges", user.id],
-    enabled: section === "journey",
-    queryFn: async () => {
-      const [all, mine] = await Promise.all([
-        supabase.from("badges").select("*").order("position"),
-        supabase.from("member_badges").select("badge_code,unlocked_at").eq("member_id", user.id),
-      ]);
-      if (all.error) throw all.error;
-      if (mine.error) throw mine.error;
-      const got = new Map(mine.data.map((m) => [m.badge_code, m.unlocked_at]));
-      return all.data.map((b) => ({ ...b, unlockedAt: got.get(b.code) ?? null }));
-    },
-  });
-
   const { data: me } = useMe(user.id);
   const today = useActivityDay();
-  const ws = weekStart(today);
-  const {
-    data: board,
-    isPending: boardPending,
-    error: boardError,
-    refetch: retryBoard,
-  } = useQuery({
-    queryKey: ["leaderboard", ws],
-    enabled: section === "community" && community === "leaderboard",
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("leaderboard_weekly")
-        .select("member_id,xp,display_name,opted_in")
-        .eq("week_start", ws)
-        .order("xp", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      if (data.some((r) => r.member_id === user.id)) return data;
-      // The top 50 can miss the member, so fetch their own row as well.
-      const own = await supabase
-        .from("leaderboard_weekly")
-        .select("member_id,xp,display_name,opted_in")
-        .eq("week_start", ws)
-        .eq("member_id", user.id)
-        .maybeSingle();
-      if (own.error) throw own.error;
-      return own.data ? [...data, { ...own.data, outside: data.length >= 50 }] : data;
-    },
-  });
-  async function setOptIn(v: boolean) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ leaderboard_opt_in: v })
-      .eq("id", user.id);
-    if (error)
-      return void toast.error(
-        l(
-          "Could not change your leaderboard setting. Check your connection and try again.",
-          "تعذر تغيير إعداد لوحة الصدارة. تحقق من الاتصال وحاول مرة أخرى.",
-        ),
-      );
-    qc.invalidateQueries({ queryKey: ["me", user.id] });
-    qc.invalidateQueries({ queryKey: ["leaderboard"] });
-  }
-  const optedIn = !!me?.profile?.leaderboard_opt_in;
-  const listed: {
-    member_id: string;
-    xp: number;
-    display_name: string | null;
-    outside?: boolean;
-  }[] = (board ?? []).filter((r) => r.opted_in || (optedIn && r.member_id === user.id));
-  // Opted-in members always see themselves, even before earning XP this week.
-  const rows =
-    optedIn && board && !listed.some((r) => r.member_id === user.id)
-      ? [...listed, { member_id: user.id, xp: 0, display_name: null, outside: board.length >= 50 }]
-      : listed;
   const number = (n: number) => n.toLocaleString(numberLocale(locale));
-  // Places gained or lost since this device last showed this week's board.
-  const places = useSinceLastVisit(
-    `pf-board-${user.id}-${ws}`,
-    board ? rows.filter((r) => !r.outside).map((r, i) => [r.member_id, i + 1]) : undefined,
-  );
   // Requests whose status changed since the last visit get a stamp (new ones: "Requested").
   const requestStamps = useSinceLastVisit(
     `pf-requests-${user.id}`,
@@ -613,6 +521,9 @@ function Page() {
             )}
           </>
         )}
+        {section === "community" && (
+          <LeaderboardPanel userId={user.id} active={community === "leaderboard"} />
+        )}
         {section === "activity" && (
           <>
             <section className="mt-6 rounded-xl border border-border bg-card p-5">
@@ -664,182 +575,7 @@ function Page() {
             </section>
           </>
         )}
-        {section === "community" && (
-          <>
-            <section
-              id="community-leaderboard"
-              hidden={community !== "leaderboard"}
-              className="mt-6 scroll-mt-24 rounded-xl border border-border bg-card p-5"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                  <Trophy className="h-5 w-5 text-gold" />
-                  {t("leaderboard")}
-                </h2>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch disabled={!me} checked={optedIn} onCheckedChange={setOptIn} />
-                  {t("showMe")}
-                </label>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("lbHint")}</p>
-              {boardPending && (
-                <p role="status" className="mt-3 text-sm text-muted-foreground">
-                  {l("Loading weekly leaderboard…", "جارٍ تحميل الصدارة الأسبوعية…")}
-                </p>
-              )}
-              {boardError && (
-                <p role="alert" className="mt-3 text-sm">
-                  {l("Leaderboard unavailable.", "الصدارة غير متاحة.")}{" "}
-                  <Button variant="outline" onClick={() => void retryBoard()}>
-                    {l("Retry leaderboard", "إعادة تحميل الصدارة")}
-                  </Button>
-                </p>
-              )}
-              {rows.length === 0 && !boardPending && !boardError ? (
-                <p className="mt-3 text-sm text-muted-foreground">{t("lbEmpty")}</p>
-              ) : (
-                <ol className="mt-3 space-y-2 text-sm">
-                  {rows.map((r, i) => (
-                    <li
-                      key={r.member_id}
-                      className={`flex items-center justify-between gap-3 rounded-lg bg-background p-3 ${places.fresh ? "board-in" : ""} ${r.member_id === user.id ? "font-semibold text-gold" : ""}`}
-                      style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
-                    >
-                      <span className="flex items-center gap-3">
-                        <span
-                          className={`w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
-                        >
-                          {r.outside ? "50+" : i + 1}
-                        </span>
-                        {r.member_id === user.id ? t("you") : r.display_name || "—"}
-                        {(() => {
-                          const before = places.changed.get(r.member_id);
-                          if (r.outside || typeof before !== "number" || before === i + 1)
-                            return null;
-                          const up = before > i + 1;
-                          const moved = Math.abs(before - (i + 1));
-                          const label = up
-                            ? l(
-                                `Up ${moved} since your last visit`,
-                                `تقدم ${moved} منذ زيارتك الأخيرة`,
-                              )
-                            : l(
-                                `Down ${moved} since your last visit`,
-                                `تراجع ${moved} منذ زيارتك الأخيرة`,
-                              );
-                          const Arrow = up ? ArrowUp : ArrowDown;
-                          return (
-                            <span
-                              role="img"
-                              aria-label={label}
-                              title={label}
-                              className={`flex items-center text-xs tabular-nums ${up ? "text-success" : "text-muted-foreground"}`}
-                            >
-                              <Arrow aria-hidden className="size-3" />
-                              {number(moved)}
-                            </span>
-                          );
-                        })()}
-                      </span>
-                      <bdi className="tabular-nums">
-                        {number(r.xp)} {t("xp")}
-                      </bdi>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-          </>
-        )}
-        {section === "journey" && (
-          <>
-            <section className="mt-6 rounded-xl border border-border bg-card p-5">
-              <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-                <Award className="h-5 w-5 text-gold" />
-                {t("badges")}
-                <span className="text-sm font-normal text-muted-foreground tabular-nums">
-                  {badges ? `${badges.filter((b) => b.unlockedAt).length}/${badges.length}` : "—"}
-                </span>
-              </h2>
-              {badgesPending && (
-                <p role="status" className="mt-3 text-sm text-muted-foreground">
-                  {l("Loading badges…", "جارٍ تحميل الأوسمة…")}
-                </p>
-              )}
-              {badgeError && (
-                <p role="alert" className="mt-3 text-sm">
-                  {l("Badges unavailable.", "الأوسمة غير متاحة.")}{" "}
-                  <Button variant="outline" onClick={() => void retryBadges()}>
-                    {l("Retry badges", "إعادة تحميل الأوسمة")}
-                  </Button>
-                </p>
-              )}
-              {badges?.length === 0 && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {l("No badges are available yet.", "لا توجد أوسمة متاحة بعد.")}
-                </p>
-              )}
-              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {badges?.map((b) => {
-                  const rarity = badgeArt(b.code).rarity;
-                  return (
-                    <li key={b.code}>
-                      <button
-                        className="flex h-full w-full flex-col items-center gap-2 rounded-xl bg-background px-2 py-4 text-center transition-colors hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-gold"
-                        onClick={() => setBadge(b.code)}
-                      >
-                        <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={72} />
-                        <span
-                          className={`text-sm font-semibold ${b.unlockedAt ? "" : "text-muted-foreground"}`}
-                        >
-                          {locale === "ar" ? b.title_ar : b.title_en}
-                        </span>
-                        <span className={`text-xs ${RARITY_TEXT[rarity]}`}>
-                          {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-            <Sheet open={!!badge} onOpenChange={(open) => !open && setBadge(null)}>
-              <SheetContent side="bottom" className="rounded-t-2xl p-6">
-                {(() => {
-                  const b = badges?.find((x) => x.code === badge);
-                  if (!b) return null;
-                  const rarity = badgeArt(b.code).rarity;
-                  return (
-                    <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-                      <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={168} />
-                      <SheetTitle className="font-display text-xl">
-                        {locale === "ar" ? b.title_ar : b.title_en}
-                      </SheetTitle>
-                      <p className={`text-sm font-semibold ${RARITY_TEXT[rarity]}`}>
-                        {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
-                      </p>
-                      <SheetDescription>
-                        {locale === "ar" ? b.description_ar : b.description_en}
-                      </SheetDescription>
-                      <p className="text-sm tabular-nums text-gold">
-                        {b.unlockedAt
-                          ? `${l("Earned", "حصلت عليه")} ${new Date(
-                              b.unlockedAt,
-                            ).toLocaleDateString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
-                              timeZone: "Africa/Cairo",
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}`
-                          : `${l("Unlock to earn", "افتحه لتحصل على")} +${b.xp_bonus.toLocaleString(numberLocale(locale))} ${t("xp")}`}
-                      </p>
-                    </div>
-                  );
-                })()}
-              </SheetContent>
-            </Sheet>
-          </>
-        )}
+        {section === "journey" && <BadgesPanel userId={user.id} />}
         {section === "shop" && (
           <>
             <section className="mt-6 rounded-xl border border-gold/30 bg-card p-5">

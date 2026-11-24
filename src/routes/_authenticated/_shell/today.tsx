@@ -14,11 +14,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
 import { useGamification } from "@/hooks/use-gamification";
 import { RankCrest } from "@/components/rank-crest";
-import { numberLocale, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { currentStreak, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
 import { celebrationLevel } from "@/lib/celebrate";
+import { readDevice, writeDevice } from "@/lib/device-storage";
 import { RollingNumber } from "@/components/rolling-number";
 import { haptic } from "@/lib/device-feedback";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
@@ -212,16 +214,12 @@ function Today() {
   const [flare, setFlare] = useState(false);
   useEffect(() => {
     if (!activity) return;
-    try {
-      const key = `pf-streak-tier-${user.id}`;
-      const seen = localStorage.getItem(key);
-      localStorage.setItem(key, String(tier));
-      if (seen != null && tier > Number(seen) && celebrationLevel() !== "off") {
-        setFlare(true);
-        haptic("badge");
-      }
-    } catch {
-      /* The flare is optional when device storage is restricted. */
+    const key = `pf-streak-tier-${user.id}`;
+    const seen = readDevice(key);
+    writeDevice(key, String(tier));
+    if (seen != null && tier > Number(seen) && celebrationLevel() !== "off") {
+      setFlare(true);
+      haptic("badge");
     }
   }, [activity, tier, user.id]);
   const ws = weekStart(today);

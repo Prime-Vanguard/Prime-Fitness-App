@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { celebrationMoves } from "@/hooks/use-count-up";
+import { celebrationMoves } from "@/lib/celebrate";
 
 /**
  * Shows `value`, rolling to each new value over 300ms. The first second after mount

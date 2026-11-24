@@ -50,3 +50,13 @@ export function removeDownloadedHistory(state: MemberState): MemberState {
   references["offlineHistoryRemovalId"] = crypto.randomUUID();
   return { ...state, records, cacheEpochs, references };
 }
+
+/**
+ * Explicit sign-out on a possibly shared device: drop downloaded history but keep unsent
+ * work, and keep the member's automatic-download choice for their next sign-in.
+ */
+export function signOutHistory(state: MemberState): MemberState {
+  const removed = removeDownloadedHistory(state);
+  const paused = state.references["offlineHistoryPaused"] === true;
+  return { ...removed, references: { ...removed.references, offlineHistoryPaused: paused } };
+}

@@ -1,6 +1,10 @@
 import { expect, it } from "vitest";
 import { emptyMemberState } from "./member-store";
-import { removableHistoryBytes, removeDownloadedHistory } from "./offline-history-storage";
+import {
+  removableHistoryBytes,
+  removeDownloadedHistory,
+  signOutHistory,
+} from "./offline-history-storage";
 
 it("removes downloaded history but keeps rows with unsent changes", () => {
   const state = {
@@ -22,4 +26,18 @@ it("removes downloaded history but keeps rows with unsent changes", () => {
   expect(removed.references["foodWindow"]).toBeUndefined();
   expect(removed.references["unrelated"]).toBe(true);
   expect(removed.references["offlineHistoryPaused"]).toBe(true);
+});
+
+it("sign-out drops downloaded history without pausing future downloads", () => {
+  const state = {
+    ...emptyMemberState(),
+    records: { water_logs: [{ id: "synced", log_date: "2026-11-01", ml: 250 }] },
+    references: { workoutHistory: { entries: [] } },
+  } as never;
+  const out = signOutHistory(state);
+  expect(out.records.water_logs).toEqual([]);
+  expect(out.references["workoutHistory"]).toBeUndefined();
+  expect(out.references["offlineHistoryPaused"]).toBe(false);
+  const paused = { ...emptyMemberState(), references: { offlineHistoryPaused: true } } as never;
+  expect(signOutHistory(paused).references["offlineHistoryPaused"]).toBe(true);
 });

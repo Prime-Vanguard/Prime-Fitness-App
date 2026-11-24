@@ -1,4 +1,5 @@
-import { numberLocale, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 
 type Macros = { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 type Targets = { [K in keyof Macros]?: number | null };

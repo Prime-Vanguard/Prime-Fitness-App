@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { embers } from "@/lib/embers";
-import { celebrationMoves } from "@/hooks/use-count-up";
+import { celebrationMoves } from "@/lib/celebrate";
 import { useI18n } from "@/lib/i18n";
 import {
   changeMemberState,

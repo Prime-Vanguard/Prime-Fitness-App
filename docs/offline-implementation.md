@@ -26,6 +26,8 @@ live social features, first login and recovery remain online.
 - Online route verification is bounded to five seconds. Retryable network errors
   retain a prepared identity; rejected authorization does not use the fallback.
 - Explicit SDK sign-out removes the offline identity without deleting workout queues.
+  It also removes downloaded history and staff offline summaries, so a shared device
+  keeps only unsent work. The automatic-download setting is kept for the next sign-in.
 - Profile data is saved to the existing member/project-scoped IndexedDB store.
   Offline profile restoration retains onboarding and paused-account state. Cached
   roles do not unlock staff tools; staff download support remains pending.

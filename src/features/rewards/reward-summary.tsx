@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { RollingNumber } from "@/components/rolling-number";
 import { celebrationLevel } from "@/lib/celebrate";
 import { Wallet } from "lucide-react";

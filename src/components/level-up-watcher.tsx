@@ -19,8 +19,10 @@ import {
   useCelebration,
 } from "@/lib/celebrate";
 import { embersFrom } from "@/lib/embers";
+import { readDevice, readDeviceJson, writeDevice } from "@/lib/device-storage";
 import { rankFor } from "@/lib/levels";
-import { celebrationMoves, useCountUp } from "@/hooks/use-count-up";
+import { useCountUp } from "@/hooks/use-count-up";
+import { celebrationMoves } from "@/lib/celebrate";
 
 const STRIKE_LEVEL_MS = 520,
   STRIKE_RANK_MS = 1100;
@@ -67,47 +69,39 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
   }, [userId]);
   useEffect(() => {
     if (!badges) return;
-    try {
-      const key = `pf-earned-badges-${userId}`;
-      const previous = localStorage.getItem(key);
-      const seen: unknown = previous ? JSON.parse(previous) : null;
-      const added = Array.isArray(seen) ? badges.filter((b) => !seen.includes(b.badge_code)) : [];
-      // Already on Rewards: the new badge is in view, so no dot.
-      if (added.length && !location.pathname.startsWith("/rewards")) setRewardsNew(userId, true);
-      for (const b of added)
-        celebrate({
-          kind: "badge",
-          code: b.badge_code,
-          title:
-            (locale === "ar" ? b.badges?.title_ar : b.badges?.title_en) ??
-            b.badges?.title_en ??
-            t("badges"),
-        });
-      localStorage.setItem(key, JSON.stringify(badges.map((b) => b.badge_code)));
-    } catch {
-      /* Celebration is optional when device storage is restricted. */
-    }
+    const key = `pf-earned-badges-${userId}`;
+    const seen = readDeviceJson(key);
+    const added = Array.isArray(seen) ? badges.filter((b) => !seen.includes(b.badge_code)) : [];
+    // Already on Rewards: the new badge is in view, so no dot.
+    if (added.length && !location.pathname.startsWith("/rewards")) setRewardsNew(userId, true);
+    for (const b of added)
+      celebrate({
+        kind: "badge",
+        code: b.badge_code,
+        title:
+          (locale === "ar" ? b.badges?.title_ar : b.badges?.title_en) ??
+          b.badges?.title_en ??
+          t("badges"),
+      });
+    writeDevice(key, JSON.stringify(badges.map((b) => b.badge_code)));
     // Titles are read once per change; a later language switch need not replay it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badges, userId]);
 
   useEffect(() => {
     if (!g) return;
-    try {
-      const k = `pf-level-${userId}`;
-      const prev = Number(localStorage.getItem(k) ?? "0");
-      const prevRank = localStorage.getItem(`${k}-rank`);
-      localStorage.setItem(k, String(g.level));
-      localStorage.setItem(`${k}-rank`, g.rank.key);
-      if (prev > 0 && g.level > prev)
-        celebrate(
-          prevRank && prevRank !== g.rank.key
-            ? { kind: "rank", level: g.level, rank: g.rank.key, from: prev }
-            : { kind: "level", level: g.level, from: prev },
-        );
-    } catch {
-      /* Celebration is optional when device storage is restricted. */
-    }
+    // Without device storage there is no baseline, so nothing replays.
+    const k = `pf-level-${userId}`;
+    const prev = Number(readDevice(k) ?? "0");
+    const prevRank = readDevice(`${k}-rank`);
+    writeDevice(k, String(g.level));
+    writeDevice(`${k}-rank`, g.rank.key);
+    if (prev > 0 && g.level > prev)
+      celebrate(
+        prevRank && prevRank !== g.rank.key
+          ? { kind: "rank", level: g.level, rank: g.rank.key, from: prev }
+          : { kind: "level", level: g.level, from: prev },
+      );
   }, [g, userId]);
 
   useEffect(() => {
@@ -116,7 +110,7 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
   // Unlock audio on the first tap, so a celebration found later in the visit can sound.
   useEffect(() => {
     const unlock = () => {
-      if (localStorage.getItem("pf-celebration-sound") === "on") void primeAudio();
+      if (readDevice("pf-celebration-sound") === "on") void primeAudio();
     };
     addEventListener("pointerdown", unlock, { once: true, capture: true });
     return () => removeEventListener("pointerdown", unlock, { capture: true });

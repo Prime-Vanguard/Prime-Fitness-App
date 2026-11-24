@@ -11,7 +11,7 @@ import { friendlyDay } from "@/lib/dates";
 import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
 import type { WorkoutCompletion } from "@/lib/workout-completion";
 import { useEffect, useState } from "react";
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useGamification } from "@/hooks/use-gamification";
 import { useCountUp } from "@/hooks/use-count-up";
 import { debriefRecord, holdForWorkout, updateDebrief } from "@/lib/celebrate";

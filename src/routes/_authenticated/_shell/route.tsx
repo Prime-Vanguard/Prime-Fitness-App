@@ -5,6 +5,9 @@ import { Dumbbell, Menu, User } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { signOutMember } from "@/integrations/supabase/client";
+import { changeMemberState } from "@/lib/member-store";
+import { signOutHistory } from "@/lib/offline-history-storage";
+import { changeStaffOfflineSummaries, readStaffOfflineSummaries } from "@/lib/staff-offline-store";
 import { WorkoutCompletionRefresh } from "@/components/workout-sync";
 import { MemberSync } from "@/components/member-sync";
 import { StaffOfflineRevalidation } from "@/components/staff-offline-downloads";
@@ -137,6 +140,14 @@ function Shell() {
     } catch {
       /* Optional UI preference only. */
     }
+    // Shared devices: don't leave this member's downloaded history or staff downloads
+    // behind. Unsent work stays so nothing is lost; it syncs at the next sign-in.
+    await Promise.allSettled([
+      changeMemberState(user.id, signOutHistory),
+      readStaffOfflineSummaries(user.id).then((rows) =>
+        rows.length ? changeStaffOfflineSummaries(user.id, () => []) : undefined,
+      ),
+    ]);
     const result = await signOutMember().catch((error: unknown) => ({
       error: error instanceof Error ? error : new Error(String(error)),
     }));

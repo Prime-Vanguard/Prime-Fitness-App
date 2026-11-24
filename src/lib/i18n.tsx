@@ -1,9 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Locale = "ar" | "en";
-// Arabic text with Western digits (0-9), matching the numbers members type and see in data.
-export const numberLocale = (locale: Locale | string) =>
-  locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB";
 
 const dict = {
   en: {

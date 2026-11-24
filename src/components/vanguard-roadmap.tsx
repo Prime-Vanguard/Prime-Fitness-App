@@ -1,4 +1,4 @@
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Lock, Map } from "lucide-react";
