@@ -42,6 +42,7 @@ vi.mock("./queued-sync-access", async (importOriginal) => ({
 import { readOfflineIdentity } from "./offline-access";
 import { readMemberState } from "./member-store";
 import {
+  blockedProfileSettings,
   overlayPendingProfileSettings,
   profileSettingsStatus,
   queueProfileSettings,
@@ -82,6 +83,7 @@ it("marks a conflict without writing, and stops showing the blocked values", asy
   expect(server.updates).toEqual([]);
   expect(profileSettingsStatus(await readMemberState(memberId))).toBe("conflict");
   expect((await overlayPendingProfileSettings(profile())).locale).toBe("en");
+  expect(blockedProfileSettings(await readMemberState(memberId))).toEqual({ locale: "ar" });
 });
 
 it("acknowledges a change whose earlier response was lost without writing again", async () => {
