@@ -4,6 +4,7 @@ import { useShields } from "@/hooks/use-shields";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { StreakShields } from "@/components/streak-shields";
+import { useXpRules } from "@/hooks/use-xp-rules";
 import { TodaySessionHero } from "@/features/workouts/today-session-hero";
 import { TrainingSchedule } from "@/components/training-schedule";
 import { useActivityDay } from "@/hooks/use-activity-day";
@@ -12,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/use-me";
 import { useGamification } from "@/hooks/use-gamification";
 import { RankCrest } from "@/components/rank-crest";
-import { useI18n } from "@/lib/i18n";
+import { numberLocale, useI18n } from "@/lib/i18n";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { currentStreak, weekStart, weeklyQuests } from "@/lib/streaks";
@@ -208,6 +209,14 @@ function Today() {
     foodDays: new Set(foodDays.filter((d) => d >= ws)).size,
     bodyChecks: data?.body.length ?? 0,
   });
+  const { data: rules } = useXpRules();
+  // Quests earn the XP of the activities they count; there is no separate quest bonus yet.
+  const questXp: Record<string, number> = {
+    q_workouts: 3 * (rules?.workout_xp ?? 0),
+    q_nutrition: 5 * (rules?.nutrition_day_xp ?? 0),
+    q_body: rules?.body_week_xp ?? 0,
+  };
+  const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const todayFood = fuelFood.filter((f) => f.log_date === today);
   const kcal = todayFood.reduce((a, f) => a + Number(f.calories), 0);
   const protein = todayFood.reduce((a, f) => a + Number(f.protein_g), 0);
@@ -320,14 +329,14 @@ function Today() {
           <div className="flex items-center gap-2">
             <Flame
               aria-hidden
-              className={`size-5 ${streak > 0 ? "text-emerald-400" : "text-muted-foreground"}`}
+              className={`size-5 ${streak > 0 ? "text-gold" : "text-muted-foreground"}`}
             />
             <h2 className="font-heading text-base font-bold tabular-nums">
-              {locale === "ar"
-                ? `${activity ? streak : "–"} ${t("streak")}`
-                : activity
-                  ? `${streak}-day streak`
-                  : t("streak")}
+              {!activity
+                ? t("streak")
+                : streak === 0
+                  ? l("Start a streak", "ابدأ تتابعاً جديداً")
+                  : l(`${streak}-day streak`, `التتابع: ${streak} ${arabicDays(streak)}`)}
             </h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t("streakHint")}</p>
@@ -339,6 +348,12 @@ function Today() {
         </section>
         <section className="rounded-xl bg-card p-4">
           <h2 className="font-heading text-base font-bold">{t("weeklyQuests")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {l(
+              "The weekly minimum. Four workouts and daily food logs keep you on the one-year pace to Level 100.",
+              "الحد الأدنى الأسبوعي. أربعة تمارين وتسجيل الطعام يومياً يبقيانك على وتيرة العام للوصول إلى المستوى 100.",
+            )}
+          </p>
           {!data ? (
             <p role="status" className="mt-3 text-sm text-muted-foreground">
               {locale === "ar"
@@ -356,8 +371,15 @@ function Today() {
                         {done && <CheckCircle2 className="h-4 w-4 text-success" />}
                         {t(q.key)}
                       </span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {q.progress}/{q.goal}
+                      <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
+                        {rules && (
+                          <bdi className="text-xs text-gold">
+                            +{(questXp[q.key] ?? 0).toLocaleString(numberLocale(locale))} XP
+                          </bdi>
+                        )}
+                        <bdi>
+                          {q.progress}/{q.goal}
+                        </bdi>
                       </span>
                     </div>
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -370,6 +392,18 @@ function Today() {
                 );
               })}
             </ul>
+          )}
+          {data && quests.every((q) => q.progress >= q.goal) && (
+            <p
+              role="status"
+              className="mt-3 flex items-center gap-2 text-sm font-semibold text-gold"
+            >
+              <CheckCircle2 aria-hidden className="size-4" />
+              {l(
+                "All weekly quests done. New quests start Monday.",
+                "أنجزت كل مهام الأسبوع. مهام جديدة يوم الاثنين.",
+              )}
+            </p>
           )}
         </section>
       </div>
@@ -392,3 +426,7 @@ function Today() {
     </>
   );
 }
+
+// Arabic counted noun: 1 يوم, 2 يومان, 3–10 أيام, 11+ يوماً.
+const arabicDays = (n: number) =>
+  n === 1 ? "يوم" : n === 2 ? "يومان" : n <= 10 ? "أيام" : "يوماً";

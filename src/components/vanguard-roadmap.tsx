@@ -40,6 +40,7 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
   const target = thresholds?.find((row) => row.level === selected);
   const nextRank = RANKS.find((tier) => tier.min > level);
   const nextThreshold = thresholds?.find((row) => row.level === nextRank?.min);
+  const fmt = (value: number) => value.toLocaleString(numberLocale(locale));
   return (
     <section className="mt-4 overflow-hidden rounded-xl bg-card p-4 sm:p-5">
       <div className="flex items-center gap-2">
@@ -58,7 +59,7 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
         {nextRank && nextThreshold && (
           <p className="text-xs text-muted-foreground">
             {l("Next rank", "الرتبة التالية")}: {locale === "ar" ? nextRank.ar : nextRank.key} ·{" "}
-            {Math.max(0, nextThreshold.xp_required - xp).toLocaleString(numberLocale(locale))} XP
+            <bdi>{fmt(Math.max(0, nextThreshold.xp_required - xp))} XP</bdi>
           </p>
         )}
       </div>
@@ -84,7 +85,7 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
                   key={n}
                   aria-pressed={selected === n}
                   aria-current={level === n ? "step" : undefined}
-                  aria-label={`${t("level")} ${n} ${n > level ? t("locked") : ""}`}
+                  aria-label={`${t("level")} ${n} ${n > level ? t("locked") : n < level ? l("Reached", "تم الوصول") : ""}`.trim()}
                   onClick={() => setSelected(n)}
                   className={`relative flex min-h-11 items-center justify-center rounded-full border text-sm font-bold ${selected === n ? "ring-2 ring-gold ring-offset-2 ring-offset-card" : ""} ${n <= level ? "border-gold/60 bg-gold/15 text-gold" : "border-border text-muted-foreground"}`}
                 >
@@ -112,20 +113,23 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {selected > level && <Lock size={12} className="me-1 inline" />}
-            {target
-              ? `${target.xp_required} XP · ${Math.max(0, target.xp_required - xp)} ${l("XP to reach", "نقطة للوصول")}`
-              : l("XP threshold unavailable", "حد نقاط الخبرة غير متاح")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {l(
-              "Rank perks: awaiting approval. No reward entitlement is attached to this preview.",
-              "مزايا الرتبة بانتظار الاعتماد. هذا العرض لا يمنح استحقاقاً لمكافأة.",
+            {!target ? (
+              l("XP threshold unavailable", "حد نقاط الخبرة غير متاح")
+            ) : selected <= level ? (
+              <>
+                <bdi>{fmt(target.xp_required)} XP</bdi> · {l("Reached", "تم الوصول")}
+              </>
+            ) : (
+              <>
+                <bdi>{fmt(target.xp_required)} XP</bdi> ·{" "}
+                <bdi>{fmt(Math.max(0, target.xp_required - xp))} XP</bdi> {l("to go", "متبقية")}
+              </>
             )}
           </p>
         </div>
       </div>
       {thresholds?.some((row) => row.provisional) && (
-        <p className="mt-3 text-[11px] text-muted-foreground">{t("provisional")}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{t("provisional")}</p>
       )}
     </section>
   );

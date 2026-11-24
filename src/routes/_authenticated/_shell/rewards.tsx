@@ -31,6 +31,8 @@ import { useGamification } from "@/hooks/use-gamification";
 import { useMe } from "@/hooks/use-me";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { weekStart } from "@/lib/streaks";
+import { friendlyDay } from "@/lib/dates";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
@@ -107,6 +109,7 @@ function Page() {
   const redemptionLock = useRef(false);
   const claimLock = useRef(false);
   const [claiming, setClaiming] = useState("");
+  const [claimOpen, setClaimOpen] = useState<string | null>(null);
   const [badge, setBadge] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<{
     rewardId: string;
@@ -156,7 +159,7 @@ function Page() {
         supabase.from("pv_tasks").select("*").eq("active", true).order("points"),
         supabase
           .from("pv_claims")
-          .select("id,status,review_note,created_at,pv_tasks(title_en,title_ar,points)")
+          .select("id,task_id,status,review_note,created_at,pv_tasks(title_en,title_ar,points)")
           .eq("member_id", user.id)
           .order("created_at", { ascending: false })
           .limit(20),
@@ -215,7 +218,16 @@ function Page() {
         .order("xp", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data;
+      if (data.some((r) => r.member_id === user.id)) return data;
+      // The top 50 can miss the member, so fetch their own row as well.
+      const own = await supabase
+        .from("leaderboard_weekly")
+        .select("member_id,xp,display_name,opted_in")
+        .eq("week_start", ws)
+        .eq("member_id", user.id)
+        .maybeSingle();
+      if (own.error) throw own.error;
+      return own.data ? [...data, { ...own.data, outside: data.length >= 50 }] : data;
     },
   });
   async function setOptIn(v: boolean) {
@@ -223,12 +235,37 @@ function Page() {
       .from("profiles")
       .update({ leaderboard_opt_in: v })
       .eq("id", user.id);
-    if (error) return void toast.error(error.message);
+    if (error)
+      return void toast.error(
+        l(
+          "Could not change your leaderboard setting. Check your connection and try again.",
+          "تعذر تغيير إعداد لوحة الصدارة. تحقق من الاتصال وحاول مرة أخرى.",
+        ),
+      );
     qc.invalidateQueries({ queryKey: ["me", user.id] });
     qc.invalidateQueries({ queryKey: ["leaderboard"] });
   }
   const optedIn = !!me?.profile?.leaderboard_opt_in;
-  const rows = (board ?? []).filter((r) => r.opted_in || (optedIn && r.member_id === user.id));
+  const listed: {
+    member_id: string;
+    xp: number;
+    display_name: string | null;
+    outside?: boolean;
+  }[] = (board ?? []).filter((r) => r.opted_in || (optedIn && r.member_id === user.id));
+  // Opted-in members always see themselves, even before earning XP this week.
+  const rows =
+    optedIn && board && !listed.some((r) => r.member_id === user.id)
+      ? [...listed, { member_id: user.id, xp: 0, display_name: null, outside: board.length >= 50 }]
+      : listed;
+  const number = (n: number) => n.toLocaleString(numberLocale(locale));
+  const xpSource = (source: string) =>
+    ({
+      workout: l("Workout", "تمرين"),
+      nutrition_day: l("Nutrition day", "يوم تغذية"),
+      body_check: l("Body check", "قياس الجسم"),
+      badge: l("Badge bonus", "مكافأة وسام"),
+      level_curve_transition: l("Previous level protection", "حماية المستوى السابق"),
+    })[source.split(":")[0]!] ?? l("Bonus", "مكافأة");
 
   async function claim(taskId: string) {
     if (claimLock.current) return;
@@ -249,8 +286,15 @@ function Page() {
           ? "لديك طلب قيد المراجعة لهذه المهمة بالفعل."
           : "You already have a claim waiting for review for this task.",
       );
-    if (error) return void toast.error(error.message);
+    if (error)
+      return void toast.error(
+        l(
+          "Claim not sent. Check your connection and try again.",
+          "لم يُرسل الطلب. تحقق من الاتصال وحاول مرة أخرى.",
+        ),
+      );
     setNotes({ ...notes, [taskId]: "" });
+    setClaimOpen(null);
     toast.success(t("saved"));
     qc.invalidateQueries({ queryKey: ["pv", user.id] });
   }
@@ -425,7 +469,7 @@ function Page() {
           ["journey", l("Journey", "الرحلة")],
           ["shop", t("shop")],
           ["community", l("Community", "المجتمع")],
-          ["activity", l("Activity", "النشاط")],
+          ["activity", l("Earn PV", "اكسب PV")],
         ]}
         onSelect={(section) =>
           void navigate({ search: { section: section === "journey" ? undefined : section } })
@@ -554,17 +598,32 @@ function Page() {
                   {x.description && (
                     <p className="mt-1 text-xs text-muted-foreground">{x.description}</p>
                   )}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Input
-                      placeholder={t("claimNote")}
-                      value={notes[x.id] ?? ""}
-                      maxLength={500}
-                      onChange={(e) => setNotes({ ...notes, [x.id]: e.target.value })}
-                    />
-                    <Button disabled={!!claiming} onClick={() => claim(x.id)}>
-                      {t("claim")}
+                  {data?.claims.some((c) => c.task_id === x.id && c.status === "pending") ? (
+                    <p className="mt-3 text-sm text-muted-foreground" role="status">
+                      {l("Claim under review", "الطلب قيد المراجعة")}
+                    </p>
+                  ) : claimOpen === x.id ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Input
+                        autoFocus
+                        aria-label={t("claimNote")}
+                        placeholder={t("claimNote")}
+                        value={notes[x.id] ?? ""}
+                        maxLength={500}
+                        onChange={(e) => setNotes({ ...notes, [x.id]: e.target.value })}
+                      />
+                      <Button disabled={!!claiming} onClick={() => claim(x.id)}>
+                        {t("claim")}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setClaimOpen(null)}>
+                        {l("Cancel", "إلغاء")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" className="mt-3" onClick={() => setClaimOpen(x.id)}>
+                      {l("Claim PV", "اطلب النقاط")}
                     </Button>
-                  </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -613,15 +672,15 @@ function Page() {
                   >
                     <span className="flex items-center gap-3">
                       <span
-                        className={`w-6 text-center tabular-nums ${i < 3 ? "text-gold" : "text-muted-foreground"}`}
+                        className={`w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
                       >
-                        {i + 1}
+                        {r.outside ? "50+" : i + 1}
                       </span>
                       {r.member_id === user.id ? t("you") : r.display_name || "—"}
                     </span>
-                    <span className="tabular-nums">
-                      {r.xp} {t("xp")}
-                    </span>
+                    <bdi className="tabular-nums">
+                      {number(r.xp)} {t("xp")}
+                    </bdi>
                   </li>
                 ))}
               </ol>
@@ -729,39 +788,40 @@ function Page() {
             {data?.rewards.length === 0 && (
               <p className="mt-2 text-sm text-muted-foreground">{t("noRewards")}</p>
             )}
-            <div className="mt-4 space-y-2">
-              <label className="block text-sm">
-                {l("Find a reward", "البحث عن مكافأة")}
-                <Input
-                  className="mt-1"
-                  value={shopSearch}
-                  onChange={(event) => setShopSearch(event.target.value)}
-                />
-              </label>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={affordable}
-                    disabled={!g}
-                    onChange={(e) => setAffordable(e.target.checked)}
+            {!!data?.rewards.length && (
+              <div className="mt-4 space-y-2">
+                <label className="block text-sm">
+                  {l("Find a reward", "البحث عن مكافأة")}
+                  <Input
+                    className="mt-1"
+                    value={shopSearch}
+                    onChange={(event) => setShopSearch(event.target.value)}
                   />
-                  {l("Within my PV balance", "ضمن رصيدي من PV")}
                 </label>
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={available}
-                    onChange={(e) => setAvailable(e.target.checked)}
-                  />
-                  {l("In stock", "متاح")}
-                </label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={affordable}
+                      disabled={!g}
+                      onCheckedChange={(v) => setAffordable(v === true)}
+                    />
+                    {l("Within my PV balance", "ضمن رصيدي من PV")}
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={available}
+                      onCheckedChange={(v) => setAvailable(v === true)}
+                    />
+                    {l("In stock", "متاح")}
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
               {filteredRewards?.map((r) => {
                 const out = r.stock !== null && r.stock <= 0;
-                const poor = !!g && g.pv < r.cost_pv;
+                const short = g ? r.cost_pv - g.pv : 0,
+                  poor = short > 0;
                 return (
                   <li
                     key={r.id}
@@ -770,7 +830,9 @@ function Page() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-medium">{title(r)}</p>
-                        <span className="font-semibold tabular-nums text-gold">{r.cost_pv} PV</span>
+                        <bdi className="font-semibold tabular-nums text-gold">
+                          {number(r.cost_pv)} PV
+                        </bdi>
                       </div>
                       {r.description && (
                         <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
@@ -800,7 +862,7 @@ function Page() {
                           : out
                             ? t("outOfStock")
                             : poor
-                              ? t("notEnoughPv")
+                              ? l(`${number(short)} PV more`, `تحتاج ${number(short)} PV أخرى`)
                               : t("redeem")}
                     </Button>
                   </li>
@@ -866,11 +928,22 @@ function Page() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <section className="rounded-xl border border-border bg-card p-5">
               <h2 className="font-display text-lg font-bold">{t("myClaims")}</h2>
+              {data?.claims.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {l(
+                    "No claims yet. Pick a task above and claim its PV.",
+                    "لا توجد طلبات بعد. اختر مهمة بالأعلى واطلب نقاطها.",
+                  )}
+                </p>
+              )}
               <ul className="mt-3 space-y-2 text-sm">
                 {data?.claims.map((c) => (
                   <li key={c.id} className="flex items-start justify-between gap-3">
                     <div>
                       <p>{title(c.pv_tasks)}</p>
+                      <time dateTime={c.created_at} className="text-xs text-muted-foreground">
+                        {friendlyDay(c.created_at, locale, today)}
+                      </time>
                       {c.review_note && (
                         <p className="text-xs text-muted-foreground">{c.review_note}</p>
                       )}
@@ -886,20 +959,29 @@ function Page() {
             </section>
             <section className="rounded-xl border border-border bg-card p-5">
               <h2 className="font-display text-lg font-bold">{t("recentXp")}</h2>
+              {g?.recent.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {l(
+                    "No XP yet. Finish a workout or log food to earn your first.",
+                    "لا توجد نقاط خبرة بعد. أنهِ تمريناً أو سجّل طعامك لتكسب أولها.",
+                  )}
+                </p>
+              )}
               <ul className="mt-3 space-y-2 text-sm">
                 {g?.recent.map((x) => (
                   <li
                     key={x.id}
-                    className="flex flex-wrap justify-between gap-3 rounded-lg bg-background p-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-background p-3"
                   >
-                    <span className="text-muted-foreground">
-                      {x.source === "level_curve_transition"
-                        ? locale === "ar"
-                          ? "حماية المستوى السابق"
-                          : "Previous level protection"
-                        : x.source.replaceAll("_", " ")}
+                    <span>
+                      {xpSource(x.source)}
+                      <time dateTime={x.created_at} className="block text-xs text-muted-foreground">
+                        {friendlyDay(x.created_at, locale, today)}
+                      </time>
                     </span>
-                    <span className="tabular-nums text-gold">+{x.amount}</span>
+                    <bdi className="tabular-nums text-gold">
+                      +{number(x.amount)} {t("xp")}
+                    </bdi>
                   </li>
                 ))}
               </ul>

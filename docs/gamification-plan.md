@@ -79,6 +79,10 @@ Forged, Guardian, Vanguard, Prime Legend) and the navy and gold brand.
 
 The review findings. Small, safe and worth shipping first.
 
+Built 2026-11-24 on `feat/gamification-fixes`, except two rows that need Phase 5:
+progress on locked badges (5.2) and quest bonus XP (5.1). Quests show the XP their
+activities earn. The own leaderboard row shows "50+" when it is outside the top 50.
+
 | Area | Change |
 | ---- | ------ |
 | Recent XP | Localized labels (Arabic shows English today), dates, empty state. |
