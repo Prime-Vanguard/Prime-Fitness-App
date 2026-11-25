@@ -2,7 +2,14 @@ import { z } from "zod";
 import { readMemberState, changeMemberState } from "@/lib/member-store";
 import { deviceScope } from "@/lib/device-scope";
 import { activityDay, addDays } from "@/lib/dates";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  authorizeQueuedSync,
+  clearQueuedSyncDelay,
+  delayQueuedSync,
+  queuedSyncAuthorization,
+  isRetryableSyncFailure,
+  SyncRequestError,
+} from "@/lib/queued-sync-access";
 import { featureCall } from "@/features/experience/api";
 import type { Json } from "@/integrations/supabase/types";
 import {
@@ -211,6 +218,10 @@ export async function syncCardio(user: string) {
   const scope = deviceScope(user);
   if (flights.has(scope)) return flights.get(scope);
   const flush = async () => {
+    if (!navigator.onLine) return;
+    const initial = cardioState((await readMemberState(user)).references);
+    if (!initial.queue.some((entry) => entry.status === "queued")) return;
+    if (!(await authorizeQueuedSync(user, "cardio"))) return;
     for (let n = 0; n < 100 && navigator.onLine; n++) {
       const state = cardioState((await readMemberState(user)).references);
       const op = state.queue.find(
@@ -219,8 +230,8 @@ export async function syncCardio(user: string) {
           !all.slice(0, index).some((prior) => prior.record_id === candidate.record_id),
       );
       if (!op) return;
-      const auth = await supabase.auth.getSession();
-      if (auth.data.session?.user.id !== user) return;
+      const authorization = await queuedSyncAuthorization(user);
+      if (!authorization) return;
       try {
         const result = await featureCall(
           "save_cardio_log",
@@ -238,9 +249,11 @@ export async function syncCardio(user: string) {
                 revision: z.number().int().min(0),
               })
               .parse(value),
+          authorization,
         );
         if (result.record && result.record.member_id !== user)
           throw new Error("Cardio ownership mismatch");
+        clearQueuedSyncDelay(user, "cardio");
         await change(user, (current) => {
           const pending = current.queue.find((q) => q.id === op.id);
           if (!pending) return current;
@@ -272,6 +285,10 @@ export async function syncCardio(user: string) {
         });
       } catch (error) {
         const message = (error as Error).message;
+        // Only a server refusal can be permanent; an unreadable reply waits and retries.
+        const refused = error instanceof SyncRequestError;
+        const retryable = !refused || isRetryableSyncFailure(error);
+        if (retryable) delayQueuedSync(user, "cardio");
         await change(user, (current) => ({
           ...current,
           queue: current.queue.map((q) =>
@@ -279,11 +296,11 @@ export async function syncCardio(user: string) {
               ? {
                   ...q,
                   error: message,
-                  status: /active|access|ownership|valid|constraint|out of range|disabled/i.test(
-                    message,
-                  )
-                    ? "rejected"
-                    : "queued",
+                  status:
+                    !retryable &&
+                    /active|access|ownership|valid|constraint|out of range|disabled/i.test(message)
+                      ? "rejected"
+                      : "queued",
                 }
               : q,
           ),
@@ -301,6 +318,7 @@ export async function syncCardio(user: string) {
   return promise;
 }
 export async function retryCardio(user: string) {
+  clearQueuedSyncDelay(user);
   await change(user, (state) => ({
     ...state,
     queue: state.queue.map((q) => (q.status === "rejected" ? { ...q, status: "queued" } : q)),

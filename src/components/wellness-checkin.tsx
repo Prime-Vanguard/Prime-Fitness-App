@@ -1,3 +1,4 @@
+import { offlineHistoryStart } from "@/lib/offline-window";
 import { useState, useEffect, useRef, useId } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,7 +6,7 @@ import { useMemberData, retainMemberRows, beginMemberRead } from "@/hooks/use-me
 import { queueMemberWrites, syncMemberEntries, type MemberRecord } from "@/lib/member-store";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { useActivityDay } from "@/hooks/use-activity-day";
-import { activityDay, addDays } from "@/lib/dates";
+import { activityDay } from "@/lib/dates";
 import { inputNumber } from "@/lib/numeric-input";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "./ui/button";
@@ -32,7 +33,7 @@ export function WellnessCheckIn({ memberId, userId }: { memberId: string; userId
         .from("wellness_checkins")
         .select("*")
         .eq("member_id", memberId)
-        .gte("log_date", addDays(today, -6))
+        .gte("log_date", offlineHistoryStart(today))
         .order("log_date", { ascending: false });
       if (r.error) throw r.error;
       if (own) await retainMemberRows(userId, "wellness_checkins", r.data, cacheToken);

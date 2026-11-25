@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { loadWorkoutHistoryDetails } from "@/lib/workout-history-data";
+import { OfflineHistoryUnavailableError } from "@/lib/workout-history-cache";
 import type { Tables } from "@/integrations/supabase/types";
-import { fetchAll } from "@/lib/pagination";
 import { exerciseWithSnapshot, type ExerciseGuidance } from "@/lib/exercise-guidance";
 import { trainingLabel } from "@/lib/training-labels";
 import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
@@ -30,36 +30,8 @@ export function WorkoutHistoryDetail({
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ["workout-history-detail", memberId, sessionId],
     retry: 0,
-    queryFn: async ({ signal }) => {
-      const [slots, sets] = await Promise.all([
-        fetchAll(
-          (from, to) =>
-            supabase
-              .from("workout_exercises")
-              .select("*")
-              .eq("member_id", memberId)
-              .eq("session_id", sessionId)
-              .order("id")
-              .range(from, to)
-              .abortSignal(signal),
-          (row) => row.id,
-        ),
-        fetchAll(
-          (from, to) =>
-            supabase
-              .from("set_logs")
-              .select("*")
-              .eq("member_id", memberId)
-              .eq("session_id", sessionId)
-              .order("set_number")
-              .order("id")
-              .range(from, to)
-              .abortSignal(signal),
-          (row) => row.id,
-        ),
-      ]);
-      return { slots, sets };
-    },
+    networkMode: "always",
+    queryFn: ({ signal }) => loadWorkoutHistoryDetails(memberId, sessionId, signal),
   });
   if (isPending)
     return (
@@ -70,7 +42,12 @@ export function WorkoutHistoryDetail({
   if (error)
     return (
       <div role="alert" className="p-3">
-        {l("Could not load workout details.", "تعذر تحميل تفاصيل الجلسة.")}
+        {error instanceof OfflineHistoryUnavailableError
+          ? l(
+              "These workout details have not been downloaded. Connect and refresh your offline download in Profile.",
+              "لم يتم تنزيل تفاصيل هذه الجلسة. اتصل وحدّث التنزيل دون اتصال في الملف الشخصي.",
+            )
+          : l("Could not load workout details.", "تعذر تحميل تفاصيل الجلسة.")}
         <Button variant="outline" onClick={() => void refetch()}>
           {l("Retry details", "إعادة تحميل التفاصيل")}
         </Button>

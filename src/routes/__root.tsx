@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { sessionCacheBoundary } from "@/lib/auth-session-cache";
+import { watchOfflineReauthentication } from "@/lib/offline-access";
 import { safeAuthRedirect } from "@/lib/auth-flow";
 import { appPath, stripAppBase } from "@/lib/app-path";
 import { setSentryMember } from "@/lib/sentry";
@@ -132,9 +133,16 @@ function RootComponent() {
       }
     };
     window.addEventListener("storage", changed);
+    const stopReauthentication = watchOfflineReauthentication(() => {
+      if (router.state.matches.some((match) => match.routeId === "/_authenticated")) {
+        boundary("SIGNED_OUT", null);
+        refresh(true);
+      }
+    });
     return () => {
       data.subscription.unsubscribe();
       window.removeEventListener("storage", changed);
+      stopReauthentication();
     };
   }, [router, queryClient]);
 

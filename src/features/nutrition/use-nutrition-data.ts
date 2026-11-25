@@ -1,11 +1,12 @@
+import { offlineHistoryStart } from "@/lib/offline-window";
+import { personalHistoryCoverage } from "@/lib/offline-preparation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMemberData, retainMemberRows, beginMemberRead } from "@/hooks/use-member-data";
-import { changeMemberState } from "@/lib/member-store";
+import { useMemberData, beginMemberRead } from "@/hooks/use-member-data";
+import { cacheNutritionWindow } from "@/lib/member-store";
 import { pendingNutritionRows } from "@/lib/nutrition-tools";
 import { addDays } from "@/lib/dates";
 import { fetchAll } from "@/lib/pagination";
-import type { Json } from "@/integrations/supabase/types";
 
 /** Reads preserve unsynced records and hydrate only the accepted cache epoch. */
 export function useNutritionData(
@@ -17,8 +18,18 @@ export function useNutritionData(
   const { state: local } = useMemberData(userId);
   const qc = useQueryClient();
   const key = ["nutrition", userId, day];
-  const outsideCache = day < addDays(currentDay, -6);
-  const localMode = offline && !outsideCache;
+  const preparedRanges = personalHistoryCoverage(local, userId);
+  const isPreparedDate = (date: string) =>
+    preparedRanges.some(({ from, to }) => date >= from && date <= to);
+  const recentWindow = local.references["foodWindow"] as { from: string; to: string } | undefined;
+  const isCachedDate = (date: string) =>
+    isPreparedDate(date) ||
+    (!!recentWindow && date >= recentWindow.from && date <= recentWindow.to);
+  const recentStart = offlineHistoryStart(currentDay);
+  const cacheRecentWindow = offline && day >= recentStart;
+  // Keep fetching live history for older dates while connected. The explicit
+  // download is the fallback when the device has no connection.
+  const localMode = cacheRecentWindow || (offline && !navigator.onLine && isPreparedDate(day));
 
   const {
     data: remoteData,
@@ -29,7 +40,7 @@ export function useNutritionData(
     queryKey: [...key, !!offline, currentDay],
     enabled: !offline || navigator.onLine,
     queryFn: async () => {
-      const cacheToken = localMode ? await beginMemberRead(userId) : {};
+      const cacheToken = cacheRecentWindow ? await beginMemberRead(userId) : {};
       const [food, water, targets] = await Promise.all([
         fetchAll(
           (from, to) =>
@@ -37,8 +48,8 @@ export function useNutritionData(
               .from("food_logs")
               .select("*")
               .eq("member_id", userId)
-              .gte("log_date", localMode ? addDays(currentDay, -6) : day)
-              .lte("log_date", localMode ? currentDay : day)
+              .gte("log_date", cacheRecentWindow ? recentStart : day)
+              .lte("log_date", cacheRecentWindow ? currentDay : day)
               .order("created_at")
               .order("id")
               .range(from, to),
@@ -50,8 +61,8 @@ export function useNutritionData(
               .from("water_logs")
               .select("*")
               .eq("member_id", userId)
-              .gte("log_date", localMode ? addDays(currentDay, -6) : day)
-              .lte("log_date", localMode ? currentDay : day)
+              .gte("log_date", cacheRecentWindow ? recentStart : day)
+              .lte("log_date", cacheRecentWindow ? currentDay : day)
               .order("id")
               .range(from, to),
           (r) => r.id,
@@ -61,19 +72,15 @@ export function useNutritionData(
       if (food.error) throw food.error;
       if (water.error) throw water.error;
       if (targets.error) throw targets.error;
-      if (localMode) {
-        const foodCached = await retainMemberRows(userId, "food_logs", food.data, cacheToken);
-        const waterCached = await retainMemberRows(userId, "water_logs", water.data, cacheToken);
-        if (foodCached && waterCached)
-          await changeMemberState(userId, (s) => ({
-            ...s,
-            references: {
-              ...s.references,
-              targets: targets.data as Json,
-              foodWindow: { from: addDays(currentDay, -6), to: currentDay },
-            },
-          }));
-      }
+      if (cacheRecentWindow)
+        await cacheNutritionWindow(
+          userId,
+          food.data,
+          water.data,
+          { from: recentStart, to: currentDay },
+          targets.data,
+          cacheToken,
+        );
       return { food: food.data, water: water.data, targets: targets.data };
     },
   });
@@ -108,10 +115,7 @@ export function useNutritionData(
             (local.references.targets as NonNullable<typeof remoteData>["targets"]),
         }
       : remoteData;
-  const cachedWindow = local.references["foodWindow"] as { from: string; to: string } | undefined;
-  const totalsAvailable = localMode
-    ? !!cachedWindow && day >= cachedWindow.from && day <= cachedWindow.to
-    : !!remoteData;
+  const totalsAvailable = localMode ? isCachedDate(day) : !!remoteData;
   const refresh = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: key }),
@@ -121,7 +125,7 @@ export function useNutritionData(
   const dayStates: Record<string, { logged: boolean; pending: boolean; cached: boolean }> = {};
   for (let offset = 0; offset < 7; offset++) {
     const date = addDays(currentDay, -offset);
-    const known = offline && cachedWindow && date >= cachedWindow.from && date <= cachedWindow.to;
+    const known = offline && isCachedDate(date);
     if (known || (date === day && !!remoteData)) {
       const rows = known
         ? (local.records.food_logs ?? []).filter((row) => row.log_date === date)

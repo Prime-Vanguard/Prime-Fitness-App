@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dumbbell, Activity, ChevronRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  loadWorkoutHistoryPage,
+  loadWorkoutHistoryDetails,
+  loadWorkoutHistorySummary,
+} from "@/lib/workout-history-data";
+import { OfflineHistoryUnavailableError } from "@/lib/workout-history-cache";
 import { PageHeader } from "@/components/page-header";
 import { MemberSections } from "@/components/member-sections";
 import { LegacyWorkoutRecovery } from "@/components/legacy-workout-recovery";
@@ -17,9 +22,9 @@ import { TrainingSchedule } from "@/components/training-schedule";
 import { WorkoutSession } from "@/components/workout-session";
 import { WorkoutComplete } from "@/features/workouts/workout-complete";
 import { WorkoutHistoryDetail } from "@/components/workout-history-detail";
-import type { ExerciseGuidance } from "@/lib/exercise-guidance";
+import { exerciseWithSnapshot, type ExerciseGuidance } from "@/lib/exercise-guidance";
 import { WorkoutHistoryFilters } from "@/components/workout-history-filters";
-import { trainingSearch, literalTitlePattern, historyDateFilter } from "@/lib/training-search";
+import { trainingSearch } from "@/lib/training-search";
 import { activityDay } from "@/lib/dates";
 
 export const Route = createFileRoute("/_authenticated/_shell/train")({
@@ -42,10 +47,8 @@ function Train() {
     historyPage = search.page ?? 0,
     expandedHistory = search.session;
   const validRange = !search.from || !search.to || search.from <= search.to;
-  const historySelect =
-    "id,title,started_at,finished_at,origin,activity_date,time_precision,set_logs(count)" as const;
   const {
-    data: history,
+    data: historyResult,
     isPending: historyPending,
     error: historyError,
     refetch: retryHistory,
@@ -53,24 +56,10 @@ function Train() {
     enabled:
       ready && section === "history" && (!w.session || search.view === "overview") && validRange,
     queryKey: ["sessions", user.id, historyPage, search.q, search.from, search.to],
-    queryFn: async ({ signal }) => {
-      let query = supabase
-        .from("workout_sessions")
-        .select(historySelect)
-        .eq("member_id", user.id)
-        .not("finished_at", "is", null);
-      if (search.q) query = query.ilike("title", literalTitlePattern(search.q));
-      const dates = historyDateFilter(search.from, search.to);
-      if (dates) query = query.or(dates);
-      const r = await query
-        .order("started_at", { ascending: false })
-        .order("id", { ascending: false })
-        .range(historyPage * 20, historyPage * 20 + 19)
-        .abortSignal(signal);
-      if (r.error) throw r.error;
-      return r.data;
-    },
+    networkMode: "always",
+    queryFn: ({ signal }) => loadWorkoutHistoryPage(user.id, search, signal),
   });
+  const history = historyResult?.rows;
   const linkedOutsidePage =
     !!expandedHistory && !!history && !history.some((s) => s.id === expandedHistory);
   const linked = useQuery({
@@ -82,18 +71,8 @@ function Train() {
       !historyError &&
       validRange,
     retry: 0,
-    queryFn: async ({ signal }) => {
-      const r = await supabase
-        .from("workout_sessions")
-        .select(historySelect)
-        .eq("member_id", user.id)
-        .eq("id", expandedHistory!)
-        .not("finished_at", "is", null)
-        .abortSignal(signal)
-        .maybeSingle();
-      if (r.error) throw r.error;
-      return r.data;
-    },
+    networkMode: "always",
+    queryFn: ({ signal }) => loadWorkoutHistorySummary(user.id, expandedHistory!, signal),
   });
   const displayedHistory =
     linkedOutsidePage && linked.data ? [linked.data, ...(history ?? [])] : history;
@@ -269,6 +248,27 @@ function Train() {
       {section === "history" && (
         <>
           <h2 className="sr-only">{t("history")}</h2>
+          {historyResult?.source === "device" && (
+            <p role="status" className="my-3 text-sm text-muted-foreground">
+              {l(
+                `Showing downloaded workout history. Latest refreshed dates: ${historyResult.from} to ${historyResult.to}. Connect to see other history.`,
+                `عرض سجل التمارين المنزّل. آخر نطاق تم تحديثه: ${historyResult.from} إلى ${historyResult.to}. اتصل لعرض بقية السجل.`,
+              )}
+            </p>
+          )}
+          {historyResult?.source === "device" && (
+            <p className="text-xs text-muted-foreground">
+              {l("Downloaded date ranges", "نطاقات التواريخ المنزّلة")}:{" "}
+              {historyResult.coverage.map((range, index) => (
+                <span key={`${range.from}:${range.to}`}>
+                  {index > 0 ? " · " : ""}
+                  <bdi dir="ltr">
+                    {range.from} – {range.to}
+                  </bdi>
+                </span>
+              ))}
+            </p>
+          )}
           <WorkoutHistoryFilters
             key={`${search.q ?? ""}:${search.from ?? ""}:${search.to ?? ""}`}
             search={search}
@@ -276,17 +276,30 @@ function Train() {
               void navigate({ search: { section: "history", view: search.view, ...filters } })
             }
           />
+          {historyResult?.hasIncompleteDateCoverage && (
+            <p role="status" className="my-3 text-sm text-pending">
+              {l(
+                "Some selected dates have not been downloaded. Results show saved workouts only.",
+                "لم يتم تنزيل بعض التواريخ المحددة. تعرض النتائج التمارين المحفوظة فقط.",
+              )}
+            </p>
+          )}
           {linkedOutsidePage && linked.isFetching && (
             <p role="status">{l("Opening linked workout…", "جارٍ فتح الجلسة المرتبطة…")}</p>
           )}
           {linkedOutsidePage && !linked.isPending && !linked.data && (
             <p role="alert">
-              {linked.error
-                ? l("Could not open linked workout.", "تعذر فتح الجلسة المرتبطة.")
-                : l(
-                    "This workout is unavailable for your account.",
-                    "هذه الجلسة غير متاحة لحسابك.",
-                  )}
+              {linked.error instanceof OfflineHistoryUnavailableError
+                ? l(
+                    "This workout has not been downloaded. Connect to open it.",
+                    "لم يتم تنزيل هذه الجلسة. اتصل لفتحها.",
+                  )
+                : linked.error
+                  ? l("Could not open linked workout.", "تعذر فتح الجلسة المرتبطة.")
+                  : l(
+                      "This workout is unavailable for your account.",
+                      "هذه الجلسة غير متاحة لحسابك.",
+                    )}
               {linked.error && (
                 <Button variant="outline" onClick={() => void linked.refetch()}>
                   {l("Retry linked workout", "إعادة المحاولة")}
@@ -302,7 +315,12 @@ function Train() {
             )}
             {historyError && (
               <li role="alert" className="p-4">
-                {l("Could not load history.", "تعذر تحميل السجل.")}{" "}
+                {historyError instanceof OfflineHistoryUnavailableError
+                  ? l(
+                      "Workout history has not been downloaded for this account. Connect and use Download for offline use in Profile.",
+                      "لم يتم تنزيل سجل التمارين لهذا الحساب. اتصل واستخدم التنزيل دون اتصال في الملف الشخصي.",
+                    )
+                  : l("Could not load history.", "تعذر تحميل السجل.")}{" "}
                 <Button variant="outline" onClick={() => void retryHistory()}>
                   {l("Retry", "إعادة المحاولة")}
                 </Button>
@@ -311,8 +329,15 @@ function Train() {
             {!historyPending && !historyError && !history?.length && (
               <li className="p-6 text-sm text-muted-foreground">
                 {search.q || search.from || search.to
-                  ? l("No workouts match these filters.", "لا توجد جلسات مطابقة لهذه الفلاتر.")
-                  : t("noWorkouts")}
+                  ? historyResult?.source === "device"
+                    ? l(
+                        "No downloaded workouts match these filters.",
+                        "لا توجد تمارين منزّلة تطابق هذه الفلاتر.",
+                      )
+                    : l("No workouts match these filters.", "لا توجد جلسات مطابقة لهذه الفلاتر.")
+                  : historyResult?.source === "device"
+                    ? l("No workouts in downloaded history.", "لا توجد تمارين في السجل المنزّل.")
+                    : t("noWorkouts")}
               </li>
             )}
             {validRange &&
@@ -376,28 +401,21 @@ function Train() {
                         disabled={!!w.session || !ready}
                         onClick={() => {
                           void (async () => {
-                            const [slots, sets] = await Promise.all([
-                              supabase.from("workout_exercises").select("*").eq("session_id", s.id),
-                              supabase
-                                .from("set_logs")
-                                .select("*")
-                                .eq("session_id", s.id)
-                                .order("set_number"),
-                            ]);
-                            if (slots.error) throw slots.error;
-                            if (sets.error) throw sets.error;
-                            const ex = slots.data.map((slot) => ({
-                              id: slot.exercise_id,
-                              ...(slot.snapshot as {
-                                name_en: string;
-                                name_ar: string | null;
-                                muscle: string;
-                                equipment: string | null;
-                                logging_mode: "weighted_reps" | "bodyweight_reps" | "timed";
-                                load_convention: "external_total" | "per_hand" | "bodyweight";
-                              }),
-                            }));
-                            if (!ex.length)
+                            const { slots, sets } = await loadWorkoutHistoryDetails(
+                              user.id,
+                              s.id,
+                              AbortSignal.timeout(15000),
+                            );
+                            const snapshotExercises = slots.map((slot) =>
+                              exerciseWithSnapshot(
+                                slot.exercise_id,
+                                slot.snapshot,
+                                (w.exercises as ExerciseGuidance[]).find(
+                                  (exercise) => exercise.id === slot.exercise_id,
+                                ),
+                              ),
+                            );
+                            if (!snapshotExercises.length)
                               throw new Error(
                                 l(
                                   "This workout has no exercises to repeat.",
@@ -406,26 +424,25 @@ function Train() {
                               );
                             await controller.start(
                               `${s.title ?? t("workout")} · ${l("Repeat", "تكرار")}`,
-                              slots.data.map((slot, i) => ({
+                              slots.map((slot, i) => ({
                                 id: slot.exercise_id,
                                 sets: Math.max(
                                   1,
-                                  sets.data.filter(
+                                  sets.filter(
                                     (row) =>
                                       row.workout_exercise_id === slot.id &&
                                       row.set_role === "working",
                                   ).length,
                                 ),
                                 reps: String(
-                                  sets.data.find((row) => row.workout_exercise_id === slot.id)
+                                  sets.find((row) => row.workout_exercise_id === slot.id)
                                     ?.duration_seconds ??
-                                    sets.data.find((row) => row.workout_exercise_id === slot.id)
-                                      ?.reps ??
+                                    sets.find((row) => row.workout_exercise_id === slot.id)?.reps ??
                                     "",
                                 ),
-                                exercise: ex[i]!,
+                                exercise: snapshotExercises[i]!,
                               })),
-                              ex,
+                              snapshotExercises,
                             );
                           })().catch((e) => toast.error(e.message));
                         }}

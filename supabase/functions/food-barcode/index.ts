@@ -24,12 +24,14 @@ Deno.serve(async (request: Request) => {
     });
     const auth = await client.auth.getUser(authorization.slice(7));
     if (auth.error || !auth.data.user) return json({ error: "Sign in required" }, 401);
-    const allowance = await client.rpc("food_scan_allowance");
-    if (allowance.error)
-      return json({ error: "Scanning unavailable or hourly limit reached" }, 429);
     const body = await request.text();
     if (body.length > 2048) return json({ error: "Request too large" }, 400);
-    const { barcode } = JSON.parse(body);
+    let barcode: unknown;
+    try {
+      ({ barcode } = JSON.parse(body));
+    } catch {
+      return json({ error: "Invalid request body" }, 400);
+    }
     if (typeof barcode !== "string" || !/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(barcode))
       return json({ error: "Invalid barcode" }, 400);
     let checksum = 0;
@@ -37,6 +39,14 @@ Deno.serve(async (request: Request) => {
       checksum += Number(barcode[i]) * (position % 2 === 0 ? 3 : 1);
     if ((10 - (checksum % 10)) % 10 !== Number(barcode.at(-1)))
       return json({ error: "Invalid barcode check digit" }, 400);
+    // Spend a scan only on a valid request.
+    const allowance = await client.rpc("food_scan_allowance");
+    if (allowance.error)
+      // The budget check raises the same way for a spent budget and for missing
+      // access; only the former is a rate limit.
+      return /limit/i.test(allowance.error.message)
+        ? json({ error: "Hourly scan limit reached" }, 429)
+        : json({ error: "Scanning is not available for this account" }, 403);
     const upstream = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=code,product_name,product_name_ar,nutriments`,
       {

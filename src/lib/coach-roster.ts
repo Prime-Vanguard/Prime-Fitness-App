@@ -135,45 +135,57 @@ export async function loadRosterSummaries(ids: string[], today: string, signal: 
   for (let offset = 0; offset < ids.length; offset += 4) {
     const batch = await Promise.all(
       ids.slice(offset, offset + 4).map(async (id) => {
-        const base = () =>
-          supabase
-            .from("workout_sessions")
-            .select("id,started_at,activity_date")
-            .eq("member_id", id)
-            .not("finished_at", "is", null);
-        const [dated, legacy, count] = await Promise.all([
-          base()
-            .not("activity_date", "is", null)
-            .order("activity_date", { ascending: false })
-            .order("id")
-            .limit(1)
-            .abortSignal(signal),
-          base()
-            .is("activity_date", null)
-            .order("started_at", { ascending: false })
-            .order("id")
-            .limit(1)
-            .abortSignal(signal),
-          supabase
-            .from("workout_sessions")
-            .select("id", { count: "exact", head: true })
-            .eq("member_id", id)
-            .not("finished_at", "is", null)
-            .or(historyDateFilter(weekStart(today), today)!)
-            .abortSignal(signal),
-        ]);
-        for (const result of [dated, legacy, count]) if (result.error) throw result.error;
-        if (count.count == null)
-          throw new Error("Workout counts are unavailable. Retry summaries.");
-        const days = [...(dated.data ?? []), ...(legacy.data ?? [])]
-          .map((row) => row.activity_date ?? activityDay(row.started_at))
-          .sort();
+        const activity = await loadRosterWorkoutActivity(id, today, signal);
         const total = xp.get(id) ?? 0;
         if (!Number.isFinite(total)) throw new Error("XP summary is unavailable.");
-        return { id, xp: total, last: days.at(-1) ?? null, week: count.count };
+        return { id, xp: total, ...activity };
       }),
     );
     summaries.push(...batch);
   }
   return summaries;
+}
+
+export async function loadRosterWorkoutActivity(
+  id: string,
+  today: string,
+  signal: AbortSignal,
+  authorization?: string,
+) {
+  const base = () => {
+    const query = supabase
+      .from("workout_sessions")
+      .select("id,started_at,activity_date")
+      .eq("member_id", id)
+      .not("finished_at", "is", null);
+    return authorization ? query.setHeader("Authorization", authorization) : query;
+  };
+  const countQuery = supabase
+    .from("workout_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", id)
+    .not("finished_at", "is", null)
+    .or(historyDateFilter(weekStart(today), today)!);
+  if (authorization) countQuery.setHeader("Authorization", authorization);
+  const [dated, legacy, count] = await Promise.all([
+    base()
+      .not("activity_date", "is", null)
+      .order("activity_date", { ascending: false })
+      .order("id")
+      .limit(1)
+      .abortSignal(signal),
+    base()
+      .is("activity_date", null)
+      .order("started_at", { ascending: false })
+      .order("id")
+      .limit(1)
+      .abortSignal(signal),
+    countQuery.abortSignal(signal),
+  ]);
+  for (const result of [dated, legacy, count]) if (result.error) throw result.error;
+  if (count.count == null) throw new Error("Workout counts are unavailable. Retry summaries.");
+  const days = [...(dated.data ?? []), ...(legacy.data ?? [])]
+    .map((row) => row.activity_date ?? activityDay(row.started_at))
+    .sort();
+  return { last: days.at(-1) ?? null, week: count.count };
 }

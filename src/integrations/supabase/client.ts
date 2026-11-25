@@ -1,6 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { clearRecovery, rememberRecovery } from "@/lib/auth-flow";
+import {
+  clearReauthentication,
+  forgetOfflineIdentity,
+  readOfflineIdentity,
+  requireOfflineReauthentication,
+  restoreOfflineIdentityAfterFailedSignOut,
+} from "@/lib/offline-access";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -87,7 +94,10 @@ function createSupabaseClient() {
     // Subscribe immediately: recovery can finish before its route chunk mounts.
     client.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) rememberRecovery(session.user.id);
-      if (event === "SIGNED_OUT") clearRecovery();
+      if (event === "SIGNED_OUT") {
+        requireOfflineReauthentication();
+        clearRecovery();
+      }
     });
   }
   return client;
@@ -103,3 +113,19 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
+
+export async function signOutMember() {
+  const prepared = readOfflineIdentity();
+  // The SDK emits SIGNED_OUT for both a rejected refresh and an explicit sign-out.
+  // Clear the prepared identity first so every tab can distinguish the explicit action.
+  clearReauthentication();
+  forgetOfflineIdentity();
+  try {
+    const result = await supabase.auth.signOut();
+    if (result.error) restoreOfflineIdentityAfterFailedSignOut(prepared);
+    return result;
+  } catch (error) {
+    restoreOfflineIdentityAfterFailedSignOut(prepared);
+    throw error;
+  }
+}

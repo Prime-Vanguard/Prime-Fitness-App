@@ -4,9 +4,18 @@ import { AppInstallation } from "./app-installation";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/lib/i18n";
 import { haptic, primeAudio, waterSound } from "@/lib/device-feedback";
+import { OfflinePreparationPanel } from "./offline-preparation-panel";
+import { StaffOfflineDownloads } from "./staff-offline-downloads";
+import { OfflineNutritionTargets } from "./offline-nutrition-targets";
 
 // Keep the existing durable operations; this surface groups their review and recovery states.
-export function DeviceSettings() {
+export function DeviceSettings({
+  memberId,
+  showStaffDownloads,
+}: {
+  memberId: string;
+  showStaffDownloads: boolean;
+}) {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [sound, setSound] = useState(false);
@@ -24,6 +33,9 @@ export function DeviceSettings() {
         {l("App & gym experience", "تجربة التطبيق والنادي")}
       </h2>
       <AppInstallation />
+      <OfflinePreparationPanel key={memberId} memberId={memberId} />
+      <StaffOfflineDownloads key={memberId} actor={memberId} showEmpty={showStaffDownloads} />
+      <OfflineNutritionTargets actor={memberId} />
       <label className="flex items-center justify-between gap-3 text-sm">
         {l("Water logging sound", "صوت تسجيل الماء")}
         <Switch

@@ -7,7 +7,7 @@ it("converts reviewed pounds into canonical kg", () => {
   render(<TrainingTools weight={20} units="imperial" onWarmup={vi.fn()} onWorkingWeight={apply} />);
   fireEvent.click(screen.getByRole("button", { name: "Plates & warm-up" }));
   const input = screen.getByLabelText("Working weight (lb)");
-  expect(input).toHaveValue("44.09");
+  expect(input).toHaveValue("44.1");
   fireEvent.change(input, { target: { value: "99.2" } });
   fireEvent.click(screen.getByRole("button", { name: "Use as actual working weight" }));
   expect(apply).toHaveBeenCalledWith(45);

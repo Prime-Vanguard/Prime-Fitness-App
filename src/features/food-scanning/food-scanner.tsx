@@ -92,13 +92,25 @@ export function FoodScanner({
       const response = await supabase.functions.invoke("food-barcode", {
         body: { barcode: normalized },
       });
-      if (response.error)
+      if (response.error) {
+        const status = (response.error as { context?: { status?: number } }).context?.status;
         throw new Error(
-          l(
-            "Lookup unavailable or rate limited. Check the connection or enter the label manually.",
-            "البحث غير متاح أو تجاوز الحد. تحقق من الاتصال أو أدخل القيم يدوياً.",
-          ),
+          status === 403
+            ? l(
+                "Barcode scanning is not available for your account. Enter the label manually.",
+                "البحث بالباركود غير متاح لحسابك. أدخل القيم يدوياً.",
+              )
+            : status === 429
+              ? l(
+                  "You have reached the hourly scan limit. Try again later or enter the label manually.",
+                  "وصلت إلى حد المسح في الساعة. حاول لاحقاً أو أدخل القيم يدوياً.",
+                )
+              : l(
+                  "Lookup unavailable. Check the connection or enter the label manually.",
+                  "البحث غير متاح. تحقق من الاتصال أو أدخل القيم يدوياً.",
+                ),
         );
+      }
       const food = productNutrition(response.data);
       if (epoch !== generation.current) return;
       setValue(food);

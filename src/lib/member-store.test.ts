@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: vi.fn(), auth: { getSession: vi.fn() } },
+  supabase: { from: vi.fn(), rpc: vi.fn(), auth: { getSession: vi.fn(), getUser: vi.fn() } },
 }));
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -14,16 +14,44 @@ import {
   changeMemberState,
 } from "./member-store";
 let user: string;
+function activeProfile(active: boolean) {
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({
+          data: { id: user, access_active: active },
+          error: null,
+        }),
+      }),
+    }),
+  } as never);
+}
 beforeEach(() => {
   vi.resetAllMocks();
   user = crypto.randomUUID();
+  activeProfile(true);
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: { id: user } },
+    error: null,
+  } as never);
   vi.mocked(supabase.auth.getSession).mockResolvedValue({
-    data: { session: { user: { id: user } } },
+    data: { session: { user: { id: user }, access_token: "test-token" } },
     error: null,
   } as never);
 });
+it("keeps an immediate save on the device when the server says the member is paused", async () => {
+  activeProfile(false);
+  await queueMemberWrites(user, [
+    { entity: "water_logs", op: "put", record: { id: crypto.randomUUID(), ml: 250 } },
+  ]);
+  const before = await readMemberState(user);
+  await syncMemberEntries(user);
+  expect(supabase.rpc).not.toHaveBeenCalled();
+  expect(await readMemberState(user)).toEqual(before);
+});
 function backend(response: unknown, error: unknown = null) {
   vi.mocked(supabase.rpc).mockReturnValue({
+    setHeader: vi.fn().mockReturnThis(),
     abortSignal: () => Promise.resolve({ data: response, error }),
   } as never);
 }
@@ -134,6 +162,8 @@ it("acknowledges a lost-response retry without retaining duplicate entries", asy
     },
   ]);
   await syncMemberEntries(user);
+  const request = vi.mocked(supabase.rpc).mock.results[0]?.value;
+  expect(request?.setHeader).toHaveBeenCalledWith("Authorization", "Bearer test-token");
   const s = await readMemberState(user);
   expect(s.queue).toHaveLength(0);
   expect(s.records.water_logs).toHaveLength(1);
@@ -200,4 +230,38 @@ it("never sends the previous member's queue through a new session", async () => 
   await syncMemberEntries(user);
   expect(supabase.rpc).not.toHaveBeenCalled();
   expect((await readMemberState(user)).queue).toHaveLength(1);
+});
+
+it("retains explicitly downloaded older history, drops uncovered rows, and refreshes the thirty-day window", async () => {
+  const archivedId = crypto.randomUUID();
+  const orphanId = crypto.randomUUID();
+  const recentId = crypto.randomUUID();
+  const { activityDay, addDays } = await import("./dates");
+  await changeMemberState(user, (state) => ({
+    ...state,
+    records: {
+      water_logs: [
+        { id: archivedId, log_date: "2000-01-01", ml: 100 },
+        // Outside every download: it could never refresh, so the next download drops it.
+        { id: orphanId, log_date: "2001-06-01", ml: 100 },
+      ],
+    },
+    references: {
+      ...state.references,
+      personalHistoryCoverage: [{ from: "2000-01-01", to: "2000-01-31" }],
+    },
+  }));
+  await cacheMemberRecords(
+    user,
+    "water_logs",
+    [{ id: recentId, log_date: addDays(activityDay(), -20), ml: 250 }],
+    await beginMemberRead(user),
+  );
+  expect((await readMemberState(user)).records.water_logs?.map((row) => row.id).sort()).toEqual(
+    [archivedId, recentId].sort(),
+  );
+  await cacheMemberRecords(user, "water_logs", [], await beginMemberRead(user));
+  expect((await readMemberState(user)).records.water_logs?.map((row) => row.id)).toEqual([
+    archivedId,
+  ]);
 });

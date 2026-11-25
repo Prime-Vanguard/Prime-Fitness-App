@@ -22,9 +22,9 @@
 ## Offline and data integrity
 
 - Active workout drafts live in member-scoped IndexedDB. Commit local changes before claiming they are saved; retain stable set UUIDs and deletion tombstones through retries. Finish syncing sets before marking a session finished so server XP triggers see the completed logs.
-- `WorkoutSync` owns periodic workout retries. Member queues retry every 15 seconds; refresh member caches on scoped server-acceptance notices, focus/reconnect and a 60-second foreground fallback. Do not invalidate after an empty flush or put record payloads in cache-notice messages. See `docs/performance/sync-traffic-2026-11-02.json`.
+- The authenticated shell coordinates foreground retries every 15 seconds, subject to queue retry delays. Each queue checks current account access, binds requests to that account's session, and owns its write order and repeat protection. Refresh member caches on scoped server-acceptance notices, focus/reconnect and a 60-second foreground fallback. Do not invalidate after an empty flush or put record payloads in cache-notice messages. See `docs/performance/sync-traffic-2026-11-02.json`.
 - Streak shields are limited to two per calendar month by a server trigger, using Cairo dates. Pod feed sharing is a separate, default-off opt-in and must respect current Pod membership and opt-out on every read.
-- The production service worker may cache public assets and the client-only training shell; never cache auth/API responses, photos or mutation requests. Preserve frozen program history and server-enforced rewards.
+- The production service worker may cache public assets and approved client-only app shells; never cache auth/API responses, photos or mutation requests. Keep waiting updates on the browser's normal activation path so active tabs retain their build. Preserve frozen program history and server-enforced rewards.
 
 ## UI and accessibility
 

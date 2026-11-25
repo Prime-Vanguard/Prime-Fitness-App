@@ -15,6 +15,9 @@ const ids = Object.fromEntries(
     "info",
     "stale",
     "paused",
+    "infoTask",
+    "staleTask",
+    "pausedTask",
   ].map((name) => [name, randomUUID()]),
 );
 let checks = 0;
@@ -41,12 +44,13 @@ try {
   await db.exec("ALTER TABLE auth.users ENABLE TRIGGER on_auth_user_created");
   await as("admin");
   await db.exec(
-    `INSERT INTO public.pv_tasks(id,title_en,points,created_by) VALUES ('${ids.task}','Review fixture',50,'${ids.admin}')`,
+    `INSERT INTO public.pv_tasks(id,title_en,points,created_by) VALUES ${["task", "infoTask", "staleTask", "pausedTask"].map((t) => `('${ids[t]}','Review fixture',50,'${ids.admin}')`).join(",")}`,
   );
   await as("member");
+  // One pending claim per task, so each fixture claim uses its own task.
   for (const claim of ["claim", "info", "stale", "paused"])
     await db.exec(
-      `INSERT INTO public.pv_claims(id,task_id,member_id,note) VALUES ('${ids[claim]}','${ids.task}','${ids.member}','Recorded evidence')`,
+      `INSERT INTO public.pv_claims(id,task_id,member_id,note) VALUES ('${ids[claim]}','${ids[claim === "claim" ? "task" : `${claim}Task`]}','${ids.member}','Recorded evidence')`,
     );
   await as("unrelated");
   equal(

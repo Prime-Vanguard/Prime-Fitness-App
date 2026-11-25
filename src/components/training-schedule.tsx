@@ -1,3 +1,4 @@
+import { loadAssignedTraining } from "@/lib/training-assignment";
 import { trainingLabel } from "@/lib/training-labels";
 import { useId, useState, type ReactNode } from "react";
 import { TodaySessionHero } from "@/features/workouts/today-session-hero";
@@ -6,8 +7,6 @@ import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
 import { parseVersionItems } from "@/lib/program-versions";
-import { readMemberState, changeMemberState } from "@/lib/member-store";
-import type { Json } from "@/integrations/supabase/types";
 import type { Exercise, PlanItem } from "@/lib/training-tools";
 import { useActivityDay } from "@/hooks/use-activity-day";
 import { useI18n } from "@/lib/i18n";
@@ -55,45 +54,7 @@ export function TrainingSchedule({
     enabled: !!features?.scheduling,
     networkMode: "always",
     queryFn: async () => {
-      const load = async () => {
-        const a = await supabase
-          .from("program_assignments")
-          .select("id,program_version_id")
-          .eq("member_id", userId)
-          .eq("active", true)
-          .maybeSingle();
-        if (a.error) throw a.error;
-        if (!a.data) return null;
-        const [schedule, occurrences, version] = await Promise.all([
-          supabase
-            .from("program_schedules")
-            .select("*")
-            .eq("assignment_id", a.data.id)
-            .maybeSingle(),
-          supabase
-            .from("session_occurrences")
-            .select("*")
-            .eq("assignment_id", a.data.id)
-            .order("ordinal"),
-          supabase
-            .from("program_versions")
-            .select("*")
-            .eq("id", a.data.program_version_id)
-            .single(),
-        ]);
-        for (const r of [schedule, occurrences, version]) if (r.error) throw r.error;
-        return { schedule: schedule.data, occurrences: occurrences.data!, version: version.data! };
-      };
-      if (!navigator.onLine) {
-        const saved = (await readMemberState(userId)).references.schedule;
-        return (saved as Awaited<ReturnType<typeof load>>) ?? null;
-      }
-      const value = await load();
-      await changeMemberState(userId, (s) => ({
-        ...s,
-        references: { ...s.references, schedule: value as Json },
-      }));
-      return value;
+      return loadAssignedTraining(userId);
     },
   });
   if (dashboard && features?.scheduling && data === null && !loadError)

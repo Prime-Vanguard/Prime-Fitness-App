@@ -46,7 +46,11 @@ describe("complete history and display units", () => {
   });
   it("round trips imperial input to canonical kg and cm", () => {
     expect(storedWeight(225, "imperial")).toBe(102.06);
-    expect(displayWeight(100, "imperial")).toBeCloseTo(220.462, 2);
+    expect(displayWeight(100, "imperial")).toBe(220.46);
+    expect(displayWeight(61.23, "imperial")).toBe(135);
+    // Entered pounds read back unchanged despite kilograms stored to 0.01.
+    for (const lb of [45, 135, 185, 225, 405, 180.5])
+      expect(displayWeight(storedWeight(lb, "imperial"), "imperial")).toBe(lb);
     expect(storedWeight(displayWeight(100, "imperial"), "imperial")).toBe(100);
     expect(storedLength(34, "imperial")).toBe(86.36);
     expect(displayLength(86.36, "imperial")).toBeCloseTo(34);
