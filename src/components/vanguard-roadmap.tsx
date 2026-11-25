@@ -1,4 +1,4 @@
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Lock, Map } from "lucide-react";
@@ -12,6 +12,7 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
   const { locale, t } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const [selected, setSelected] = useState(level);
+  const [shake, setShake] = useState(0);
   const rank = rankFor(selected);
   const mapRef = useRef<HTMLDivElement>(null);
   function jumpCurrent() {
@@ -86,8 +87,11 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
                   aria-pressed={selected === n}
                   aria-current={level === n ? "step" : undefined}
                   aria-label={`${t("level")} ${n} ${n > level ? t("locked") : n < level ? l("Reached", "تم الوصول") : ""}`.trim()}
-                  onClick={() => setSelected(n)}
-                  className={`relative flex min-h-11 items-center justify-center rounded-full border text-sm font-bold ${selected === n ? "ring-2 ring-gold ring-offset-2 ring-offset-card" : ""} ${n <= level ? "border-gold/60 bg-gold/15 text-gold" : "border-border text-muted-foreground"}`}
+                  onClick={() => {
+                    setSelected(n);
+                    if (n > level) setShake((k) => k + 1);
+                  }}
+                  className={`relative flex min-h-11 items-center justify-center rounded-full border text-sm font-bold ${selected === n ? "ring-2 ring-gold ring-offset-2 ring-offset-card" : ""} ${n <= level ? "border-gold/60 bg-gold/15 text-gold" : "journey-fog border-border text-muted-foreground"} ${n === level ? "journey-pulse" : ""}`}
                 >
                   {n}
                   {n === level && (
@@ -112,7 +116,9 @@ export function VanguardRoadmap({ level, xp }: { level: number; xp: number }) {
             {t("level")} {selected} · {locale === "ar" ? rank.ar : rank.key}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {selected > level && <Lock size={12} className="me-1 inline" />}
+            {selected > level && (
+              <Lock key={shake} size={12} className={`me-1 inline ${shake ? "lock-shake" : ""}`} />
+            )}
             {!target ? (
               l("XP threshold unavailable", "حد نقاط الخبرة غير متاح")
             ) : selected <= level ? (

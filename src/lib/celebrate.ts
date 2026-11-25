@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { readDevice, readDeviceJson, writeDevice } from "./device-storage";
 
 /** Server-confirmed moments, played one at a time (docs/gamification-plan.md, Phase 2). */
 export type Celebration =
@@ -65,9 +66,9 @@ export function nextToPlay(queue: readonly Celebration[], inWorkout: boolean) {
 }
 
 export function celebrationLevel(): CelebrationLevel {
+  const saved = readDevice("pf-celebrations");
+  if (saved === "full" || saved === "subtle" || saved === "off") return saved;
   try {
-    const saved = localStorage.getItem("pf-celebrations");
-    if (saved === "full" || saved === "subtle" || saved === "off") return saved;
     return matchMedia("(prefers-reduced-motion: reduce)").matches ? "subtle" : "full";
   } catch {
     return "subtle";
@@ -83,17 +84,8 @@ let snapshot: Snapshot | undefined;
 const read = (): Snapshot => ({
   current: nextToPlay(queue, workouts > 0),
   level: celebrationLevel(),
-  rewardsNew: rewardsUser != null && storage(`pf-rewards-new-${rewardsUser}`) === "1",
+  rewardsNew: rewardsUser != null && readDevice(`pf-rewards-new-${rewardsUser}`) === "1",
 });
-function storage(key: string, value?: string) {
-  try {
-    if (value === undefined) return localStorage.getItem(key);
-    localStorage.setItem(key, value);
-  } catch {
-    /* Device storage is optional for celebrations. */
-  }
-  return null;
-}
 const listeners = new Set<() => void>();
 function emit() {
   snapshot = read();
@@ -119,11 +111,8 @@ export function holdForWorkout() {
   };
 }
 export function setCelebrationLevel(level: CelebrationLevel) {
-  try {
-    localStorage.setItem("pf-celebrations", level);
-  } catch {
-    /* The setting falls back to the device's motion preference. */
-  }
+  // Without storage the setting falls back to the device's motion preference.
+  writeDevice("pf-celebrations", level);
   emit();
 }
 
@@ -136,8 +125,8 @@ const server: Snapshot = { current: undefined, level: "subtle", rewardsNew: fals
 /** Rewards tab dot, per member: set when a badge is earned, cleared when Rewards is opened. */
 export function setRewardsNew(userId: string, value: boolean) {
   const key = `pf-rewards-new-${userId}`;
-  if ((storage(key) === "1") === value) return;
-  storage(key, value ? "1" : "0");
+  if ((readDevice(key) === "1") === value) return;
+  writeDevice(key, value ? "1" : "0");
   emit();
 }
 export function setRewardsUser(userId: string | null) {
@@ -159,19 +148,12 @@ export const useCelebration = () =>
 type Debrief = { id: string; start: number; gain?: number; shown?: boolean };
 const DEBRIEF_KEY = "pf-workout-debrief";
 export function debriefRecord(sessionId: string): Debrief | null {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(DEBRIEF_KEY) ?? "null") as Debrief | null;
-    return value?.id === sessionId ? value : null;
-  } catch {
-    return null;
-  }
+  const value = readDeviceJson(DEBRIEF_KEY, "session") as Debrief | null;
+  return value?.id === sessionId ? value : null;
 }
 function writeDebrief(value: Debrief) {
-  try {
-    sessionStorage.setItem(DEBRIEF_KEY, JSON.stringify(value));
-  } catch {
-    /* Without storage the debrief simply shows no XP delta. */
-  }
+  // Without storage the debrief simply shows no XP delta.
+  writeDevice(DEBRIEF_KEY, JSON.stringify(value), "session");
 }
 export function rememberStartXp(sessionId: string, xp: number) {
   // The first value wins: a refetch mid-workout may already include this workout's XP.
@@ -180,4 +162,13 @@ export function rememberStartXp(sessionId: string, xp: number) {
 export function updateDebrief(sessionId: string, patch: Partial<Omit<Debrief, "id">>) {
   const current = debriefRecord(sessionId);
   if (current) writeDebrief({ ...current, ...patch });
+}
+
+/** True when celebrations should move: the Full setting and no reduced-motion request. */
+export function celebrationMoves() {
+  try {
+    return celebrationLevel() === "full" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
 }

@@ -11474,3 +11474,31 @@ test("rank-up plays the ascension and a new badge leaves a dot on Rewards until 
   await nav.getByRole("link", { name: /Rewards/ }).click();
   await expect(nav.getByRole("img", { name: "New badge" })).toHaveCount(0);
 });
+
+test("leaderboard arrows show places moved since the last visit", async ({ page, context }) => {
+  const backend = await fakeBackend(context);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo" }).format(new Date());
+  const day = new Date(`${today}T12:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  const week_start = day.toISOString().slice(0, 10);
+  backend.tables.profiles![0]!.leaderboard_opt_in = true;
+  const rival = { member_id: "rival", display_name: "Rival", opted_in: true, week_start };
+  const me = { member_id: userId, display_name: "Test Athlete", opted_in: true, week_start };
+  // The fake backend does not sort, so rows are listed in board order.
+  backend.tables.leaderboard_weekly = [
+    { ...rival, xp: 900 },
+    { ...me, xp: 500 },
+  ];
+  await page.goto("/rewards?section=community&community=leaderboard");
+  const board = page.locator("#community-leaderboard");
+  await expect(board.getByRole("listitem")).toHaveCount(2);
+  await expect(board.getByRole("img", { name: /since your last visit/ })).toHaveCount(0);
+  backend.tables.leaderboard_weekly = [
+    { ...me, xp: 1200 },
+    { ...rival, xp: 900 },
+  ];
+  await page.reload();
+  await expect(board.getByRole("listitem").first()).toContainText("You");
+  await expect(board.getByRole("img", { name: "Up 1 since your last visit" })).toBeVisible();
+  await expect(board.getByRole("img", { name: "Down 1 since your last visit" })).toBeVisible();
+});

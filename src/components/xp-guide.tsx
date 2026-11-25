@@ -1,4 +1,4 @@
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useXpRules } from "@/hooks/use-xp-rules";
 import { useI18n } from "@/lib/i18n";
 

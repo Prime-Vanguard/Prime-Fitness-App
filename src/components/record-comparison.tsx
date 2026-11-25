@@ -1,4 +1,4 @@
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useI18n } from "@/lib/i18n";
 
 /** Neutral comparison of two recorded values; no success or health interpretation. */

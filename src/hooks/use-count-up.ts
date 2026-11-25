@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
-import { celebrationLevel } from "@/lib/celebrate";
-
-/** True when celebrations should move: the Full setting and no reduced-motion request. */
-export function celebrationMoves() {
-  try {
-    return celebrationLevel() === "full" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
+import { celebrationLevel, celebrationMoves } from "@/lib/celebrate";
 
 /**
  * Counts from `from` to `to` once on mount (ease-out). Shows `to` at once when motion is

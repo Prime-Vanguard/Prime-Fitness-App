@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { embers } from "@/lib/embers";
+import { celebrationMoves } from "@/lib/celebrate";
 import { useI18n } from "@/lib/i18n";
 import {
   changeMemberState,
@@ -45,6 +47,20 @@ export function MemberSyncPanel({
   }, [needsConnection]);
   const lock = useRef(false);
   const counts = mutationSummary(state.queue);
+  // Page position of the panel, so the burst lands right even after scrolling.
+  const panel = useRef<{ x: number; y: number } | null>(null);
+  // Only a queue of entries waiting or sending can empty by being accepted; conflicts
+  // and rejections leave it by being discarded or resolved, which is not a celebration.
+  const sendingOnly = (queue: typeof state.queue) =>
+    queue.length > 0 && queue.every((m) => m.status === "queued" || m.status === "sending");
+  const before = useRef(sendingOnly(state.queue));
+  useEffect(() => {
+    const accepted = before.current && !state.queue.length && !error;
+    before.current = sendingOnly(state.queue);
+    const at = panel.current;
+    if (accepted && at && celebrationMoves()) embers(at.x - scrollX, at.y - scrollY, 14);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.queue, error]);
   async function retry() {
     if (lock.current) return;
     if (!navigator.onLine) {
@@ -167,6 +183,11 @@ export function MemberSyncPanel({
     return null;
   return (
     <section
+      ref={(el) => {
+        if (!el) return;
+        const box = el.getBoundingClientRect();
+        panel.current = { x: box.left + box.width / 2 + scrollX, y: box.top + 24 + scrollY };
+      }}
       className="my-4 space-y-4 rounded-xl border border-pending/40 bg-card p-4 sm:p-5"
       aria-label={l("Member sync", "مزامنة السجلات")}
     >

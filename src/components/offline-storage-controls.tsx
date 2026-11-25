@@ -1,4 +1,4 @@
-import { numberLocale } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { MemberState } from "@/lib/member-store";

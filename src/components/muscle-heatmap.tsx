@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { weekStart } from "@/lib/streaks";
 import { MUSCLES, MUSCLE_AR as names, muscleVolume, type Muscle } from "@/lib/muscle-volume";
 import { useI18n } from "@/lib/i18n";
+import { numberLocale } from "@/lib/number-locale";
 import { useActivityDay } from "@/hooks/use-activity-day";
 import { MuscleBodyDiagram } from "./muscle-body-diagram";
 import { Button } from "./ui/button";
@@ -165,7 +166,9 @@ export function MuscleHeatmap({ userId }: { userId: string }) {
           {data && (
             <p className="mt-5 rounded-lg bg-background p-4 text-sm" aria-live="polite">
               <strong>{label(selected)}</strong>: {volume?.sets ?? 0} {l("sets", "مجموعات")} ·{" "}
-              {Math.round(displayWeight(volume?.kg ?? 0, units)).toLocaleString()}{" "}
+              {Math.round(displayWeight(volume?.kg ?? 0, units)).toLocaleString(
+                numberLocale(locale),
+              )}{" "}
               {weightUnit(units)} {l("lifted (reps × weight)", "مرفوع (التكرارات × الوزن)")}
               {" · "}
               {volume?.seconds ?? 0} {l("hold seconds", "ثواني ثبات")}

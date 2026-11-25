@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { restSound, primeAudio } from "@/lib/device-feedback";
+import { celebrationLevel } from "@/lib/celebrate";
 import { RestAlertSettings } from "./rest-alert-settings";
 import { toast } from "sonner";
 import { Hourglass } from "lucide-react";
@@ -62,7 +63,8 @@ export function RestTimer({
   ready: boolean;
 }) {
   const now = useClock(),
-    done = useRef(0);
+    done = useRef(0),
+    dock = useRef<HTMLDivElement>(null);
   const { locale, t } = useI18n();
   const [settings, setSettings] = useState(false),
     [custom, setCustom] = useState(String(seconds)),
@@ -75,12 +77,18 @@ export function RestTimer({
       onChange(0);
       restSound();
       toast.success(t("restDone"));
+      if (celebrationLevel() !== "off")
+        dock.current?.animate([{ offset: 0, backgroundColor: "rgb(212 175 55 / 0.35)" }], {
+          duration: 700,
+          easing: "ease-out",
+        });
     }
   }, [end, now, onChange, t]);
   if (locked) return null;
   return (
     <>
       <div
+        ref={dock}
         data-rest-dock
         className="fixed inset-x-0 bottom-0 z-30 bg-card px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:inset-x-auto md:end-6 md:bottom-4 md:w-[min(48rem,calc(100%-8rem))] md:rounded-xl"
       >
