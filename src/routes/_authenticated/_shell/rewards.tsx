@@ -155,7 +155,7 @@ function Page() {
     queryKey: ["pv", user.id, section],
     enabled: section === "shop" || section === "activity",
     queryFn: async () => {
-      const [tasks, claims, rewards, reds] = await Promise.all([
+      const [tasks, claims, rewards, reds, waiting] = await Promise.all([
         supabase.from("pv_tasks").select("*").eq("active", true).order("points"),
         supabase
           .from("pv_claims")
@@ -170,12 +170,25 @@ function Page() {
           .eq("member_id", user.id)
           .order("created_at", { ascending: false })
           .limit(20),
+        // Every pending claim, not only the 20 listed, so no task offers a duplicate claim.
+        supabase
+          .from("pv_claims")
+          .select("task_id")
+          .eq("member_id", user.id)
+          .eq("status", "pending"),
       ]);
+      if (waiting.error) throw waiting.error;
       if (rewards.error) throw rewards.error;
       if (reds.error) throw reds.error;
       if (tasks.error) throw tasks.error;
       if (claims.error) throw claims.error;
-      return { tasks: tasks.data, claims: claims.data, rewards: rewards.data, reds: reds.data };
+      return {
+        tasks: tasks.data,
+        claims: claims.data,
+        rewards: rewards.data,
+        reds: reds.data,
+        pending: new Set(waiting.data.map((c) => c.task_id)),
+      };
     },
   });
 
@@ -598,7 +611,7 @@ function Page() {
                   {x.description && (
                     <p className="mt-1 text-xs text-muted-foreground">{x.description}</p>
                   )}
-                  {data?.claims.some((c) => c.task_id === x.id && c.status === "pending") ? (
+                  {data?.pending.has(x.id) ? (
                     <p className="mt-3 text-sm text-muted-foreground" role="status">
                       {l("Claim under review", "الطلب قيد المراجعة")}
                     </p>

@@ -1,3 +1,4 @@
+import { holdForWorkout } from "@/lib/celebrate";
 import { useWorkoutEditor } from "@/features/workouts/use-workout-editor";
 import { RenameWorkoutSheet } from "./rename-workout-sheet";
 import { muscleLabel } from "@/lib/muscle-volume";
@@ -5,7 +6,7 @@ import { formatDuration } from "@/lib/duration";
 import { WorkoutExerciseOptions } from "@/features/workouts/workout-exercise-options";
 import { WorkoutExerciseCard } from "@/features/workouts/workout-exercise-card";
 import { useWorkoutActions } from "@/features/workouts/use-workout-actions";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { selectExercises } from "@/features/workouts/select-exercises";
 import { Link } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronLeft, Download, Pencil, Plus } from "lucide-react";
@@ -152,6 +153,8 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   );
 
   useWorkoutWakeLock();
+  // Big celebrations wait until the workout view closes.
+  useEffect(() => holdForWorkout(), []);
 
   const group = supersetPair(w),
     reference = slotReference(exerciseId, selection);

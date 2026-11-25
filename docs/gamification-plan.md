@@ -104,6 +104,12 @@ activities earn. The own leaderboard row shows "50+" when it is outside the top 
 
 Build once, reuse everywhere.
 
+Built 2026-11-24 on `feat/gamification-effects`: queue (`src/lib/celebrate.ts`), embers
+(`src/lib/embers.ts`), sound kit (`celebrationSound`), motion tokens, settings and the
+watcher for level, rank and badges. Not yet: XP, quest and redemption events in the
+watcher. They arrive with the Phase 3 and 4 effects that show them. Settings are stored
+on the device, like the existing haptics and water-sound switches.
+
 | Piece | What it is |
 | ----- | ---------- |
 | `celebrate()` queue | One module that accepts events (`xp`, `level`, `rank`, `badge`, `quest`, `streak`, `redeem`), merges and orders them, and plays one at a time. Respects the setting, reduced motion and "workout in progress". |

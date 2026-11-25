@@ -73,3 +73,51 @@ export function restSound() {
     /* Optional feedback must not affect the workout. */
   }
 }
+
+/** Synthesized forge tones for celebrations; opt-in via the Celebration sound setting. */
+export async function celebrationSound(kind: "strike" | "chime" | "fanfare") {
+  try {
+    if (localStorage.getItem("pf-celebration-sound") !== "on") return;
+    // Resumes once the page has had any tap; before that the browser keeps it silent.
+    await primeAudio();
+    if (!audio || audio.state !== "running") return;
+    // [frequency Hz, start s, length s, wave]
+    const notes: [number, number, number, OscillatorType][] =
+      kind === "strike"
+        ? [
+            [196, 0, 0.18, "square"],
+            [1568, 0, 0.35, "triangle"],
+          ]
+        : kind === "chime"
+          ? [
+              [1047, 0, 0.4, "sine"],
+              [1568, 0.08, 0.5, "sine"],
+            ]
+          : [
+              [523, 0, 0.18, "triangle"],
+              [659, 0.14, 0.18, "triangle"],
+              [784, 0.28, 0.5, "triangle"],
+              [1047, 0.28, 0.6, "sine"],
+            ];
+    for (const [frequency, start, length, type] of notes) {
+      const tone = audio.createOscillator(),
+        gain = audio.createGain(),
+        at = audio.currentTime + start;
+      tone.type = type;
+      tone.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
+      tone.connect(gain);
+      gain.connect(audio.destination);
+      tone.start(at);
+      tone.stop(at + length + 0.02);
+      tone.onended = () => {
+        tone.disconnect();
+        gain.disconnect();
+      };
+    }
+  } catch {
+    /* Celebrations work silently. */
+  }
+}
