@@ -1,20 +1,11 @@
 import { numberLocale } from "@/lib/i18n";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useXpRules } from "@/hooks/use-xp-rules";
 import { useI18n } from "@/lib/i18n";
 
 export function XpGuide() {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
-  const { data, isError } = useQuery({
-    queryKey: ["xp-rules"],
-    staleTime: 300000,
-    queryFn: async () => {
-      const result = await supabase.from("xp_rules").select("*").single();
-      if (result.error) throw result.error;
-      return result.data;
-    },
-  });
+  const { data, isError } = useXpRules();
   const number = (value: number) => value.toLocaleString(numberLocale(locale));
   const weekly = data
     ? 4 * (data.workout_xp ?? 0) + 7 * (data.nutrition_day_xp ?? 0) + (data.body_week_xp ?? 0)
@@ -39,7 +30,7 @@ export function XpGuide() {
       ) : (
         <>
           <p className="mt-2 text-sm text-muted-foreground">
-            {number(data.level_100_xp ?? 0)} XP · {l("Level 100", "المستوى 100")}
+            <bdi>{number(data.level_100_xp ?? 0)} XP</bdi> · {l("Level 100", "المستوى 100")}
             {" · "}
             {l("Prime Legend: Levels 91–100", "أسطورة برايم: المستويات 91–100")}
           </p>
@@ -67,7 +58,7 @@ export function XpGuide() {
               <div key={String(title)} className="rounded-xl border border-border p-3">
                 <dt className="text-sm font-semibold">{title}</dt>
                 <dd className="mt-1 text-xl font-bold tabular-nums text-gold">
-                  +{number(Number(xp))} XP
+                  <bdi>+{number(Number(xp))} XP</bdi>
                 </dd>
                 <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd>
               </div>
@@ -81,8 +72,8 @@ export function XpGuide() {
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {l(
-              `Weeks run Monday–Sunday in Cairo time. Eligible offline logs sync for up to ${data.offline_grace_days} days; earlier history stays saved without new XP. Deleting and restoring logs does not reset reward limits. Body rewards recognize tracking, not weight loss. XP and shop PV remain separate.`,
-              `الأسبوع من الاثنين للأحد بتوقيت القاهرة. تُحتسب السجلات المؤهلة غير المتصلة خلال ${data.offline_grace_days} أيام؛ يبقى السجل الأقدم محفوظاً دون خبرة جديدة. الحذف والاستعادة لا يعيدان حدود المكافآت. مكافأة القياس للتسجيل وليست لفقدان الوزن. الخبرة منفصلة عن رصيد المتجر PV.`,
+              `Weeks run Monday–Sunday in Cairo time. Eligible offline logs sync for up to ${data.offline_grace_days} days; earlier history stays saved without new XP. Deleting and restoring logs does not reset reward limits. Body rewards recognize tracking, not weight loss.`,
+              `الأسبوع من الاثنين للأحد بتوقيت القاهرة. تُحتسب السجلات المؤهلة غير المتصلة خلال ${data.offline_grace_days} أيام؛ يبقى السجل الأقدم محفوظاً دون خبرة جديدة. الحذف والاستعادة لا يعيدان حدود المكافآت. مكافأة القياس للتسجيل وليست لفقدان الوزن.`,
             )}
           </p>
         </>

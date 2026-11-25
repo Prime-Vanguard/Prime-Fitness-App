@@ -18,3 +18,14 @@ export function addDays(day: string, count: number): string {
   date.setUTCDate(date.getUTCDate() + count);
   return date.toISOString().slice(0, 10);
 }
+// "Today, 23 Nov" / "اليوم، 23 نوفمبر": friendly Cairo date for a day key or timestamp.
+export function friendlyDay(value: string, locale: "ar" | "en", today = activityDay()): string {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : activityDay(value);
+  const label = new Date(`${day}T12:00:00Z`).toLocaleDateString(
+    locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+    { timeZone: "UTC", day: "numeric", month: "short" },
+  );
+  const near =
+    day === today ? ["Today", "اليوم"] : day === addDays(today, -1) ? ["Yesterday", "أمس"] : null;
+  return near ? `${near[locale === "ar" ? 1 : 0]}${locale === "ar" ? "، " : ", "}${label}` : label;
+}

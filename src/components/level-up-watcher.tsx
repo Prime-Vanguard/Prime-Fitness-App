@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeUnlock } from "@/components/badge-unlock";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
   const { data: g } = useGamification(userId);
   const { t, locale } = useI18n();
   const [show, setShow] = useState<null | { level: number; promoted: boolean }>(null);
+  const keepGoing = useRef<HTMLButtonElement>(null);
   const [fresh, setFresh] = useState<{ code: string; title: string }[]>([]);
   const { data: badges } = useQuery({
     queryKey: ["earned-badges", userId],
@@ -87,7 +88,13 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
     <>
       {badgeCard}
       <Dialog open={!!show} onOpenChange={(o) => !o && setShow(null)}>
-        <DialogContent className="gold-glow max-w-sm border-gold/50 text-center">
+        <DialogContent
+          className="gold-glow max-w-sm border-gold/50 text-center"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            keepGoing.current?.focus();
+          }}
+        >
           <div className="crest-reveal mx-auto">
             <RankCrest rank={g.rank.key} size={160} />
           </div>
@@ -95,7 +102,7 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
             {show?.promoted ? t("rankUp") : t("levelUp")}
           </DialogTitle>
           <DialogDescription className="text-base">
-            <span className="block text-xs uppercase tracking-widest text-gold">
+            <span className="block text-sm font-semibold text-gold">
               {locale === "ar" ? g.rank.ar : g.rank.key}
             </span>
             {t("level")} {show?.level}
@@ -106,7 +113,9 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
             detail={locale === "ar" ? g.rank.ar : g.rank.key}
             rank={g.rank.key}
           />
-          <Button onClick={() => setShow(null)}>{t("keepGoing")}</Button>
+          <Button ref={keepGoing} onClick={() => setShow(null)}>
+            {t("keepGoing")}
+          </Button>
         </DialogContent>
       </Dialog>
     </>

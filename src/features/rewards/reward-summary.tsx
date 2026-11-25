@@ -13,6 +13,7 @@ export function RewardSummary({
     | {
         level: number;
         xp: number;
+        cur: number;
         next: number | null;
         pct: number;
         pv: number;
@@ -23,6 +24,7 @@ export function RewardSummary({
 }) {
   const { t, locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+  const n = (value: number) => value.toLocaleString(numberLocale(locale));
   if (compact)
     return (
       <section
@@ -59,15 +61,25 @@ export function RewardSummary({
             {data ? (locale === "ar" ? data.rank.ar : data.rank.key) : "—"} · {t("level")}{" "}
             {data?.level ?? "—"}
           </h2>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-background"
+            role="progressbar"
+            aria-label={l("Progress to next level", "التقدم للمستوى التالي")}
+            aria-valuenow={Math.round((data?.pct ?? 0) * 100)}
+          >
             <div
               className="h-full rounded-full bg-gold"
               style={{ width: `${Math.round((data?.pct ?? 0) * 100)}%` }}
             />
           </div>
           <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+            {/* Progress inside this level, so an empty bar still reads correctly. */}
             <bdi className="tabular-nums">
-              {data?.xp.toLocaleString(numberLocale(locale)) ?? "—"} XP
+              {data
+                ? data.next == null
+                  ? `${n(data.xp)} XP`
+                  : `${n(data.xp - data.cur)} / ${n(data.next - data.cur)} XP`
+                : "— XP"}
             </bdi>
             <span>
               {!data
@@ -89,10 +101,7 @@ export function RewardSummary({
         </p>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        {l(
-          "XP builds your rank. Spend PV on rewards without reducing your level. There is no automatic conversion.",
-          "يبني XP رتبتك. أنفق نقاط PV على المكافآت دون خفض مستواك. لا يوجد تحويل تلقائي بينهما.",
-        )}
+        {l("XP = your level. PV = points to spend.", "XP = مستواك. PV = نقاط تنفقها.")}
       </p>
       {data?.provisional && (
         <p className="mt-2 text-xs text-muted-foreground">{t("provisional")}</p>

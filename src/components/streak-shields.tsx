@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
-import { addDays } from "@/lib/dates";
+import { addDays, friendlyDay } from "@/lib/dates";
 
 export function StreakShields({
   userId,
@@ -60,12 +60,8 @@ export function StreakShields({
             value={choice}
             onChange={(e) => setChoice(e.target.value === "yesterday" ? "yesterday" : "today")}
           >
-            <option value="today">
-              {l("Today", "اليوم")} · {today}
-            </option>
-            <option value="yesterday">
-              {l("Yesterday", "الأمس")} · {yesterday}
-            </option>
+            <option value="today">{friendlyDay(today, locale, today)}</option>
+            <option value="yesterday">{friendlyDay(yesterday, locale, today)}</option>
           </NativeSelect>
         </label>
         <Button
@@ -80,7 +76,13 @@ export function StreakShields({
               .insert({ member_id: userId, shield_date: day })
               .then((r) => {
                 setBusy(false);
-                if (r.error) return void toast.error(r.error.message);
+                if (r.error)
+                  return void toast.error(
+                    l(
+                      "Shield not used. Check your connection and try again.",
+                      "لم يُستخدم الدرع. تحقق من الاتصال وحاول مرة أخرى.",
+                    ),
+                  );
                 void qc.invalidateQueries({ queryKey: ["shields", userId] });
                 toast.success(l("Streak protected", "تمت حماية التتابع"));
               });
@@ -89,7 +91,7 @@ export function StreakShields({
           {l("Use shield", "استخدام درع")}
         </Button>
         {!eligible && !error && activeDays && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             {all.has(day)
               ? l("Already active or protected.", "نشط أو محمي بالفعل.")
               : l(
