@@ -4,6 +4,8 @@ export default defineConfig({
   testMatch: "pages-hosting.spec.ts",
   timeout: 45000,
   forbidOnly: !!process.env["CI"],
+  // One CI retry for timing races on slow runners; retried passes are reported as flaky.
+  retries: process.env["CI"] ? 1 : 0,
   workers: 1,
   use: {
     ...devices["Pixel 7"],
