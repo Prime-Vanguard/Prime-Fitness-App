@@ -2519,6 +2519,15 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", 
         pv_tasks: tables.pv_tasks?.find((task) => task.id === row.task_id) ?? null,
       }));
     if (
+      table === "member_badges" &&
+      request.method() === "GET" &&
+      url.searchParams.get("select")?.includes("badges(")
+    )
+      result = result.map((row) => ({
+        ...row,
+        badges: tables.badges?.find((badge) => badge.code === row.badge_code) ?? null,
+      }));
+    if (
       table === "set_logs" &&
       request.method() === "GET" &&
       url.searchParams.get("select")?.includes("workout_sessions")
@@ -11223,3 +11232,54 @@ for (const locale of ["en", "ar"] as const) {
     }
   });
 }
+
+test("badges show rarity artwork and celebrate a newly earned badge once", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const badge = (code: string, title_en: string, position: number) => ({
+    code,
+    title_en,
+    title_ar: title_en,
+    description_en: `Earn ${title_en}`,
+    description_ar: `Earn ${title_en}`,
+    xp_bonus: 7500,
+    position,
+  });
+  backend.tables.badges = [
+    badge("first_workout", "First Rep", 1),
+    badge("food_30", "Nutrition Discipline", 2),
+    badge("workouts_50", "Forged in Iron", 3),
+    badge("workouts_100", "Centurion", 4),
+  ];
+  backend.tables.member_badges = [
+    { member_id: userId, badge_code: "first_workout", unlocked_at: "2026-11-01T10:00:00Z" },
+  ];
+  await page.goto("/rewards");
+  const earned = page.getByRole("button", { name: /First Rep/ });
+  await expect(earned.locator(".badge-art")).toHaveAttribute("data-rarity", "common");
+  await expect(earned.locator("img")).toHaveAttribute("src", /first_workout-256/);
+  const locked = page.getByRole("button", { name: /Centurion/ });
+  await expect(locked.locator(".badge-art")).toHaveAttribute("data-locked", "true");
+  await expect(locked).toContainText("Legendary");
+  await locked.click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toContainText("Unlock to earn +7,500 XP");
+  await page.keyboard.press("Escape");
+  // Earning a badge after the first read celebrates it once, then never again.
+  backend.tables.member_badges.push({
+    member_id: userId,
+    badge_code: "workouts_100",
+    unlocked_at: "2026-11-24T10:00:00Z",
+  });
+  await page.reload();
+  const unlock = page.getByRole("status").filter({ hasText: "New badge" });
+  await expect(unlock).toContainText("Centurion");
+  await expect(unlock).toContainText("Legendary");
+  await unlock.getByRole("button", { name: "Dismiss" }).click();
+  await expect(unlock).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Centurion/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "New badge" })).toHaveCount(0);
+});

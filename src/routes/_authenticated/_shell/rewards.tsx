@@ -17,14 +17,16 @@ import { XpGuide } from "@/components/xp-guide";
 import { PodCommunity } from "@/components/pod-community";
 import { SocialPanel } from "@/features/social/social-panel";
 import { ShareAchievement } from "@/components/share-achievement";
-import { Trophy, Award, Gift, Lock } from "lucide-react";
+import { Trophy, Award, Gift } from "lucide-react";
+import { BadgeArt } from "@/components/badge-art";
+import { badgeArt, RARITY_LABEL, type Rarity } from "@/lib/badges";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RewardSummary } from "@/features/rewards/reward-summary";
 import { useActivityDay } from "@/hooks/use-activity-day";
-import { useI18n, type TKey } from "@/lib/i18n";
+import { numberLocale, useI18n, type TKey } from "@/lib/i18n";
 import { useGamification } from "@/hooks/use-gamification";
 import { useMe } from "@/hooks/use-me";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
@@ -68,6 +70,15 @@ export const Route = createFileRoute("/_authenticated/_shell/rewards")({
   }),
 });
 
+const RARITY_TEXT: Record<Rarity, string> = {
+  common: "text-muted-foreground",
+  uncommon: "text-[#d4925a]",
+  rare: "text-info",
+  epic: "text-[#c4a5ff]",
+  legendary: "text-gold",
+  mythic: "text-gold",
+};
+
 const statusCls: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
   approved: "bg-success/15 text-success",
@@ -96,6 +107,7 @@ function Page() {
   const redemptionLock = useRef(false);
   const claimLock = useRef(false);
   const [claiming, setClaiming] = useState("");
+  const [badge, setBadge] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<{
     rewardId: string;
     cost: number;
@@ -645,36 +657,66 @@ function Page() {
                 {l("No badges are available yet.", "لا توجد أوسمة متاحة بعد.")}
               </p>
             )}
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {badges?.map((b) => (
-                <li
-                  key={b.code}
-                  className={`flex items-start gap-3 rounded-lg border p-4 ${b.unlockedAt ? "border-gold/40 bg-background" : "border-border bg-background text-muted-foreground"}`}
-                >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-card ${b.unlockedAt ? "text-gold" : "text-muted-foreground"}`}
-                  >
-                    {b.unlockedAt ? <Award className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">
-                      {locale === "ar" ? b.title_ar : b.title_en}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {locale === "ar" ? b.description_ar : b.description_en}
-                    </p>
-                    <p className="mt-1 text-[11px] tabular-nums text-gold">
-                      {b.unlockedAt
-                        ? new Date(b.unlockedAt).toLocaleDateString(
-                            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
-                          )
-                        : `+${b.xp_bonus} ${t("xp")}`}
-                    </p>
-                  </div>
-                </li>
-              ))}
+            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {badges?.map((b) => {
+                const rarity = badgeArt(b.code).rarity;
+                return (
+                  <li key={b.code}>
+                    <button
+                      className="flex h-full w-full flex-col items-center gap-2 rounded-xl bg-background px-2 py-4 text-center transition-colors hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-gold"
+                      onClick={() => setBadge(b.code)}
+                    >
+                      <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={72} />
+                      <span
+                        className={`text-sm font-semibold ${b.unlockedAt ? "" : "text-muted-foreground"}`}
+                      >
+                        {locale === "ar" ? b.title_ar : b.title_en}
+                      </span>
+                      <span className={`text-xs ${RARITY_TEXT[rarity]}`}>
+                        {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
+          <Sheet open={!!badge} onOpenChange={(open) => !open && setBadge(null)}>
+            <SheetContent side="bottom" className="rounded-t-2xl p-6">
+              {(() => {
+                const b = badges?.find((x) => x.code === badge);
+                if (!b) return null;
+                const rarity = badgeArt(b.code).rarity;
+                return (
+                  <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
+                    <BadgeArt code={b.code} unlocked={!!b.unlockedAt} size={168} />
+                    <SheetTitle className="font-display text-xl">
+                      {locale === "ar" ? b.title_ar : b.title_en}
+                    </SheetTitle>
+                    <p className={`text-sm font-semibold ${RARITY_TEXT[rarity]}`}>
+                      {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
+                    </p>
+                    <SheetDescription>
+                      {locale === "ar" ? b.description_ar : b.description_en}
+                    </SheetDescription>
+                    <p className="text-sm tabular-nums text-gold">
+                      {b.unlockedAt
+                        ? `${l("Earned", "حصلت عليه")} ${new Date(b.unlockedAt).toLocaleDateString(
+                            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+                            {
+                              timeZone: "Africa/Cairo",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}`
+                        : `${l("Unlock to earn", "افتحه لتحصل على")} +${b.xp_bonus.toLocaleString(numberLocale(locale))} ${t("xp")}`}
+                    </p>
+                  </div>
+                );
+              })()}
+            </SheetContent>
+          </Sheet>
         </>
       )}
       {section === "shop" && (
