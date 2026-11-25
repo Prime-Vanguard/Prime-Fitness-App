@@ -1,11 +1,14 @@
 import { useWorkoutEditor } from "@/features/workouts/use-workout-editor";
+import { RenameWorkoutSheet } from "./rename-workout-sheet";
+import { muscleLabel } from "@/lib/muscle-volume";
+import { formatDuration } from "@/lib/duration";
 import { WorkoutExerciseOptions } from "@/features/workouts/workout-exercise-options";
 import { WorkoutExerciseCard } from "@/features/workouts/workout-exercise-card";
 import { useWorkoutActions } from "@/features/workouts/use-workout-actions";
 import { useMemo, useRef, useState } from "react";
 import { selectExercises } from "@/features/workouts/select-exercises";
 import { Link } from "@tanstack/react-router";
-import { Check, ChevronDown, ChevronLeft, Download, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, Download, Pencil, Plus } from "lucide-react";
 import type { WorkoutSessionController } from "@/features/workouts/types";
 import { DraftFields, SetEditor } from "@/features/workouts/workout-set-editor";
 import { SessionTime, HoldTimer, RestTimer } from "@/features/workouts/workout-timers";
@@ -100,7 +103,9 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
   const advancedEntry = useRef<HTMLDivElement>(null);
   const focusAdvancedEntry = useRef(false);
   const [review, setReview] = useState(false),
-    [discard, setDiscard] = useState(false);
+    [discard, setDiscard] = useState(false),
+    [overview, setOverview] = useState(false),
+    [renaming, setRenaming] = useState(false);
   const [editing, setEditing] = useState<WorkoutSet | null>(null);
   const restPreference = useSlotRest(w.userId, slotReference(exerciseId, selection));
   const restSeconds = restPreference.seconds;
@@ -117,6 +122,31 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
       w.exercises.find((e) => e.id === id);
     return (locale === "ar" && e?.name_ar) || e?.name_en || l("Exercise", "تمرين");
   };
+  // Untitled sessions are named by what they train, e.g. "Chest · Triceps".
+  const muscleTitle = [
+    ...new Set(
+      slots
+        .map((slot) => w.exercises.find((e) => e.id === slot.id)?.muscle)
+        .filter((m): m is string => !!m)
+        .map((m) => muscleLabel(m, locale)),
+    ),
+  ]
+    .slice(0, 2)
+    .join(" · ");
+  // Quick starts are stored with the generic "Workout" title in either language.
+  const generic = !w.session!.title || ["Workout", "تمرين"].includes(w.session!.title);
+  const title = generic ? muscleTitle || t("workout") : w.session!.title!;
+  const current =
+    Math.max(
+      0,
+      slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
+    ) + 1;
+  const prior = previous.data;
+  const lastSet =
+    prior &&
+    `${prior.duration_seconds != null ? formatDuration(prior.duration_seconds) : prior.reps} × ${
+      prior.weight_kg == null ? "—" : formatMeasure(displayWeight(prior.weight_kg, units))
+    } ${wu}`;
   const currentRows = sets.filter(
     (s) => s.exercise_id === exerciseId && (s.slot_key ?? "") === selection,
   );
@@ -174,36 +204,39 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           </Link>
         </Button>
         <div className="min-w-0">
-          <h1
-            className="truncate text-base font-bold leading-6"
-            title={w.session!.title ?? t("workout")}
-          >
-            {w.session!.title ?? t("workout")}
-          </h1>
+          <div className="flex min-w-0 items-center gap-1">
+            <h1 className="truncate text-base font-bold leading-6" title={title}>
+              {title}
+            </h1>
+            {!locked && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 min-h-8 shrink-0 text-muted-foreground"
+                aria-label={l("Rename workout", "إعادة تسمية التمرين")}
+                onClick={() => setRenaming(true)}
+              >
+                <Pencil aria-hidden className="size-4" />
+              </Button>
+            )}
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">
             <SessionTime started={w.session!.started_at} />
             {" · "}
-            {l(
-              `Ex ${
-                Math.max(
-                  0,
-                  slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
-                ) + 1
-              } of ${slots.length}`,
-              `التمرين ${
-                Math.max(
-                  0,
-                  slots.findIndex((slot) => slot.id === exerciseId && slot.key === selection),
-                ) + 1
-              } من ${slots.length}`,
-            )}
+            <button
+              className="underline decoration-dotted underline-offset-4 focus-visible:ring-2 focus-visible:ring-gold"
+              aria-haspopup="dialog"
+              onClick={() => setOverview(true)}
+            >
+              {l(`Ex ${current} of ${slots.length}`, `التمرين ${current} من ${slots.length}`)}
+            </button>
           </p>
         </div>
         {!locked && (
           <Button
-            variant="outline"
+            variant={sets.length ? "default" : "outline"}
             size="sm"
-            className="border-transparent bg-card uppercase tracking-wider text-muted-foreground"
+            className={sets.length ? "px-4" : "border-transparent bg-card text-muted-foreground"}
             aria-label={t("finishWorkout")}
             disabled={busy || !sets.length}
             onClick={() => setReview(true)}
@@ -302,8 +335,6 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
               <WorkoutExerciseCard
                 key={`${slot.key}:${slot.id}`}
                 slot={slot}
-                position={index + 1}
-                total={slots.length}
                 cardExercise={cardExercise}
                 name={name(slot.id, slot.key)}
                 rows={rows}
@@ -467,16 +498,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                   active ? (
                     previous.data ? (
                       <p className="rounded-xl bg-row p-4 text-sm">
-                        <bdi dir="ltr">
-                          {previous.data.duration_seconds != null
-                            ? `${previous.data.duration_seconds}s`
-                            : previous.data.reps}{" "}
-                          ×{" "}
-                          {previous.data.weight_kg == null
-                            ? "—"
-                            : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                          {wu}
-                        </bdi>
+                        <bdi dir="ltr">{lastSet}</bdi>
                         <span className="mt-2 block text-xs text-muted-foreground">
                           {new Date(previous.data.created_at).toLocaleDateString(
                             locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
@@ -508,15 +530,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                       <>
                         {previous.data && (
                           <p className="text-xs text-muted-foreground">
-                            {l("Last completed set", "آخر مجموعة مكتملة")}:{" "}
-                            {previous.data.duration_seconds != null
-                              ? `${previous.data.duration_seconds}s`
-                              : previous.data.reps}{" "}
-                            ×{" "}
-                            {previous.data.weight_kg == null
-                              ? "—"
-                              : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                            {wu} ·{" "}
+                            {l("Last completed set", "آخر مجموعة مكتملة")}: {lastSet} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
                               locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}
@@ -584,26 +598,12 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                           timed={timed}
                           units={units}
                         />
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {l(
-                            "RPE is effort from 1–10. Leave blank if unsure; your coach's progression rule may hold.",
-                            "RPE هو الجهد من 1 إلى 10. اتركه فارغاً إن لم تتأكد؛ قد يتوقف اقتراح التدرج.",
-                          )}
-                        </p>
                         {previous.data && (
                           <button
                             className="mt-3 min-h-11 text-start text-xs text-gold"
                             onClick={editor.copyPrevious}
                           >
-                            {l("Use previous", "استخدام السابق")}:{" "}
-                            {previous.data.duration_seconds != null
-                              ? `${previous.data.duration_seconds}s`
-                              : previous.data.reps}{" "}
-                            ×{" "}
-                            {previous.data.weight_kg == null
-                              ? "—"
-                              : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
-                            {wu} ·{" "}
+                            {l("Use previous", "استخدام السابق")}: {lastSet} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
                               locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}
@@ -714,10 +714,10 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
         </div>
       </details>
       {!locked && (
-        <div className="mt-4 flex justify-end border-t border-border pt-4">
+        <div className="mt-2 flex justify-center">
           <Button
-            variant="outline"
-            className="min-h-11 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            variant="ghost"
+            className="min-h-11 text-sm text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
             disabled={busy}
             onClick={() => setDiscard(true)}
           >
@@ -729,6 +729,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
         end={w.restEnd}
         seconds={restSeconds}
         locked={locked}
+        canStart={sets.length > 0}
         onDuration={(n) => restPreference.save(n)}
         ready={restPreference.ready}
         onChange={(end) =>
@@ -743,6 +744,55 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           )}
         </p>
       )}
+      <Sheet open={overview} onOpenChange={setOverview}>
+        <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto rounded-t-2xl p-4">
+          <div className="mx-auto max-w-lg">
+            <SheetTitle>{l("Exercises", "التمارين")}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {l("Jump to an exercise in this workout.", "انتقل إلى تمرين في هذه الجلسة.")}
+            </SheetDescription>
+            <ol className="mt-3 space-y-1">
+              {slots.map((slot, index) => {
+                const count = workingCount(
+                  sets.filter(
+                    (set) => set.exercise_id === slot.id && (set.slot_key ?? "") === slot.key,
+                  ),
+                );
+                const done = slot.sets > 0 && count >= slot.sets;
+                const here = slot.id === exerciseId && slot.key === selection;
+                return (
+                  <li key={`${slot.key}:${slot.id}`}>
+                    <button
+                      aria-current={here || undefined}
+                      className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-start text-sm ${here ? "bg-card font-semibold" : "hover:bg-card"}`}
+                      onClick={() => {
+                        pick(slot.id, slot.key);
+                        setOverview(false);
+                        requestAnimationFrame(() =>
+                          document
+                            .querySelector(
+                              `[data-exercise-slot="${CSS.escape(slot.key)}"][data-exercise-id="${CSS.escape(slot.id)}"]`,
+                            )
+                            ?.scrollIntoView({ block: "start" }),
+                        );
+                      }}
+                    >
+                      <span className="w-5 text-center text-xs text-muted-foreground">
+                        {done ? <Check aria-hidden className="size-4 text-success" /> : index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{name(slot.id, slot.key)}</span>
+                      <bdi dir="ltr" className="text-xs tabular-nums text-muted-foreground">
+                        {count}
+                        {slot.sets ? ` / ${slot.sets}` : ""}
+                      </bdi>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </SheetContent>
+      </Sheet>
       <Sheet
         open={!!library}
         onOpenChange={(o) => {
@@ -790,10 +840,20 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           onClose={() => setDetail(null)}
         />
       )}
+      <RenameWorkoutSheet
+        open={renaming}
+        onOpenChange={setRenaming}
+        initial={generic ? "" : title}
+        onSave={async (next) => {
+          await change((c) =>
+            c.session ? { ...c, session: { ...c.session, title: next, titleEdited: true } } : c,
+          );
+        }}
+      />
       <WorkoutReview
         startedAt={w.session!.started_at}
         units={units}
-        title={w.session?.title ?? l("Workout", "تمرين")}
+        title={title}
         onBackup={exportWorkout}
         open={review || discard}
         discard={discard}
@@ -810,6 +870,11 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
           void run(async () => {
             await change((c) => ({
               ...c,
+              // An unnamed workout keeps the muscle-based name shown in the header.
+              session:
+                !discard && c.session && generic && muscleTitle
+                  ? { ...c.session, title: muscleTitle, titleEdited: true }
+                  : c.session,
               phase: discard ? "discarding" : "finishing",
               finishedAt: discard ? null : new Date().toISOString(),
               restEnd: 0,

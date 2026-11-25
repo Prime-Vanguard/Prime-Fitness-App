@@ -2680,8 +2680,11 @@ for (const locale of ["en", "ar"] as const) {
     expect(await preview.evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).toBe(
       "12px",
     );
-    const mediaBox = (await page.locator("[data-exercise-hero]").boundingBox())!;
-    expect(mediaBox.width / mediaBox.height).toBeCloseTo(1.6, 2);
+    // The demonstration is a thumbnail so the set inputs stay on the first screen.
+    await expect(
+      preview.getByRole("button", { name: /View exercise demonstration|عرض الشرح المرئي/ }),
+    ).toBeVisible();
+    expect((await first.boundingBox())!.y + 100).toBeLessThan(844);
     await page.screenshot({ path: `artifacts/stitch-workout-${locale}-390.png`, fullPage: true });
     await first.getByLabel("kg", { exact: true }).fill("52.5");
     await first.getByLabel(name("Reps", "التكرارات"), { exact: true }).fill("10");
@@ -2704,9 +2707,11 @@ for (const locale of ["en", "ar"] as const) {
     await expect(first.getByLabel("kg", { exact: true })).toHaveValue("52.5");
     await expect(first.getByLabel("RPE 1–10", { exact: true })).toHaveValue("7.5");
     await page.evaluate(() => window.scrollTo(0, 0));
-    const hero = page.locator("[data-exercise-hero]");
-    await expect(hero).toBeVisible();
-    expect((await hero.boundingBox())!.y).toBeLessThan((await first.boundingBox())!.y);
+    const thumb = preview.getByRole("button", {
+      name: /View exercise demonstration|عرض الشرح المرئي/,
+    });
+    await expect(thumb).toBeVisible();
+    expect((await thumb.boundingBox())!.y).toBeLessThan((await first.boundingBox())!.y);
     await page.screenshot({ path: `artifacts/studio-workout-${locale}-320.png`, fullPage: true });
     await page
       .getByRole("button", { name: name("Log set 1", "تسجيل المجموعة 1"), exact: true })
@@ -4046,7 +4051,7 @@ test("planned rows keep distinct values and pair repeated exercise slots with in
     slot_key: `${version}:${second}`,
   });
   await expect(one.getByLabel("kg", { exact: true })).toHaveValue("50");
-  await expect(page.getByText("1:00", { exact: true })).toBeVisible();
+  await expect(page.locator("strong").getByText("1:00", { exact: true })).toBeVisible();
   // The final-seconds treatment follows the actual deadline after adjustments.
   const shorten = page.getByRole("button", { name: "Shorten rest 15 seconds" });
   for (let i = 0; i < 3; i++) await shorten.click();
@@ -4171,7 +4176,7 @@ test("late previous performance cannot refill a member-cleared draft after refre
   await expect(page.getByRole("button", { name: /^Use previous/ })).toBeVisible();
   await expect(page.getByLabel("Reps", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("kg", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("RPE 1–10", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Add effort (RPE)", exact: true })).toBeVisible();
 });
 
 test("previous completed performance remains available after offline refresh", async ({
@@ -4211,7 +4216,7 @@ test("previous completed performance remains available after offline refresh", a
   await page.goto("/train");
   await page.getByRole("button", { name: "Start workout", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Use previous/ })).toBeVisible();
-  await expect(page.getByLabel("RPE 1–10", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Add effort (RPE)", exact: true })).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -4643,7 +4648,7 @@ test("plate math, warmups, swapping and shared superset rest", async ({ page, co
     "aria-expanded",
     "true",
   );
-  await expect(page.getByText("1:30", { exact: true })).toBeVisible();
+  await expect(page.locator("strong").getByText("1:30", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Exercise options", exact: true }).click();
   await page.getByRole("button", { name: "Swap exercise", exact: true }).click();
   await chooseFromLibrary(page, "Barbell Row");
@@ -9367,6 +9372,68 @@ test("offline finish waits for server acceptance before showing the durable comp
   expect(backend.tables.workout_sessions![0]!.id).toBe(id);
 });
 
+test("workout names are set at start, changed mid-workout and renamed in history", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  await page.goto("/train");
+  await page.getByLabel("Workout name (optional)", { exact: true }).fill("  Push day  ");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Push day", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Rename workout", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  const field = sheet.getByLabel("Workout name", { exact: true });
+  await expect(field).toHaveValue("Push day");
+  await field.fill("   ");
+  await sheet.getByRole("button", { name: "Save name", exact: true }).click();
+  await expect(sheet.getByRole("alert")).toContainText("1–80");
+  await field.fill("Upper A");
+  await sheet.getByRole("button", { name: "Save name", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Upper A", exact: true })).toBeVisible();
+  await page.getByLabel("kg", { exact: true }).fill("60");
+  await page.getByLabel("Reps", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Log set", exact: true }).click();
+  await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await page.getByRole("button", { name: "Save workout", exact: true }).click();
+  await expect
+    .poll(() =>
+      backend.tables.workout_sessions!.filter((row) => row.finished_at).map((row) => row.title),
+    )
+    .toEqual(["Upper A"]);
+  await page.goto("/train?section=history");
+  await page.getByRole("button", { name: "Rename workout: Upper A", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Workout name", { exact: true }).fill("Upper A heavy");
+  await page.getByRole("dialog").getByRole("button", { name: "Save name", exact: true }).click();
+  await expect.poll(() => backend.tables.workout_sessions![0]!.title).toBe("Upper A heavy");
+  await expect(page.getByText("Upper A heavy", { exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Rename workout: Upper A heavy", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save name", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText(
+    "Connect to the internet to rename this workout.",
+  );
+  await context.setOffline(false);
+});
+
+test("an unnamed workout is saved with the muscles it trained", async ({ page, context }) => {
+  const backend = await fakeBackend(context);
+  await page.goto("/train");
+  await page.getByRole("button", { name: "Start workout", exact: true }).click();
+  await page.getByLabel("kg", { exact: true }).fill("60");
+  await page.getByLabel("Reps", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Log set", exact: true }).click();
+  const title = await page.getByRole("heading", { level: 1 }).innerText();
+  expect(title).not.toBe("Workout");
+  await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await page.getByRole("button", { name: "Save workout", exact: true }).click();
+  await expect
+    .poll(() => backend.tables.workout_sessions!.find((row) => row.finished_at)?.title)
+    .toBe(title);
+});
+
 test("exercise guidance and timed working sets survive reload", async ({ page, context }) => {
   const backend = await fakeBackend(context);
   await trainingFeatures(context, { guidance: true, logging: true });
@@ -9392,6 +9459,7 @@ test("exercise guidance and timed working sets survive reload", async ({ page, c
   await expect(page.getByText("Breathe normally.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByLabel("Seconds", { exact: true }).fill("30");
+  await page.getByRole("button", { name: "Add effort (RPE)", exact: true }).click();
   await page.getByLabel("RPE 1–10", { exact: true }).fill("7");
   await page.getByRole("button", { name: "Log set", exact: true }).click();
   await expect.poll(() => backend.tables.set_logs!.length).toBe(1);
@@ -9402,7 +9470,9 @@ test("exercise guidance and timed working sets survive reload", async ({ page, c
     set_role: "working",
   });
   await page.reload();
-  await expect(page.getByText("30s ×", { exact: false })).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Completed sets" }).getByText("30s", { exact: true }),
+  ).toBeVisible();
 });
 
 test("offline meals water body and wellness survive refresh then sync once", async ({

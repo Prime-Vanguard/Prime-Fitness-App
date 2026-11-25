@@ -65,3 +65,10 @@ export function muscleVolume(
   }
   return { groups: result, unmapped };
 }
+
+/** Display name for a stored muscle value; unknown values pass through unchanged. */
+export function muscleLabel(raw: string, locale: string) {
+  const group = muscleGroup(raw);
+  if (!group) return raw;
+  return locale === "ar" ? MUSCLE_AR[group] : group.charAt(0).toUpperCase() + group.slice(1);
+}

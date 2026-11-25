@@ -1,8 +1,9 @@
 import { useUnits } from "@/hooks/use-units";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Dumbbell, Activity, ChevronRight, History } from "lucide-react";
+import { Dumbbell, Activity, ChevronRight, History, Pencil } from "lucide-react";
 import {
   loadWorkoutHistoryPage,
   loadWorkoutHistoryDetails,
@@ -13,6 +14,9 @@ import { PageHeader } from "@/components/page-header";
 import { MemberSections } from "@/components/member-sections";
 import { LegacyWorkoutRecovery } from "@/components/legacy-workout-recovery";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { RenameWorkoutSheet } from "@/components/rename-workout-sheet";
+import { renameWorkout } from "@/lib/workout-title";
 import { numberLocale, useI18n } from "@/lib/i18n";
 import { useWorkout } from "@/hooks/use-workout";
 import { MyProgram } from "@/components/my-program";
@@ -41,6 +45,9 @@ function Train() {
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const { workout: w, ready, error } = controller;
   const { data: features } = useTrainingFeatures(user.id);
+  const queryClient = useQueryClient();
+  const [newName, setNewName] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const search = Route.useSearch(),
     navigate = Route.useNavigate();
   const section = search.section ?? "workout",
@@ -216,12 +223,26 @@ function Train() {
                 "تُحفظ مجموعاتك على هذا الجهاز أولاً، ثم تُزامن عند الاتصال.",
               )}
             </p>
+            <label className="mt-4 block text-xs text-muted-foreground">
+              {l("Workout name (optional)", "اسم التمرين (اختياري)")}
+              <Input
+                className="mt-1"
+                maxLength={80}
+                placeholder={l("e.g. Push day", "مثال: يوم الدفع")}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </label>
             <Button
-              className="mt-4 w-full"
+              className="mt-3 w-full"
               size="lg"
               disabled={!w.exercises.length}
               onClick={() => {
-                void controller.start(t("workout")).catch((e: Error) => toast.error(e.message));
+                // Blank keeps the generic title, which the session header replaces with trained muscles.
+                void controller
+                  .start(newName.trim().slice(0, 80) || t("workout"))
+                  .then(() => setNewName(""))
+                  .catch((e: Error) => toast.error(e.message));
               }}
             >
               {t("startWorkout")}
@@ -346,6 +367,31 @@ function Train() {
               )}
             </p>
           )}
+          <RenameWorkoutSheet
+            open={!!renaming}
+            onOpenChange={(open) => !open && setRenaming(null)}
+            initial={renaming?.title ?? ""}
+            onSave={async (title) => {
+              if (!navigator.onLine)
+                throw new Error(
+                  l(
+                    "Connect to the internet to rename this workout.",
+                    "اتصل بالإنترنت لإعادة تسمية التمرين.",
+                  ),
+                );
+              // Server errors are technical; members see one plain message.
+              await renameWorkout(user.id, renaming!.id, title).catch(() => {
+                throw new Error(
+                  l("Could not save the name. Try again.", "تعذر حفظ الاسم. حاول مرة أخرى."),
+                );
+              });
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["sessions", user.id] }),
+                queryClient.invalidateQueries({ queryKey: ["linked-workout", user.id] }),
+              ]);
+              toast.success(l("Workout renamed", "تمت إعادة التسمية"));
+            }}
+          />
           <ul className="mt-4 space-y-3" data-stitch-history>
             {historyPending && validRange && (
               <li role="status" className="p-4">
@@ -431,9 +477,20 @@ function Train() {
                     </button>
                     <span className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                       <span>
-                        {s.set_logs[0]?.count ?? 0} {t("sets")}{" "}
+                        {s.set_logs[0]?.count ?? 0}{" "}
+                        {s.set_logs[0]?.count === 1 ? l("set", "مجموعة") : t("sets")}{" "}
                         {s.origin === "import" ? l("· Imported", "· مستورد") : ""}
                       </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ms-auto"
+                        aria-label={`${l("Rename workout", "إعادة تسمية التمرين")}: ${s.title ?? t("workout")}`}
+                        onClick={() => setRenaming({ id: s.id, title: s.title ?? t("workout") })}
+                      >
+                        <Pencil aria-hidden />
+                        {l("Rename", "تسمية")}
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"

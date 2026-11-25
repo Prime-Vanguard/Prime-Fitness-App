@@ -392,3 +392,15 @@ export const workingCount = (sets: WorkoutSet[]) =>
       ((s.set_role ?? "working") === "working" ? (s.side && s.side !== "bilateral" ? 0.5 : 1) : 0),
     0,
   );
+
+/** +/- buttons: add a step to a typed value; stray text such as "kg" is dropped, and
+ * input with no readable number is left for validation to report. */
+export function stepMeasure(value: string, delta: number) {
+  try {
+    const digits = value.replace(/[^\d٠-٩.,٫-]/g, "");
+    const current = inputNumber(digits, { label: "Value", min: -Infinity }) ?? 0;
+    return String(Math.round(Math.max(0, current + delta) * 100) / 100);
+  } catch {
+    return value;
+  }
+}

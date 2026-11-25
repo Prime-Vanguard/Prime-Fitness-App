@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatDuration } from "@/lib/duration";
 import { Check } from "lucide-react";
 import type { WorkoutSessionController } from "./types";
 import { useI18n } from "@/lib/i18n";
@@ -14,9 +15,10 @@ import {
 import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
 import type { PreviousPerformance } from "@/lib/workout-references";
 
-type PriorSet = PreviousPerformance["sets"][number];
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+type PriorSet = PreviousPerformance["sets"][number];
 
 type Controller = Pick<WorkoutSessionController, "workout" | "change">;
 export function PlannedSetRows({
@@ -232,7 +234,9 @@ function PlannedRowInputs({
                 ? null
                 : formatMeasure(displayWeight(prior.weight_kg, units));
             const amount =
-              prior?.duration_seconds != null ? `${prior.duration_seconds}s` : prior?.reps;
+              prior?.duration_seconds != null
+                ? formatDuration(prior.duration_seconds)
+                : prior?.reps;
             return prior && amount != null ? (
               <span
                 className="flex flex-col items-center text-[11px] leading-tight tabular-nums text-muted-foreground"
@@ -344,7 +348,7 @@ function PlannedRowInputs({
             }}
           >
             {holdStartedAt
-              ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${Math.max(0, Math.floor((now - holdStartedAt) / 1000))}s`
+              ? `${locale === "ar" ? "إنهاء الثبات" : "Stop hold"} · ${formatDuration((now - holdStartedAt) / 1000)}`
               : locale === "ar"
                 ? "بدء الثبات"
                 : "Start hold"}

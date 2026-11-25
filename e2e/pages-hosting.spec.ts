@@ -46,7 +46,9 @@ for (const locale of ["en", "ar"] as const) {
     await expect(
       page.getByRole("heading", { name: "Archived frozen squat", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: /Downloaded workout/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Downloaded workout/, expanded: false }),
+    ).toBeVisible();
     await page.reload();
     await expect(
       page.getByRole("heading", { name: "Archived frozen squat", exact: true }),

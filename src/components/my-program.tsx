@@ -186,7 +186,7 @@ export function MyProgram({
                 </span>
                 <span className="text-end text-xs text-muted-foreground">
                   <span className="block text-foreground">
-                    {plannedSets} {t("sets")}
+                    {plannedSets} {plannedSets === 1 ? t("set").toLowerCase() : t("sets")}
                   </span>
                   <span className="mt-1 block">
                     {sessionItems.length} {locale === "ar" ? "تمارين" : "exercises"}

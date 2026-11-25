@@ -41,6 +41,7 @@ const draftSchema = z.object({
       member_id: uuid,
       started_at: timestamp,
       title: z.string().nullable(),
+      titleEdited: z.boolean().optional(),
       synced: z.boolean(),
       occurrence_id: z.string().uuid().optional(),
     })
