@@ -69,3 +69,37 @@ it("counts repeated exercise slots separately and rejects unfinished or invalid 
   expect(workoutCompletion({ ...w, finishedAt: "invalid" })).toBeUndefined();
   expect(workoutCompletion({ ...w, finishedAt: "2026-11-11T10:00:00Z" })).toBeUndefined();
 });
+
+it("summarizes muscles, rep ranges and top sets from working sets only", () => {
+  const result = workoutCompletion({
+    ...completed(),
+    exercises: [
+      {
+        id: "bench",
+        name_en: "Bench Press",
+        name_ar: "ضغط البنش",
+        muscle: "Chest",
+        equipment: "barbell",
+      },
+      { id: "squat", name_en: "Squat", name_ar: null, muscle: "Quads", equipment: "barbell" },
+    ],
+    sets: [
+      set({ reps: 5, weight_kg: 80 }),
+      set({ reps: 8, weight_kg: 70 }),
+      set({ reps: 10, weight_kg: 200, set_role: "warmup" }),
+      set({ exercise_id: "squat", reps: 15, weight_kg: 60 }),
+      set({ exercise_id: "squat", reps: 3, weight_kg: 999, sync: "deleted" }),
+    ],
+  })!;
+  expect(result.muscles).toEqual([
+    { muscle: "chest", sets: 2 },
+    { muscle: "quads", sets: 1 },
+  ]);
+  expect(result.repRanges).toEqual({ strength: 1, hypertrophy: 1, endurance: 1 });
+  // 80 × 5 (e1RM 93.3) beats 70 × 8 (88.7); the warm-up never counts.
+  expect(result.topSets?.find((top) => top.exerciseId === "bench")).toMatchObject({
+    name: "Bench Press",
+    weightKg: 80,
+    reps: 5,
+  });
+});

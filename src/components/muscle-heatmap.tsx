@@ -7,24 +7,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { weekStart } from "@/lib/streaks";
-import { MUSCLES, muscleVolume, type Muscle } from "@/lib/muscle-volume";
+import { MUSCLES, MUSCLE_AR as names, muscleVolume, type Muscle } from "@/lib/muscle-volume";
 import { useI18n } from "@/lib/i18n";
 import { useActivityDay } from "@/hooks/use-activity-day";
 import { MuscleBodyDiagram } from "./muscle-body-diagram";
 import { Button } from "./ui/button";
 
-const names = {
-  chest: "الصدر",
-  back: "الظهر",
-  shoulders: "الأكتاف",
-  biceps: "البايسبس",
-  triceps: "الترايسبس",
-  core: "الجذع",
-  quads: "الأفخاذ الأمامية",
-  hamstrings: "الأفخاذ الخلفية",
-  glutes: "الأرداف",
-  calves: "السمانة",
-};
 export function MuscleHeatmap({ userId }: { userId: string }) {
   const { locale } = useI18n();
   const units = useUnits(userId);

@@ -11,7 +11,10 @@ import {
   type PlannedRow,
   type SetDraft,
 } from "@/lib/workout-editor";
-import { weightUnit, type Units } from "@/lib/units";
+import { displayWeight, formatMeasure, weightUnit, type Units } from "@/lib/units";
+import type { PreviousPerformance } from "@/lib/workout-references";
+
+type PriorSet = PreviousPerformance["sets"][number];
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +29,7 @@ export function PlannedSetRows({
   ready,
   disabled,
   onComplete,
+  previous = [],
 }: {
   controller: Controller;
   exercise: string;
@@ -36,6 +40,8 @@ export function PlannedSetRows({
   ready: boolean;
   disabled: boolean;
   onComplete: (id: string, draft: SetDraft) => Promise<void>;
+  /** Last session's working sets for this slot; set N lines up with row number N. */
+  previous?: PriorSet[] | undefined;
 }) {
   const { workout: w, change } = controller;
   const key = slotDraftKey(exercise, slot),
@@ -97,6 +103,7 @@ export function PlannedSetRows({
         <PlannedRowInputs
           key={`${key}:${row.id}:${units}`}
           row={row}
+          prior={previous[row.number - 1]}
           current={index === 0}
           showEffort={showEffort}
           units={units}
@@ -136,6 +143,7 @@ export function PlannedSetRows({
 }
 function PlannedRowInputs({
   row,
+  prior,
   units,
   timed,
   disabled,
@@ -148,6 +156,7 @@ function PlannedRowInputs({
   showEffort,
 }: {
   row: PlannedRow;
+  prior: PriorSet | undefined;
   units: Units;
   timed: boolean;
   disabled: boolean;
@@ -217,16 +226,41 @@ function PlannedRowInputs({
           >
             {row.number}
           </span>
-          <span
-            className="text-center text-xs text-muted-foreground"
-            aria-label={
-              locale === "ar"
-                ? "لا يتوفر سجل مطابق لهذه المجموعة"
-                : "No matching history for this set"
-            }
-          >
-            —
-          </span>
+          {(() => {
+            const weight =
+              prior?.weight_kg == null
+                ? null
+                : formatMeasure(displayWeight(prior.weight_kg, units));
+            const amount =
+              prior?.duration_seconds != null ? `${prior.duration_seconds}s` : prior?.reps;
+            return prior && amount != null ? (
+              <span
+                className="flex flex-col items-center text-[11px] leading-tight tabular-nums text-muted-foreground"
+                aria-label={
+                  locale === "ar"
+                    ? `المرة السابقة: ${weight != null ? `${weight} ${weightUnit(units)} × ` : ""}${amount}`
+                    : `Last time: ${weight != null ? `${weight} ${weightUnit(units)} × ` : ""}${amount}`
+                }
+              >
+                {weight != null && <bdi aria-hidden>{weight}</bdi>}
+                <bdi aria-hidden>
+                  {weight != null ? "×" : ""}
+                  {amount}
+                </bdi>
+              </span>
+            ) : (
+              <span
+                className="text-center text-xs text-muted-foreground"
+                aria-label={
+                  locale === "ar"
+                    ? "لا يتوفر سجل مطابق لهذه المجموعة"
+                    : "No matching history for this set"
+                }
+              >
+                —
+              </span>
+            );
+          })()}
           {(
             [
               ["weight", weightUnit(units)],
