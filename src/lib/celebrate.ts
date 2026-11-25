@@ -2,8 +2,9 @@ import { useSyncExternalStore } from "react";
 
 /** Server-confirmed moments, played one at a time (docs/gamification-plan.md, Phase 2). */
 export type Celebration =
-  | { kind: "rank"; level: number; rank: string }
-  | { kind: "level"; level: number }
+  // from: the level last seen on this device, so several levels at once can roll.
+  | { kind: "rank"; level: number; rank: string; from: number }
+  | { kind: "level"; level: number; from: number }
   | { kind: "badge"; code: string; title: string }
   | { kind: "quest"; key: string }
   | { kind: "streak"; days: number }
@@ -43,9 +44,10 @@ function merge(old: Celebration, next: Celebration): Celebration {
     (old.kind === "level" || old.kind === "rank") &&
     (next.kind === "level" || next.kind === "rank")
   ) {
-    const level = Math.max(old.level, next.level);
+    const level = Math.max(old.level, next.level),
+      from = Math.min(old.from, next.from);
     const rank = next.kind === "rank" ? next.rank : old.kind === "rank" ? old.rank : null;
-    return rank ? { kind: "rank", level, rank } : { kind: "level", level };
+    return rank ? { kind: "rank", level, rank, from } : { kind: "level", level, from };
   }
   return next;
 }
@@ -74,10 +76,27 @@ export function celebrationLevel(): CelebrationLevel {
 
 let queue: Celebration[] = [];
 let workouts = 0;
-let snapshot: { current: Celebration | undefined; level: CelebrationLevel } | undefined;
+// The signed-in member whose Rewards dot the navigation shows.
+let rewardsUser: string | null = null;
+type Snapshot = { current: Celebration | undefined; level: CelebrationLevel; rewardsNew: boolean };
+let snapshot: Snapshot | undefined;
+const read = (): Snapshot => ({
+  current: nextToPlay(queue, workouts > 0),
+  level: celebrationLevel(),
+  rewardsNew: rewardsUser != null && storage(`pf-rewards-new-${rewardsUser}`) === "1",
+});
+function storage(key: string, value?: string) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch {
+    /* Device storage is optional for celebrations. */
+  }
+  return null;
+}
 const listeners = new Set<() => void>();
 function emit() {
-  snapshot = { current: nextToPlay(queue, workouts > 0), level: celebrationLevel() };
+  snapshot = read();
   for (const listener of listeners) listener();
 }
 
@@ -112,10 +131,53 @@ const subscribe = (listener: () => void) => {
   listeners.add(listener);
   return () => listeners.delete(listener);
 };
-const server = { current: undefined, level: "subtle" as CelebrationLevel } as const;
+const server: Snapshot = { current: undefined, level: "subtle", rewardsNew: false };
+
+/** Rewards tab dot, per member: set when a badge is earned, cleared when Rewards is opened. */
+export function setRewardsNew(userId: string, value: boolean) {
+  const key = `pf-rewards-new-${userId}`;
+  if ((storage(key) === "1") === value) return;
+  storage(key, value ? "1" : "0");
+  emit();
+}
+export function setRewardsUser(userId: string | null) {
+  if (rewardsUser === userId) return;
+  rewardsUser = userId;
+  emit();
+}
 export const useCelebration = () =>
   useSyncExternalStore(
     subscribe,
-    () => (snapshot ??= { current: nextToPlay(queue, workouts > 0), level: celebrationLevel() }),
+    () => (snapshot ??= read()),
     () => server,
   );
+
+/**
+ * The latest workout's debrief facts for this tab: confirmed XP when it opened, the gain
+ * frozen on first display, and whether the debrief has played. One record, so nothing piles up.
+ */
+type Debrief = { id: string; start: number; gain?: number; shown?: boolean };
+const DEBRIEF_KEY = "pf-workout-debrief";
+export function debriefRecord(sessionId: string): Debrief | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(DEBRIEF_KEY) ?? "null") as Debrief | null;
+    return value?.id === sessionId ? value : null;
+  } catch {
+    return null;
+  }
+}
+function writeDebrief(value: Debrief) {
+  try {
+    sessionStorage.setItem(DEBRIEF_KEY, JSON.stringify(value));
+  } catch {
+    /* Without storage the debrief simply shows no XP delta. */
+  }
+}
+export function rememberStartXp(sessionId: string, xp: number) {
+  // The first value wins: a refetch mid-workout may already include this workout's XP.
+  if (!debriefRecord(sessionId)) writeDebrief({ id: sessionId, start: xp });
+}
+export function updateDebrief(sessionId: string, patch: Partial<Omit<Debrief, "id">>) {
+  const current = debriefRecord(sessionId);
+  if (current) writeDebrief({ ...current, ...patch });
+}

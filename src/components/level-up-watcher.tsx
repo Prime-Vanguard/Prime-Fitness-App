@@ -11,8 +11,31 @@ import { celebrationSound, haptic, primeAudio } from "@/lib/device-feedback";
 import { RankCrest } from "@/components/rank-crest";
 import { useGamification } from "@/hooks/use-gamification";
 import { useI18n } from "@/lib/i18n";
-import { celebrate, celebrationDone, useCelebration } from "@/lib/celebrate";
+import {
+  celebrate,
+  celebrationDone,
+  setRewardsNew,
+  setRewardsUser,
+  useCelebration,
+} from "@/lib/celebrate";
 import { embersFrom } from "@/lib/embers";
+import { rankFor } from "@/lib/levels";
+import { celebrationMoves, useCountUp } from "@/hooks/use-count-up";
+
+const STRIKE_LEVEL_MS = 520,
+  STRIKE_RANK_MS = 1100;
+
+/** The level number drops in, rolling through each level gained (3 → 4 → 5). */
+function LevelRoll({ from, to }: { from: number; to: number }) {
+  const steps = Math.max(0, to - Math.max(from, to - 10));
+  const value = useCountUp(to, Math.min(1200, steps * 220), to - steps, STRIKE_LEVEL_MS + 100);
+  return (
+    <span className="level-drop tabular-nums">
+      <span aria-hidden>{Math.round(value)}</span>
+      <span className="sr-only">{to}</span>
+    </span>
+  );
+}
 
 /**
  * Watches server-confirmed level, rank and badges against the last values seen on this
@@ -39,21 +62,27 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
     },
   });
   useEffect(() => {
+    setRewardsUser(userId);
+    return () => setRewardsUser(null);
+  }, [userId]);
+  useEffect(() => {
     if (!badges) return;
     try {
       const key = `pf-earned-badges-${userId}`;
       const previous = localStorage.getItem(key);
       const seen: unknown = previous ? JSON.parse(previous) : null;
-      if (Array.isArray(seen))
-        for (const b of badges.filter((b) => !seen.includes(b.badge_code)))
-          celebrate({
-            kind: "badge",
-            code: b.badge_code,
-            title:
-              (locale === "ar" ? b.badges?.title_ar : b.badges?.title_en) ??
-              b.badges?.title_en ??
-              t("badges"),
-          });
+      const added = Array.isArray(seen) ? badges.filter((b) => !seen.includes(b.badge_code)) : [];
+      // Already on Rewards: the new badge is in view, so no dot.
+      if (added.length && !location.pathname.startsWith("/rewards")) setRewardsNew(userId, true);
+      for (const b of added)
+        celebrate({
+          kind: "badge",
+          code: b.badge_code,
+          title:
+            (locale === "ar" ? b.badges?.title_ar : b.badges?.title_en) ??
+            b.badges?.title_en ??
+            t("badges"),
+        });
       localStorage.setItem(key, JSON.stringify(badges.map((b) => b.badge_code)));
     } catch {
       /* Celebration is optional when device storage is restricted. */
@@ -73,8 +102,8 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
       if (prev > 0 && g.level > prev)
         celebrate(
           prevRank && prevRank !== g.rank.key
-            ? { kind: "rank", level: g.level, rank: g.rank.key }
-            : { kind: "level", level: g.level },
+            ? { kind: "rank", level: g.level, rank: g.rank.key, from: prev }
+            : { kind: "level", level: g.level, from: prev },
         );
     } catch {
       /* Celebration is optional when device storage is restricted. */
@@ -114,16 +143,18 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
     );
     // Sparks are motion: a device asking for reduced motion never gets them, even on Full.
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    // Let the overlay mount and lay out before sparks start from it.
-    const frame = requestAnimationFrame(() =>
-      embersFrom(
-        current.kind === "badge"
-          ? document.querySelector(".badge-unlock-card .badge-art")
-          : crest.current,
-        current.kind === "rank" ? 48 : 28,
-      ),
+    // Sparks fly when the crest locks: the strike for a level, the new crest's rise for a rank.
+    const timer = window.setTimeout(
+      () =>
+        embersFrom(
+          current.kind === "badge"
+            ? document.querySelector(".badge-unlock-card .badge-art")
+            : crest.current,
+          current.kind === "rank" ? 48 : 28,
+        ),
+      current.kind === "rank" ? STRIKE_RANK_MS : current.kind === "level" ? STRIKE_LEVEL_MS : 0,
     );
-    return () => cancelAnimationFrame(frame);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, setting]);
 
@@ -146,30 +177,62 @@ export function LevelUpWatcher({ userId }: { userId: string }) {
         className="gold-glow max-w-sm border-gold/50 text-center"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
-          keepGoing.current?.focus();
+          const delay = celebrationMoves() ? (current.kind === "rank" ? 1600 : 1100) : 0;
+          (e.currentTarget as HTMLElement | null)?.focus();
+          window.setTimeout(() => keepGoing.current?.focus(), delay);
         }}
       >
-        <div ref={crest} className="crest-reveal mx-auto">
-          <RankCrest rank={g.rank.key} size={160} />
-        </div>
+        {current.kind === "rank" ? (
+          // Ascension: the old crest cracks away and the new one rises in its aura.
+          <div ref={crest} className="forge-crest mx-auto" data-ascension>
+            <div className="ascend-old" aria-hidden>
+              <RankCrest rank={rankFor(current.from).key} size={160} />
+            </div>
+            <div className="ascend-new">
+              <RankCrest rank={g.rank.key} size={160} />
+            </div>
+            <span
+              className="forge-ring"
+              style={{ animationDelay: `${STRIKE_RANK_MS}ms` }}
+              aria-hidden
+            />
+          </div>
+        ) : (
+          // Forged: four shards of the crest fly together and lock with a strike.
+          <div ref={crest} className="forge-crest forge-lock mx-auto" data-forged>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="forge-shard" aria-hidden={i > 0 || undefined}>
+                <RankCrest rank={g.rank.key} size={160} />
+              </div>
+            ))}
+            <span className="forge-ring" aria-hidden />
+          </div>
+        )}
         <DialogTitle className="font-display text-2xl">
           {current.kind === "rank" ? t("rankUp") : t("levelUp")}
         </DialogTitle>
         <DialogDescription className="text-base">
-          <span className="block text-sm font-semibold text-gold">
+          <span
+            className={`block text-sm font-semibold text-gold ${current.kind === "rank" ? "strike-text text-lg" : ""}`}
+          >
             {locale === "ar" ? g.rank.ar : g.rank.key}
           </span>
-          {t("level")} {current.level}
+          {t("level")} <LevelRoll from={current.from} to={current.level} />
         </DialogDescription>
-        <ShareAchievement
-          name={me?.profile?.display_name || t("member")}
-          title={`${t("level")} ${g.level}`}
-          detail={locale === "ar" ? g.rank.ar : g.rank.key}
-          rank={g.rank.key}
-        />
-        <Button ref={keepGoing} onClick={finish}>
-          {t("keepGoing")}
-        </Button>
+        <div
+          className="reveal-late space-y-3"
+          style={{ animationDelay: `${current.kind === "rank" ? 1600 : 1100}ms` }}
+        >
+          <ShareAchievement
+            name={me?.profile?.display_name || t("member")}
+            title={`${t("level")} ${g.level}`}
+            detail={locale === "ar" ? g.rank.ar : g.rank.key}
+            rank={g.rank.key}
+          />
+          <Button ref={keepGoing} className="w-full" onClick={finish}>
+            {t("keepGoing")}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

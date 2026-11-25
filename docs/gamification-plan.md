@@ -122,6 +122,12 @@ on the device, like the existing haptics and water-sound switches.
 
 ## Phase 3: the big moments
 
+Built 2026-11-24 on `feat/gamification-moments`: 3.1 (without quest and streak
+updates in the debrief), 3.2, 3.3, 3.4 (dot on the Rewards tab) and 3.6. 3.5 waits for
+Phase 5.1. The debrief's "+XP" is the confirmed XP gained since the workout was opened
+in this tab. The rank name is revealed with a wipe instead of letter by letter, because
+splitting Arabic into letters breaks how they join.
+
 ### 3.1 Workout debrief ("Mission complete")
 Replaces the plain summary top section. A 3–4 second sequence the member can skip:
 1. Title stamps in: "Mission complete" / "اكتملت المهمة".

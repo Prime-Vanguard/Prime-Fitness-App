@@ -11128,7 +11128,7 @@ test("crest reveal requires a new server level and never repeats on refresh", as
   await page.reload();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator(".crest-reveal")).toBeVisible();
+  await expect(dialog.locator("[data-ascension]")).toBeVisible();
   await page.getByRole("button", { name: "Keep going", exact: true }).click();
   await page.reload();
   await expect
@@ -11365,4 +11365,112 @@ test("leaderboard always shows an opted-in member, at 0 XP and outside the top 5
   await page.reload();
   await expect(board.getByRole("listitem")).toHaveCount(51);
   await expect(board.getByRole("listitem").last()).toHaveText(/50\+\s*You\s*1,200 XP/);
+});
+
+test("mission debrief shows confirmed XP, then the held level-up forges with a rolling number", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  const version = crypto.randomUUID();
+  backend.tables.program_assignments = [
+    { id: crypto.randomUUID(), member_id: userId, program_version_id: version, active: true },
+  ];
+  backend.tables.program_versions = [
+    {
+      id: version,
+      name: "Debrief",
+      version: 1,
+      weeks: 1,
+      items: [
+        {
+          id: crypto.randomUUID(),
+          exercise_id: exerciseId,
+          week: 1,
+          day: 1,
+          position: 0,
+          target_sets: 1,
+          target_reps: "8",
+          name_en: "Bench Press",
+          name_ar: "ضغط الصدر",
+          muscle: "chest",
+          equipment: "barbell",
+          logging_mode: "weighted_reps",
+          load_convention: "external_total",
+        },
+      ],
+    },
+  ];
+  // The device has already seen level 2, so a later level is a real level-up.
+  await context.addInitScript((id) => localStorage.setItem(`pf-level-${id}`, "2"), userId);
+  await page.goto("/train?section=program");
+  await page.getByRole("button", { name: "Start this day", exact: true }).click();
+  const row = page.getByRole("group", { name: "Planned set 1", exact: true });
+  await row.getByLabel("kg", { exact: true }).fill("50");
+  await row.getByLabel("Reps", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Log set 1", exact: true }).click();
+  // The server confirms this workout's XP (300 → 3,800, level 2 → 5).
+  backend.tables.member_xp_totals![0]!.xp = 3800;
+  await page.getByRole("button", { name: "Finish workout", exact: true }).click();
+  await page.getByRole("button", { name: "Save workout", exact: true }).click();
+  const complete = page.locator("[data-workout-complete]");
+  await expect(complete).toContainText("Mission complete");
+  await expect(complete).toContainText("+3,500 XP");
+  // The level-up waits for the debrief, then plays once.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveCount(0);
+  await expect(dialog).toBeVisible({ timeout: 8000 });
+  await expect(dialog.locator("[data-forged]")).toBeVisible();
+  await expect(dialog.locator(".level-drop .sr-only")).toHaveText("5");
+  await expect(dialog.getByRole("button", { name: "Keep going" })).toBeFocused();
+  await dialog.getByRole("button", { name: "Keep going" }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
+test("rank-up plays the ascension and a new badge leaves a dot on Rewards until opened", async ({
+  page,
+  context,
+}) => {
+  const backend = await fakeBackend(context);
+  backend.tables.badges = [
+    {
+      code: "first_workout",
+      title_en: "First Rep",
+      title_ar: "أول تكرار",
+      description_en: "Finish a workout",
+      description_ar: "أنهِ تمريناً",
+      xp_bonus: 500,
+      position: 1,
+    },
+  ];
+  backend.tables.member_badges = [];
+  await context.addInitScript((id) => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem(`pf-level-${id}`, "15");
+    localStorage.setItem(`pf-level-${id}-rank`, "Recruit");
+    localStorage.setItem(`pf-earned-badges-${id}`, "[]");
+  }, userId);
+  // Level 16 is the first Seeker level.
+  backend.tables.member_xp_totals![0]!.xp = backend.tables.level_thresholds!.find(
+    (row) => row.level === 16,
+  )!.xp_required as number;
+  backend.tables.member_badges.push({
+    member_id: userId,
+    badge_code: "first_workout",
+    unlocked_at: "2026-11-24T10:00:00Z",
+  });
+  await page.goto("/today");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator("[data-ascension]")).toBeVisible();
+  await expect(dialog).toContainText("Seeker");
+  await dialog.getByRole("button", { name: "Keep going" }).click();
+  // The badge follows the rank-up, then the Rewards tab keeps a dot.
+  await expect(page.getByRole("status").filter({ hasText: "New badge" })).toContainText(
+    "First Rep",
+  );
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await expect(nav.getByRole("img", { name: "New badge" })).toBeVisible();
+  await nav.getByRole("link", { name: /Rewards/ }).click();
+  await expect(nav.getByRole("img", { name: "New badge" })).toHaveCount(0);
 });

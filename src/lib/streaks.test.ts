@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { currentStreak, weekStart, weeklyQuests } from "./streaks";
+import { currentStreak, streakTier, weekStart, weeklyQuests } from "./streaks";
 
 describe("streaks", () => {
   it("counts consecutive days through today", () =>
@@ -13,4 +13,12 @@ describe("streaks", () => {
     expect(
       weeklyQuests({ workouts: 5, foodDays: 2, bodyChecks: 0 }).map((q) => q.progress),
     ).toEqual([3, 2, 0]));
+});
+
+describe("streakTier", () => {
+  it("steps at 1, 3, 7, 14 and 30 days", () => {
+    expect([0, 1, 2, 3, 6, 7, 13, 14, 29, 30, 99].map(streakTier)).toEqual([
+      0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5,
+    ]);
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -28,14 +28,20 @@ export function BadgeUnlock({
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const rarity = badgeArt(code).rarity;
+  const [leaving, setLeaving] = useState(false);
+  // After 5s the medal flies into the Rewards tab, which keeps a dot until opened.
   useEffect(() => {
-    const timer = window.setTimeout(onDone, 5000);
-    return () => window.clearTimeout(timer);
+    const leave = window.setTimeout(() => setLeaving(true), 5000);
+    const done = window.setTimeout(onDone, 5450);
+    return () => {
+      window.clearTimeout(leave);
+      window.clearTimeout(done);
+    };
   }, [code, onDone]);
   return (
     <div
       role="status"
-      className="badge-unlock-card fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-gold/50 bg-card/95 p-3 shadow-2xl backdrop-blur"
+      className={`${leaving ? "badge-pin-out" : ""} badge-unlock-card fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-50 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-gold/50 bg-card/95 p-3 shadow-2xl backdrop-blur`}
       style={{ "--badge-burst": BURST[rarity] } as CSSProperties}
     >
       <span className="relative">

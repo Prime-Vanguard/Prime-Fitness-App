@@ -40,3 +40,8 @@ export function weeklyQuests(a: {
     { key: "q_body", progress: Math.min(a.bodyChecks, 1), goal: 1 },
   ];
 }
+
+/** Flame tier: 0 none, 1 ember (1–2 days), 2 flame (3–6), 3 gold (7–13), 4 white-gold (14–29), 5 crowned (30+). */
+export function streakTier(days: number) {
+  return days >= 30 ? 5 : days >= 14 ? 4 : days >= 7 ? 3 : days >= 3 ? 2 : days >= 1 ? 1 : 0;
+}

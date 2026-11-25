@@ -26,6 +26,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { haptic } from "@/lib/device-feedback";
+import { useCelebration } from "@/lib/celebrate";
+
+/** Gold dot on Rewards after a new badge, until Rewards is opened. */
+function NewDot({ to }: { to: WorkspaceDestination }) {
+  const { rewardsNew } = useCelebration();
+  const { locale } = useI18n();
+  if (to !== "/rewards" || !rewardsNew) return null;
+  return (
+    <span
+      className="absolute -top-1 -end-1.5 size-2.5 rounded-full bg-gold ring-2 ring-sidebar"
+      role="img"
+      aria-label={locale === "ar" ? "وسام جديد" : "New badge"}
+    />
+  );
+}
 import { workspaceName, type Workspace, type WorkspaceDestination } from "./workspace";
 
 const entries: Record<WorkspaceDestination, { key: TKey; icon: typeof Home }> = {
@@ -140,7 +155,10 @@ export function WorkspaceNavigation({
                 onClose();
               }}
             >
-              <EntryIcon aria-hidden className="size-4 shrink-0" />
+              <span className="relative">
+                <EntryIcon aria-hidden className="size-4 shrink-0" />
+                <NewDot to={to} />
+              </span>
               {to === "/admin/analytics" ? (ar ? "لوحة التحكم" : "Dashboard") : t(key)}
             </Link>
           );
@@ -209,7 +227,10 @@ export function WorkspaceBottomNavigation({
             activeOptions={{ exact: true }}
             activeProps={{ className: "active" }}
           >
-            <Icon aria-hidden className="size-5" />
+            <span className="relative">
+              <Icon aria-hidden className="size-5" />
+              <NewDot to={to} />
+            </span>
             {to === "/admin/analytics" ? (locale === "ar" ? "لوحة التحكم" : "Dashboard") : t(key)}
           </Link>
         );
