@@ -86,16 +86,16 @@ No text or labels.
 These 8 badges already exist in the app (`supabase/migrations`). Rarity is assigned by
 effort.
 
-| Code | Name (EN / AR) | Unlock | Rarity |
-| ---- | -------------- | ------ | ------ |
-| `first_workout` | First Rep / أول تكرار | First workout | Common |
-| `first_food` | Fuel Aware / واعٍ بوقوده | First food log | Common |
-| `first_body` | Baseline Set / نقطة البداية | First body check | Common |
-| `first_pv` | Vanguard Contributor / مساهم الطليعة | First approved PV task | Uncommon |
-| `workouts_10` | Committed / ملتزم | 10 workouts | Uncommon |
-| `food_30` | Nutrition Discipline / انضباط غذائي | Food logged on 30 days | Rare |
-| `workouts_50` | Forged in Iron / مصقول بالحديد | 50 workouts | Epic |
-| `workouts_100` | Centurion / المئوي | 100 workouts | Legendary |
+| Code            | Name (EN / AR)                       | Unlock                 | Rarity    |
+| --------------- | ------------------------------------ | ---------------------- | --------- |
+| `first_workout` | First Rep / أول تكرار                | First workout          | Common    |
+| `first_food`    | Fuel Aware / واعٍ بوقوده             | First food log         | Common    |
+| `first_body`    | Baseline Set / نقطة البداية          | First body check       | Common    |
+| `first_pv`      | Vanguard Contributor / مساهم الطليعة | First approved PV task | Uncommon  |
+| `workouts_10`   | Committed / ملتزم                    | 10 workouts            | Uncommon  |
+| `food_30`       | Nutrition Discipline / انضباط غذائي  | Food logged on 30 days | Rare      |
+| `workouts_50`   | Forged in Iron / مصقول بالحديد       | 50 workouts            | Epic      |
+| `workouts_100`  | Centurion / المئوي                   | 100 workouts           | Legendary |
 
 ### first_workout — First Rep (Common)
 
@@ -174,14 +174,14 @@ Mood: a hundred battles won; elite and respected.
 These fill the higher tiers. Each needs a server rule and migration before it can be
 earned, so generate the art only once you approve the badge.
 
-| Code | Name (EN / AR, draft) | Unlock | Rarity |
-| ---- | --------------------- | ------ | ------ |
-| `streak_7` | Week Unbroken / أسبوع بلا انقطاع | 7-day streak | Uncommon |
-| `first_best` | New Best / أفضل رقم جديد | First personal best | Uncommon |
-| `campaigns_4` | Campaign Veteran / محارب الحملات | 4 weekly campaigns completed | Rare |
-| `streak_30` | Eternal Flame / الشعلة الدائمة | 30-day streak | Epic |
-| `workouts_250` | Iron Legion / فيلق الحديد | 250 workouts | Legendary |
-| `level_100` | Prime Legend / أسطورة برايم | Reach Level 100 | Mythic |
+| Code           | Name (EN / AR, draft)            | Unlock                       | Rarity    |
+| -------------- | -------------------------------- | ---------------------------- | --------- |
+| `streak_7`     | Week Unbroken / أسبوع بلا انقطاع | 7-day streak                 | Uncommon  |
+| `first_best`   | New Best / أفضل رقم جديد         | First personal best          | Uncommon  |
+| `campaigns_4`  | Campaign Veteran / محارب الحملات | 4 weekly campaigns completed | Rare      |
+| `streak_30`    | Eternal Flame / الشعلة الدائمة   | 30-day streak                | Epic      |
+| `workouts_250` | Iron Legion / فيلق الحديد        | 250 workouts                 | Legendary |
+| `level_100`    | Prime Legend / أسطورة برايم      | Reach Level 100              | Mythic    |
 
 ### streak_7 — Week Unbroken (Uncommon)
 
