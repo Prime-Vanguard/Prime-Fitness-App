@@ -112,7 +112,7 @@ export function AdminShopWorkspace({
     setError("");
     if ((status === "rejected" && !note.trim()) || note.trim().length > 2000) {
       setError(
-        l("Add a rejection reason, up to 2,000 characters.", "أضف سبب الرفض، بحد أقصى ٢٠٠٠ حرف."),
+        l("Add a rejection reason, up to 2,000 characters.", "أضف سبب الرفض، بحد أقصى 2000 حرف."),
       );
       return;
     }

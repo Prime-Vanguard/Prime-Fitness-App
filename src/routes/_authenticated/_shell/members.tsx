@@ -93,11 +93,7 @@ function Page() {
   return (
     <>
       {/* The roster query already restricts this workspace to current relationships. */}
-      <PageHeader
-        title={t("myMembers")}
-        eyebrow={l("People workspace", "مساحة الأعضاء والفرق")}
-        eyebrowTone="accent"
-      />
+      <PageHeader title={t("myMembers")} />
       <p className="mt-3 text-sm text-muted-foreground">
         {l(
           "Save individual workout summaries for this device.",

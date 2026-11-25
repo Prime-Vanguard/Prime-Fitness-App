@@ -23,7 +23,7 @@ export function PageHeader({
           {eyebrow && (
             <p
               className={
-                "text-xs font-semibold uppercase tracking-[0.12em] " +
+                "text-sm font-medium " +
                 (eyebrowTone === "accent" ? "text-gold" : "text-muted-foreground")
               }
             >

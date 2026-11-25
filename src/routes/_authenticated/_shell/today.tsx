@@ -53,16 +53,17 @@ function Bar({
   const pct = target ? Math.min(100, (value / target) * 100) : 0;
   return (
     <div>
-      <div className="flex justify-between text-xs">
+      <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums">
-          {Math.round(value)}
+        {/* Keep "value / target unit" in reading order inside Arabic text. */}
+        <bdi dir="ltr" className="tabular-nums">
+          <span className="font-semibold">{Math.round(value)}</span>
           {target ? ` / ${target}` : ""} {unit}
-        </span>
+        </bdi>
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-background">
         <div
-          className={`fuel-fill h-full rounded-full ${pct >= 100 ? "bg-success" : "bg-slate-200"}`}
+          className={`fuel-fill h-full rounded-full ${pct >= 100 ? "bg-success" : "bg-gold"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -231,19 +232,21 @@ function Today() {
         compact
         accessory={
           g && (
-            <span
+            <Link
+              to="/rewards"
               data-today-rank
-              className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium"
+              className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-2 text-xs font-medium hover:border-gold/50"
             >
+              <RankCrest rank={g.rank.key} size={28} />
               {locale === "ar" ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
-            </span>
+            </Link>
           )
         }
         eyebrow={new Date(`${today}T12:00:00Z`).toLocaleDateString(
-          locale === "ar" ? "ar-EG" : "en-GB",
+          locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
           { timeZone: "Africa/Cairo", weekday: "long", month: "short", day: "numeric" },
         )}
-        title={`${t("welcome")}, ${me?.profile?.display_name || t("member")}`}
+        title={`${t("welcome")}${locale === "ar" ? "، " : ", "}${me?.profile?.display_name || t("member")}`}
       />
       {workout?.session || data?.open ? (
         <TodaySessionHero
@@ -265,7 +268,7 @@ function Today() {
 
       <div className="mt-4">
         <section className="rounded-xl bg-card p-4">
-          <p className="text-xs uppercase tracking-widest text-gold">{t("todayFuel")}</p>
+          <h2 className="font-heading text-base font-bold">{t("todayFuel")}</h2>
           <div className="mt-3 space-y-3">
             {fuelAvailable ? (
               <>
@@ -305,7 +308,7 @@ function Today() {
             </Button>
             <Button asChild variant="outline">
               <Link to="/progress" search={{ section: "body" }}>
-                {locale === "ar" ? "تسجيل القياسات" : "Check-in"}
+                {locale === "ar" ? "قياس الجسم" : "Body check"}
               </Link>
             </Button>
           </div>
@@ -319,8 +322,12 @@ function Today() {
               aria-hidden
               className={`size-5 ${streak > 0 ? "text-emerald-400" : "text-muted-foreground"}`}
             />
-            <h2 className="font-heading text-base font-bold">
-              <span className="tabular-nums">{activity ? streak : "–"}</span> · {t("streak")}
+            <h2 className="font-heading text-base font-bold tabular-nums">
+              {locale === "ar"
+                ? `${activity ? streak : "–"} ${t("streak")}`
+                : activity
+                  ? `${streak}-day streak`
+                  : t("streak")}
             </h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{t("streakHint")}</p>
@@ -331,7 +338,7 @@ function Today() {
           />
         </section>
         <section className="rounded-xl bg-card p-4">
-          <p className="text-xs uppercase tracking-widest text-gold">{t("weeklyQuests")}</p>
+          <h2 className="font-heading text-base font-bold">{t("weeklyQuests")}</h2>
           {!data ? (
             <p role="status" className="mt-3 text-sm text-muted-foreground">
               {locale === "ar"
@@ -367,46 +374,6 @@ function Today() {
         </section>
       </div>
 
-      <section className="mt-4 flex items-center gap-4 rounded-xl bg-card p-4">
-        <RankCrest rank={g?.rank.key ?? "Recruit"} size={64} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="font-display text-lg font-bold">
-              {g ? (locale === "ar" ? g.rank.ar : g.rank.key) : "—"} · {t("level")}{" "}
-              {g?.level ?? "—"}
-            </p>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {g?.xp ?? "—"} {t("xp")}
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-gold"
-              style={{ width: `${Math.round((g?.pct ?? 0) * 100)}%` }}
-            />
-          </div>
-        </div>
-      </section>
-      <details className="mt-3 rounded-xl bg-card p-4">
-        <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">
-          {locale === "ar" ? "ما الفرق بين XP ونقاط PV؟" : "XP & PV points explained"}
-        </summary>
-        <div className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            {locale === "ar"
-              ? "يبني XP مستواك ورتبتك. نقاط PV رصيد للمكافآت من مهام PV المعتمدة؛ إنفاقها لا يقلل XP أو الرتبة. لا يوجد تحويل تلقائي بينهما."
-              : "XP builds your level and rank. PV points are spendable rewards from approved PV tasks; spending them does not reduce XP or rank. There is no automatic conversion between them."}
-          </p>
-          <p className="tabular-nums">
-            XP: {g?.xp ?? "—"} · PV: {g?.pv ?? "—"}
-          </p>
-          <Button asChild variant="outline">
-            <Link to="/rewards">
-              {locale === "ar" ? "عرض قواعد المكافآت" : "View reward rules"}
-            </Link>
-          </Button>
-        </div>
-      </details>
       {!!data?.pending && (
         <Link
           to="/rewards"

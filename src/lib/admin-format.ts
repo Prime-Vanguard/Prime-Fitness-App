@@ -6,7 +6,7 @@ export function adminDate(value: string | null, locale: string) {
     ? locale === "ar"
       ? "غير متاح"
       : "Unavailable"
-    : new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", {
+    : new Intl.DateTimeFormat(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
         timeZone: "Africa/Cairo",
         dateStyle: "medium",
         timeStyle: "short",

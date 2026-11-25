@@ -33,7 +33,7 @@ export function CardioSummary({
   if (!available)
     return (
       <section className="rounded-xl border border-border bg-card p-4">
-        <h2 className="font-heading text-base font-bold">{l("Last 7 days", "آخر ٧ أيام")}</h2>
+        <h2 className="font-heading text-base font-bold">{l("Last 7 days", "آخر 7 أيام")}</h2>
         <p role="status" className="mt-2 text-sm text-muted-foreground">
           {loading
             ? l("Loading recorded activity…", "جارٍ تحميل النشاط المسجّل…")
@@ -51,7 +51,7 @@ export function CardioSummary({
         aria-label={l("Recent cardio summary", "ملخص الكارديو الأخير")}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm text-muted-foreground">{l("Last 7 days", "آخر ٧ أيام")}</h2>
+          <h2 className="text-sm text-muted-foreground">{l("Last 7 days", "آخر 7 أيام")}</h2>
           <p className="font-semibold tabular-nums">
             {(recent.reduce((s, r) => s + r.duration_seconds, 0) / 60).toFixed(1)}{" "}
             {l("min recorded", "دقيقة مسجلة")}
@@ -68,7 +68,7 @@ export function CardioSummary({
       className="space-y-4 rounded-xl border border-border bg-card p-4"
       aria-label={l("Seven-day cardio activity", "نشاط الكارديو خلال سبعة أيام")}
     >
-      <h2 className="font-heading text-base font-bold">{l("Last 7 days", "آخر ٧ أيام")}</h2>
+      <h2 className="font-heading text-base font-bold">{l("Last 7 days", "آخر 7 أيام")}</h2>
       <div className="grid grid-cols-3 gap-2">
         {[
           [String(recent.length), l("Sessions", "جلسات")],

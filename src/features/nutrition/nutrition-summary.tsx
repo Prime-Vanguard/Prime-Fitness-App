@@ -1,5 +1,4 @@
-import { Flame } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { numberLocale, useI18n } from "@/lib/i18n";
 
 type Macros = { calories: number; protein_g: number; carbs_g: number; fat_g: number };
 type Targets = { [K in keyof Macros]?: number | null };
@@ -24,31 +23,40 @@ export function NutritionSummary({
       aria-label={l("Daily nutrition summary", "ملخص التغذية اليومية")}
       data-stitch-nutrition-summary
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <Flame aria-hidden className="size-3 shrink-0 text-gold" />
-            {l("Daily nutrition", "التغذية اليومية")}
-          </p>
-          <h2 className="font-heading text-base font-bold">
-            {l("Daily calorie target", "هدف السعرات اليومي")}
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {complete
-              ? l("Logged food", "الطعام المسجل")
-              : l("Device entries · partial totals", "إدخالات الجهاز · إجماليات جزئية")}
-          </p>
-        </div>
-        <div className="shrink-0 text-end">
-          <p className="text-3xl font-bold tabular-nums" dir="ltr">
-            {Math.round(totals.calories).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB")}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {hasTarget
-              ? `/ ${target.toLocaleString()} kcal`
-              : l("kcal · no target", "سعرة · دون هدف")}
-          </p>
-        </div>
+      <div>
+        <h2 className="flex items-baseline gap-2 font-heading">
+          {remaining != null ? (
+            <>
+              <bdi dir="ltr" className="text-3xl font-bold tabular-nums">
+                {Math.round(Math.abs(remaining)).toLocaleString(numberLocale(locale))}
+              </bdi>
+              <span className="text-sm font-semibold text-muted-foreground">
+                {remaining >= 0
+                  ? l("kcal remaining", "سعرة متبقية")
+                  : l("kcal over target", "سعرة فوق الهدف")}
+              </span>
+            </>
+          ) : (
+            <span className="text-base font-bold">{l("Calories", "السعرات")}</span>
+          )}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <bdi dir="ltr" className="font-semibold text-foreground tabular-nums">
+            {Math.round(totals.calories).toLocaleString(numberLocale(locale))}
+          </bdi>{" "}
+          {hasTarget ? (
+            <>
+              {l("eaten of", "مأكولة من")}{" "}
+              <bdi dir="ltr" className="tabular-nums">
+                {target.toLocaleString(numberLocale(locale))} kcal
+              </bdi>
+            </>
+          ) : (
+            l("kcal eaten · no target", "سعرة مأكولة · دون هدف")
+          )}
+          {!complete &&
+            ` · ${l("device entries, partial totals", "إدخالات الجهاز، إجماليات جزئية")}`}
+        </p>
       </div>
       <div>
         {/* A partial cache is not a meaningful fraction of the full daily target. */}
@@ -60,16 +68,16 @@ export function NutritionSummary({
             />
           </div>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          {remaining == null
-            ? !complete
+        {remaining == null && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {!complete
               ? l(
                   "Remaining budget unavailable until complete totals load.",
                   "المتبقي غير متاح حتى تحميل الإجماليات الكاملة.",
                 )
-              : l("Ask your coach to configure targets.", "اطلب من مدربك تحديد الأهداف.")
-            : `${Math.round(Math.abs(remaining))} kcal ${remaining >= 0 ? l("remaining", "متبقية") : l("over target", "فوق الهدف")}`}
-        </p>
+              : l("Ask your coach to configure targets.", "اطلب من مدربك تحديد الأهداف.")}
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-3 gap-2">
         {(

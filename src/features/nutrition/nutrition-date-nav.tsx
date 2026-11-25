@@ -20,12 +20,15 @@ export function NutritionDateNav({
   const { locale, t } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const format = (date: string, weekday: "short" | "long") =>
-    new Date(`${date}T12:00:00Z`).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB", {
-      timeZone: "Africa/Cairo",
-      weekday,
-      month: "short",
-      day: "numeric",
-    });
+    new Date(`${date}T12:00:00Z`).toLocaleDateString(
+      locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+      {
+        timeZone: "Africa/Cairo",
+        weekday,
+        month: "short",
+        day: "numeric",
+      },
+    );
   return (
     <section className="mt-4 space-y-3" aria-label={l("Nutrition dates", "تواريخ التغذية")}>
       <div className="flex items-center gap-2 rounded-xl bg-card p-2">
@@ -37,17 +40,22 @@ export function NutritionDateNav({
         >
           <ChevronLeft aria-hidden className="size-5 rtl:rotate-180" />
         </Button>
-        <label className="min-w-0 flex-1 text-center">
-          <span className="sr-only">{l("Log date", "تاريخ السجل")}</span>
+        {/* Show a readable date; the transparent native input on top still opens the picker. */}
+        <div className="relative flex min-h-11 min-w-0 flex-1 items-center justify-center">
+          <span aria-hidden className="font-heading text-base font-bold">
+            {day === today ? `${t("today")} · ${format(day, "short")}` : format(day, "short")}
+          </span>
           <Input
             type="date"
+            aria-label={l("Log date", "تاريخ السجل")}
             dir="ltr"
-            className="border-0 bg-transparent text-center font-semibold"
+            className="absolute inset-0 h-full w-full cursor-pointer border-0 opacity-0"
             value={day}
             max={today}
+            onClick={(event) => event.currentTarget.showPicker?.()}
             onChange={(event) => onSelect(event.target.value || today)}
           />
-        </label>
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -80,22 +88,19 @@ export function NutritionDateNav({
           >
             <span>
               {new Date(`${date}T12:00:00Z`).toLocaleDateString(
-                locale === "ar" ? "ar-EG" : "en-GB",
+                locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                 { weekday: "narrow", timeZone: "Africa/Cairo" },
               )}
             </span>
             <span className="mt-1 tabular-nums">{Number(date.slice(-2))}</span>
             <span aria-hidden className="mt-1 text-[10px] leading-3">
-              {days[date]?.pending ? "◌" : days[date]?.logged ? "●" : days[date] ? "○" : "—"}
+              {days[date]?.pending ? "◌" : days[date]?.logged ? "●" : " "}
             </span>
           </button>
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        {l(
-          "● Food logged · ◌ Pending changes · — Not loaded. Cached history can be incomplete.",
-          "● طعام مسجل · ◌ تغييرات معلقة · — لم تُحمّل البيانات. قد يكون السجل المخزن غير مكتمل.",
-        )}
+        {l("● Food logged · ◌ Waiting to sync", "● طعام مسجل · ◌ بانتظار المزامنة")}
       </p>
       {day !== today && (
         <Button variant="ghost" className="w-full" onClick={() => onSelect(today)}>

@@ -289,7 +289,7 @@ export function ProgressPhotos({
                 <span>
                   {t(`pose_${p.pose}` as TKey)} ·{" "}
                   {new Date(p.taken_on + "T12:00:00").toLocaleDateString(
-                    locale === "ar" ? "ar-EG" : "en-GB",
+                    locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                     { day: "numeric", month: "short" },
                   )}
                 </span>

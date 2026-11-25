@@ -1086,9 +1086,7 @@ for (const locale of ["en", "ar"] as const) {
     await expect(page.locator("[data-photo-side-by-side] figure")).toHaveCount(2);
     await sliderButton.click();
     await expect(slider).toHaveValue("51");
-    await page
-      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
-      .click();
+    await page.getByRole("button", { name: l("Body", "الجسم"), exact: true }).click();
     const history = page.getByRole("region", {
       name: l("Measurement history", "سجل القياسات"),
       exact: true,
@@ -1106,9 +1104,7 @@ for (const locale of ["en", "ar"] as const) {
       .click();
     await page.getByRole("button", { name: l("Photos", "الصور"), exact: true }).click();
     await expect(slider).toHaveValue("51");
-    await page
-      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
-      .click();
+    await page.getByRole("button", { name: l("Body", "الجسم"), exact: true }).click();
     await page
       .getByRole("button", { name: l("Add measurements", "إضافة قياسات"), exact: true })
       .click();
@@ -1252,7 +1248,7 @@ for (const locale of ["en", "ar"] as const) {
     // A collapsed form still belongs to the unsaved-account navigation guard.
     await page
       .getByRole("navigation", { name: l("Profile sections", "أقسام الملف") })
-      .getByRole("button", { name: l("App & offline", "التطبيق ودون اتصال"), exact: true })
+      .getByRole("button", { name: l("App", "التطبيق"), exact: true })
       .click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
     await page
@@ -1921,8 +1917,7 @@ for (const locale of ["en", "ar"] as const) {
     await page.screenshot({ path: `artifacts/phase5-profile-${locale}.png`, fullPage: true });
     await page
       .getByRole("button", {
-        name: locale === "ar" ? "إدارة التفضيلات" : "Manage preferences",
-        exact: true,
+        name: locale === "ar" ? /^اللغة والوحدات والراحة/ : /^Language, units & rest/,
       })
       .click();
     await expect(page).toHaveURL(/section=preferences/);
@@ -3543,7 +3538,7 @@ for (const locale of ["en", "ar"] as const) {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     const summaryBox = (await hiit
-      .getByRole("heading", { name: l("Last 7 days", "آخر ٧ أيام"), exact: true })
+      .getByRole("heading", { name: l("Last 7 days", "آخر 7 أيام"), exact: true })
       .boundingBox())!;
     const startBox = (await hiit
       .getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true })
@@ -3568,7 +3563,7 @@ for (const locale of ["en", "ar"] as const) {
     await context.setOffline(true);
     await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("0");
     await hiit.getByRole("button", { name: l("Start HIIT", "بدء HIIT"), exact: true }).click();
-    await expect(hiit.getByRole("alert")).toContainText(l("24 hours", "٢٤ ساعة"));
+    await expect(hiit.getByRole("alert")).toContainText(l("24 hours", "24 ساعة"));
     await expect(hiit.getByRole("alert")).toBeInViewport();
     await hiit.getByLabel(l("Work seconds", "ثواني العمل"), { exact: true }).fill("3");
     await page.evaluate(() => {
@@ -5280,7 +5275,7 @@ for (const locale of ["en", "ar"] as const) {
       });
     });
     await page.goto("/progress");
-    await expect(page.locator("[data-stitch-progress-metrics] dd").first()).toHaveText(l("0", "٠"));
+    await expect(page.locator("[data-stitch-progress-metrics] dd").first()).toHaveText("0");
     await expect(
       page.getByText(l("Front view", "الواجهة الأمامية"), { exact: true }),
     ).toBeVisible();
@@ -5348,9 +5343,7 @@ for (const locale of ["en", "ar"] as const) {
     await expectAlignedControls(page);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `artifacts/phase4-strength-${locale}.png`, fullPage: true });
-    await page
-      .getByRole("button", { name: l("Body & wellness", "الجسم والمتابعة"), exact: true })
-      .click();
+    await page.getByRole("button", { name: l("Body", "الجسم"), exact: true }).click();
     await expect(page.locator("[data-stitch-body-metrics]")).toContainText("80");
     await expect(page.locator("[data-stitch-body-metrics]")).toContainText(
       l("Not recorded", "لم يُسجّل"),
@@ -5875,11 +5868,11 @@ test("member sections restore URLs and profile navigation protects unsaved prefe
   await expect(page.getByLabel("Weight kg", { exact: true })).toHaveCount(0);
   if (process.env["PW_UI_SCREENSHOTS"])
     await page.screenshot({ path: "artifacts/progress-overview-mobile.png" });
-  await page.getByRole("button", { name: "Body & wellness", exact: true }).click();
+  await page.getByRole("button", { name: "Body", exact: true }).click();
   await page.getByRole("button", { name: "Add measurements", exact: true }).click();
   await expect(page.getByLabel("Weight kg", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "Body & wellness", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Body", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -5905,11 +5898,11 @@ test("member sections restore URLs and profile navigation protects unsaved prefe
   if (process.env["PW_UI_SCREENSHOTS"])
     await page.screenshot({ path: "artifacts/profile-preferences-mobile.png" });
   await page.getByLabel("Display name", { exact: true }).fill("Unsaved name");
-  await page.getByRole("button", { name: "Data & privacy", exact: true }).click();
+  await page.getByRole("button", { name: "Data", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Unsaved changes");
   await page.getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Unsaved name");
-  await page.getByRole("button", { name: "Data & privacy", exact: true }).click();
+  await page.getByRole("button", { name: "Data", exact: true }).click();
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get("section")).toBe("privacy");
   await page.getByRole("button", { name: "Preferences", exact: true }).click();
@@ -5931,7 +5924,7 @@ test("member sections restore URLs and profile navigation protects unsaved prefe
   await page.getByLabel("New password", { exact: true }).fill("TemporaryPassword1");
   await page.getByRole("button", { name: "Show password", exact: true }).first().click();
   await expect(page.getByLabel("New password", { exact: true })).toHaveAttribute("type", "text");
-  await page.getByRole("button", { name: "App & offline", exact: true }).click();
+  await page.getByRole("button", { name: "App", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep editing", exact: true }).click();
 });
@@ -9432,7 +9425,7 @@ test("offline meals water body and wellness survive refresh then sync once", asy
   await page.getByRole("button", { name: "+250 ml", exact: true }).click();
   await expect(page.getByText("250 / 2500 ml", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Progress", exact: true }).click();
-  await page.getByRole("button", { name: "Body & wellness", exact: true }).click();
+  await page.getByRole("button", { name: "Body", exact: true }).click();
   await page.getByRole("button", { name: "Add measurements", exact: true }).click();
   await page.getByLabel("Weight kg", { exact: true }).fill("80");
   await page.getByRole("button", { name: "Save measurement", exact: true }).click();
@@ -9979,7 +9972,7 @@ test("photo comparison has keyboard slider and mobile layouts fit in both langua
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("button", { name: "العربية", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await page.getByRole("button", { name: "نظرة عامة", exact: true }).click();
+  await page.getByRole("button", { name: "ملخص", exact: true }).click();
   const front = page.getByText("الواجهة الأمامية", { exact: true });
   const back = page.getByText("الواجهة الخلفية", { exact: true });
   await expect(front).toBeVisible();
@@ -10065,7 +10058,7 @@ test("streak includes more than sixty days", async ({ page, context }) => {
   }));
   await page.goto("/today");
   // The redesigned streak presents its count and label as one heading.
-  await expect(page.getByRole("heading", { name: "90 · Day streak", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "90-day streak", exact: true })).toBeVisible();
 });
 
 test("backup preview restores missing logs and rejects another owner", async ({
@@ -10490,7 +10483,7 @@ for (const locale of ["en", "ar"] as const) {
     await page.getByRole("button", { name: l("Continue", "متابعة"), exact: true }).click();
     await page.getByRole("checkbox", { name: l("Strength", "القوة"), exact: true }).check();
     await page
-      .getByRole("radio", { name: l("Novice (0–1 year)", "مبتدئ (٠–١ سنة)"), exact: true })
+      .getByRole("radio", { name: l("Novice (0–1 year)", "مبتدئ (0–1 سنة)"), exact: true })
       .check();
     await page
       .getByLabel(l("Available training days per week", "أيام التدريب المتاحة أسبوعياً"))

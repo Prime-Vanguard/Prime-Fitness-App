@@ -167,7 +167,7 @@ export function AdvancedSetFields({
         <p className="text-xs leading-5 text-muted-foreground">
           {l(
             "Effort from 1–10. Leave blank when unsure; missing effort can hold a coach's progression suggestion.",
-            "الجهد من ١ إلى ١٠. اتركه فارغاً إن لم تتأكد؛ قد يوقف غياب التقييم اقتراح التدرج من مدربك.",
+            "الجهد من 1 إلى 10. اتركه فارغاً إن لم تتأكد؛ قد يوقف غياب التقييم اقتراح التدرج من مدربك.",
           )}
         </p>
       </fieldset>

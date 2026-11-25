@@ -137,7 +137,7 @@ export function useWorkoutEditor({
     };
     const parsed = parseSetDraft(value, timed, units);
     if (parsed.weight_kg != null && parsed.weight_kg > 1000)
-      throw new Error(l("Weight must be 0–1000 kg.", "يجب أن يكون الوزن من ٠ إلى ١٠٠٠ كجم."));
+      throw new Error(l("Weight must be 0–1000 kg.", "يجب أن يكون الوزن من 0 إلى 1000 كجم."));
     await change((current) => {
       if (current.phase !== "active" || !current.session)
         throw new Error(

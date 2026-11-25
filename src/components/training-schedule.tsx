@@ -61,16 +61,16 @@ export function TrainingSchedule({
     return (
       <section className="mt-4 rounded-xl bg-card p-4">
         <h2 className="font-heading text-xl font-bold">
-          {l("No assigned program yet", "لا يوجد برنامج معيّن بعد")}
+          {l("Train your way today", "تدرّب بطريقتك اليوم")}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {l(
-            "Ask your coach for a program. You can still open Train for a free session.",
-            "اطلب برنامجاً من مدربك. يمكنك فتح التدريب لبدء جلسة حرة.",
+            "Start a free session and pick your exercises. Your coach can add a program later.",
+            "ابدأ جلسة حرة واختر تمارينك. يمكن لمدربك إضافة برنامج لاحقًا.",
           )}
         </p>
-        <Button asChild className="mt-4">
-          <Link to="/train">{l("Open training", "فتح التدريب")}</Link>
+        <Button asChild className="mt-4 min-h-12 w-full font-heading text-base">
+          <Link to="/train">{l("Start a free session", "ابدأ جلسة حرة")}</Link>
         </Button>
       </section>
     );

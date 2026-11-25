@@ -31,7 +31,7 @@ export function onboardingErrorText(error: unknown, locale: "ar" | "en") {
       "Setup was not confirmed. Retry the same request or reload saved setup.",
       "لم يتم تأكيد الإعداد. أعد محاولة الطلب نفسه أو حمّل الإعداد المحفوظ.",
     ],
-    ["Enter a display name of 1–100 characters.", "أدخل اسماً من ١ إلى ١٠٠ حرف."],
+    ["Enter a display name of 1–100 characters.", "أدخل اسماً من 1 إلى 100 حرف."],
     [
       "Review your language, units and consent before saving.",
       "راجع اللغة والوحدات والموافقة قبل الحفظ.",

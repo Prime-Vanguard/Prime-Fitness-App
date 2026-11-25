@@ -44,7 +44,7 @@ export function ProgressMetrics({
             <Icon aria-hidden className="size-4 shrink-0" />
           </dt>
           <dd className="mt-3 font-heading text-2xl font-bold tabular-nums">
-            {value?.toLocaleString(locale === "ar" ? "ar-EG" : "en-GB") ?? "—"}
+            {value?.toLocaleString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB") ?? "—"}
           </dd>
           {/* Metric scope stays beside its value; source adherence/volume figures
               are not interchangeable with these existing history counts. */}

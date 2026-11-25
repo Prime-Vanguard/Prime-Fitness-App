@@ -186,7 +186,7 @@ function Page() {
   );
   const fmt = (d: string) =>
     new Date(`${activityDay(d)}T12:00:00Z`).toLocaleDateString(
-      locale === "ar" ? "ar-EG" : "en-GB",
+      locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
       {
         timeZone: "Africa/Cairo",
         day: "numeric",
@@ -196,11 +196,7 @@ function Page() {
 
   return (
     <>
-      <PageHeader
-        title={t("progress")}
-        eyebrow={locale === "ar" ? "تحليلات فانغارد" : "Vanguard analytics"}
-        eyebrowTone="accent"
-      />
+      <PageHeader title={t("progress")} />
       {error && (
         <p role="alert" className="text-destructive">
           {error.message}
@@ -211,12 +207,12 @@ function Page() {
         label={locale === "ar" ? "أقسام التقدم" : "Progress sections"}
         value={section}
         items={[
-          ["overview", locale === "ar" ? "نظرة عامة" : "Overview"],
+          ["overview", locale === "ar" ? "ملخص" : "Overview"],
           ["strength", locale === "ar" ? "القوة" : "Strength"],
           ...(features?.cardio
             ? [["cardio", locale === "ar" ? "الكارديو" : "Cardio"] as const]
             : []),
-          ["body", locale === "ar" ? "الجسم والمتابعة" : "Body & wellness"],
+          ["body", locale === "ar" ? "الجسم" : "Body"],
           ["photos", locale === "ar" ? "الصور" : "Photos"],
         ]}
         onSelect={(section) =>

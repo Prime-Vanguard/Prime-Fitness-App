@@ -117,7 +117,7 @@ export function MealCopyReview({
         );
       if (records.length > 50)
         throw new Error(
-          l("Copy at most 50 food entries at once.", "انسخ حتى ٥٠ سجلاً في المرة الواحدة."),
+          l("Copy at most 50 food entries at once.", "انسخ حتى 50 سجلاً في المرة الواحدة."),
         );
       const values = records.map((row) =>
         mealItem({
@@ -180,7 +180,9 @@ export function MealCopyReview({
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
+        size="sm"
+        className="text-gold"
         disabled={disabled || busy}
         onClick={() => setOpen(true)}
       >

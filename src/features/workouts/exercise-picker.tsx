@@ -596,7 +596,7 @@ export function ExerciseDiscovery({
                 <span className="truncate">
                   {staged.size
                     ? [...staged].map((id) => names.get(id)).join(", ")
-                    : l("Select up to 20 exercises", "اختر حتى ٢٠ تمريناً")}
+                    : l("Select up to 20 exercises", "اختر حتى 20 تمريناً")}
                 </span>
               </summary>
               <ul

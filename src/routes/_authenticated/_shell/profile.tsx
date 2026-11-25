@@ -328,7 +328,7 @@ function Profile() {
 
   const p = data?.profile;
   const joined = p
-    ? new Date(p.created_at).toLocaleDateString(ar ? "ar-EG" : "en-GB", {
+    ? new Date(p.created_at).toLocaleDateString(ar ? "ar-EG-u-nu-latn" : "en-GB", {
         year: "numeric",
         month: "long",
       })
@@ -353,11 +353,7 @@ function Profile() {
           }}
         />
       )}
-      <PageHeader
-        title={t("profile")}
-        eyebrow={ar ? "إعدادات العضو وتفضيلاته" : "Member settings & preferences"}
-        eyebrowTone="accent"
-      />
+      <PageHeader title={t("profile")} />
       <AlertDialog
         open={blocker.status === "blocked"}
         onOpenChange={(open) => {
@@ -397,8 +393,8 @@ function Profile() {
         items={[
           ["account", ar ? "الحساب" : "Account"],
           ["preferences", ar ? "التفضيلات" : "Preferences"],
-          ["offline", ar ? "التطبيق ودون اتصال" : "App & offline"],
-          ["privacy", ar ? "البيانات والخصوصية" : "Data & privacy"],
+          ["offline", ar ? "التطبيق" : "App"],
+          ["privacy", ar ? "البيانات" : "Data"],
         ]}
         onSelect={(section) =>
           void navigate({ search: { section: section === "account" ? undefined : section } })
@@ -668,7 +664,7 @@ function Profile() {
               className={`${card} space-y-4`}
               aria-label={ar ? "بيانات الحساب" : "Account credentials"}
             >
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="font-heading text-base font-bold">
                 {ar ? "الأمان وبيانات الحساب" : "Security & credentials"}
               </h2>
               <div className="space-y-3 rounded-lg bg-background p-4 text-sm">
@@ -682,12 +678,6 @@ function Profile() {
                   {ar ? "تسجيل الدخول بالبريد وكلمة المرور" : "Email and password sign-in"}
                 </p>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => void navigate({ search: { section: "preferences" } })}
-              >
-                {ar ? "إدارة التفضيلات" : "Manage preferences"}
-              </Button>
             </section>
             {/* Disclosure never clears values: unsaved-password navigation guards still apply. */}
             <details className={`${card} group`} data-profile-password>
@@ -739,7 +729,7 @@ function Profile() {
               aria-label={ar ? "نظرة عامة على التفضيلات" : "Preferences overview"}
               className="space-y-2"
             >
-              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="px-1 font-heading text-base font-bold">
                 {ar ? "نظرة عامة على التفضيلات" : "Preferences overview"}
               </h2>
               <button
@@ -763,7 +753,7 @@ function Profile() {
               </button>
             </section>
             <section aria-label={ar ? "التخزين والمزامنة" : "Storage & sync"} className="space-y-2">
-              <h2 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="px-1 font-heading text-base font-bold">
                 {ar ? "التخزين والمزامنة" : "Storage & sync"}
               </h2>
               <button

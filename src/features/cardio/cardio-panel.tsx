@@ -147,7 +147,7 @@ function CardioContent({ userId, progressOnly }: { userId: string; progressOnly:
           "دون اتصال: سبعة أيام مخزنة وكل التغييرات غير المتزامنة. يحتاج السجل الأقدم إلى اتصال.",
         )}{" "}
         {local.lastSync &&
-          new Date(local.lastSync).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB")}
+          new Date(local.lastSync).toLocaleString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB")}
       </p>
       <p className="text-xs leading-5 text-muted-foreground">
         {l(

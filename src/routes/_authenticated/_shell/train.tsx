@@ -2,7 +2,7 @@ import { useUnits } from "@/hooks/use-units";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Dumbbell, Activity, ChevronRight } from "lucide-react";
+import { Dumbbell, Activity, ChevronRight, History } from "lucide-react";
 import {
   loadWorkoutHistoryPage,
   loadWorkoutHistoryDetails,
@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { MemberSections } from "@/components/member-sections";
 import { LegacyWorkoutRecovery } from "@/components/legacy-workout-recovery";
 import { Button } from "@/components/ui/button";
-import { useI18n } from "@/lib/i18n";
+import { numberLocale, useI18n } from "@/lib/i18n";
 import { useWorkout } from "@/hooks/use-workout";
 import { MyProgram } from "@/components/my-program";
 import { useTrainingFeatures } from "@/hooks/use-training-features";
@@ -60,6 +60,13 @@ function Train() {
     queryFn: ({ signal }) => loadWorkoutHistoryPage(user.id, search, signal),
   });
   const history = historyResult?.rows;
+  // Shares the unfiltered first history page cache; a failed read just hides the card.
+  const latest = useQuery({
+    enabled: ready && section === "workout" && !w.session,
+    queryKey: ["sessions", user.id, 0, undefined, undefined, undefined],
+    networkMode: "always",
+    queryFn: ({ signal }) => loadWorkoutHistoryPage(user.id, {}, signal),
+  }).data?.rows[0];
   const linkedOutsidePage =
     !!expandedHistory && !!history && !history.some((s) => s.id === expandedHistory);
   const linked = useQuery({
@@ -199,9 +206,7 @@ function Train() {
         ) : (
           <div className="mt-5 rounded-xl bg-card p-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="font-heading text-base font-bold">
-                {l("Unprogrammed Free Session", "جلسة حرة خارج البرنامج")}
-              </h2>
+              <h2 className="font-heading text-base font-bold">{l("Free session", "جلسة حرة")}</h2>
               <Dumbbell aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -212,7 +217,6 @@ function Train() {
             </p>
             <Button
               className="mt-4 w-full"
-              variant="secondary"
               size="lg"
               disabled={!w.exercises.length}
               onClick={() => {
@@ -223,6 +227,40 @@ function Train() {
             </Button>
           </div>
         ))}
+      {section === "workout" && ready && !w.session && latest && (
+        <button
+          type="button"
+          onClick={() => void navigate({ search: { section: "history", session: latest.id } })}
+          className="mt-4 flex min-h-16 w-full items-center gap-4 rounded-2xl bg-card p-4 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        >
+          <History aria-hidden className="size-5 shrink-0 text-gold" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted-foreground">
+              {l("Last workout", "آخر تمرين")}
+            </span>
+            <span className="block truncate font-heading font-bold">
+              {latest.title || t("workout")}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              {new Date(latest.started_at).toLocaleDateString(numberLocale(locale), {
+                timeZone: "Africa/Cairo",
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+              {" · "}
+              {(() => {
+                const sets = latest.set_logs?.[0]?.count ?? 0;
+                return l(sets === 1 ? "1 set" : `${sets} sets`, `${sets} مجموعة`);
+              })()}
+            </span>
+          </span>
+          <ChevronRight
+            aria-hidden
+            className="size-5 shrink-0 text-muted-foreground rtl:rotate-180"
+          />
+        </button>
+      )}
       {features?.cardio && section === "workout" && (
         <button
           type="button"
@@ -365,7 +403,7 @@ function Train() {
                       <span className="block text-xs font-normal text-muted-foreground">
                         {new Date(
                           `${s.activity_date ?? activityDay(s.started_at)}T12:00:00Z`,
-                        ).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB", {
+                        ).toLocaleDateString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
                           timeZone: "UTC",
                         })}
                         {s.time_precision !== "date" &&

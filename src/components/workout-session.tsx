@@ -479,7 +479,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                         </bdi>
                         <span className="mt-2 block text-xs text-muted-foreground">
                           {new Date(previous.data.created_at).toLocaleDateString(
-                            locale === "ar" ? "ar-EG" : "en-GB",
+                            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                           )}
                           {previous.data.workout_sessions?.origin === "import"
                             ? l(" · Imported", " · مستورد")
@@ -518,7 +518,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                               : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
                             {wu} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
-                              locale === "ar" ? "ar-EG" : "en-GB",
+                              locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}
                             {previous.data.cached
                               ? l(" · Cached on device", " · نسخة على الجهاز")
@@ -586,7 +586,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                         <p className="mt-2 text-xs text-muted-foreground">
                           {l(
                             "RPE is effort from 1–10. Leave blank if unsure; your coach's progression rule may hold.",
-                            "RPE هو الجهد من ١ إلى ١٠. اتركه فارغاً إن لم تتأكد؛ قد يتوقف اقتراح التدرج.",
+                            "RPE هو الجهد من 1 إلى 10. اتركه فارغاً إن لم تتأكد؛ قد يتوقف اقتراح التدرج.",
                           )}
                         </p>
                         {previous.data && (
@@ -604,7 +604,7 @@ export function WorkoutSession({ controller }: { controller: Controller }) {
                               : formatMeasure(displayWeight(previous.data.weight_kg, units))}{" "}
                             {wu} ·{" "}
                             {new Date(previous.data.created_at).toLocaleDateString(
-                              locale === "ar" ? "ar-EG" : "en-GB",
+                              locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                             )}
                             {previous.data.workout_sessions?.origin === "import"
                               ? l(" · Imported", " · مستورد")

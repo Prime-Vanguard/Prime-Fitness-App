@@ -36,7 +36,7 @@ export function WaterTank({
         {!target && (
           <p className="text-xs text-muted-foreground">
             {locale === "ar"
-              ? "مقياس بصري: ٢ لتر؛ لم يتم تحديد هدف"
+              ? "مقياس بصري: 2 لتر؛ لم يتم تحديد هدف"
               : "Visual scale: 2 L; no target configured"}
           </p>
         )}
@@ -66,7 +66,7 @@ export function WaterTank({
       </p>
       {!target && (
         <span className="text-[10px] text-muted-foreground">
-          {locale === "ar" ? "مقياس بصري: ٢ لتر" : "Visual scale: 2 L"}
+          {locale === "ar" ? "مقياس بصري: 2 لتر" : "Visual scale: 2 L"}
         </span>
       )}
     </div>

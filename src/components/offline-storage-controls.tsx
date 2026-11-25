@@ -1,3 +1,4 @@
+import { numberLocale } from "@/lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { MemberState } from "@/lib/member-store";
@@ -35,7 +36,7 @@ export function OfflineStorageControls({
       active = false;
     };
   }, [historyBytes]);
-  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  const number = new Intl.NumberFormat(numberLocale(locale), { maximumFractionDigits: 1 });
   const formatBytes = (bytes: number) =>
     bytes >= 1024 ** 2
       ? `${number.format(bytes / 1024 ** 2)} ${label("MB", "م.ب")}`

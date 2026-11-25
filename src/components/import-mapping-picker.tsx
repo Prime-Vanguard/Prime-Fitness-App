@@ -54,7 +54,7 @@ export function ImportMappingPicker({
       {matches.length > 50 && (
         <p className="text-xs text-muted-foreground">
           {ar
-            ? "أول ٥٠ نتيجة؛ استخدم البحث للتصفية."
+            ? "أول 50 نتيجة؛ استخدم البحث للتصفية."
             : "First 50 matches; search to narrow the list."}
         </p>
       )}

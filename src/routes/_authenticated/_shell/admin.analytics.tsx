@@ -210,9 +210,9 @@ function Page() {
       {data && (
         <p className="mt-3 text-xs text-muted-foreground">
           {locale === "ar"
-            ? "آخر ٧ و٣٠ يوماً تقويمياً بتوقيت القاهرة، بما فيها اليوم. آخر تحديث: "
+            ? "آخر 7 و30 يوماً تقويمياً بتوقيت القاهرة، بما فيها اليوم. آخر تحديث: "
             : "Last 7 and 30 Cairo calendar days, including today. Updated: "}
-          {new Date(data.asOf).toLocaleString(locale === "ar" ? "ar-EG" : "en-GB", {
+          {new Date(data.asOf).toLocaleString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
             timeZone: "Africa/Cairo",
           })}
         </p>
@@ -242,7 +242,7 @@ function Page() {
             </p>
             <p>
               {locale === "ar"
-                ? "المتفاعلون: تمرين مكتمل مؤهل أو سجل طعام في آخر ٧ أيام. التمارين المستوردة مستبعدة من مؤشرات التدريب."
+                ? "المتفاعلون: تمرين مكتمل مؤهل أو سجل طعام في آخر 7 أيام. التمارين المستوردة مستبعدة من مؤشرات التدريب."
                 : "Engaged members have a qualifying completed workout or food log in the last 7 days. Imported workouts are excluded from training KPIs."}
             </p>
             <p>
@@ -317,7 +317,7 @@ function Page() {
                 [
                   ["", locale === "ar" ? "النقاط" : "XP"],
                   ["name", locale === "ar" ? "الاسم" : "Name"],
-                  ["workouts", locale === "ar" ? "تمارين ٣٠ يوماً" : "30-day workouts"],
+                  ["workouts", locale === "ar" ? "تمارين 30 يوماً" : "30-day workouts"],
                 ],
               ],
             ] as const
@@ -384,8 +384,8 @@ function Page() {
                 {[
                   ["XP", r.xp],
                   ["PV", r.pv],
-                  [locale === "ar" ? "تمارين ٧ أيام" : "7-day workouts", r.w7],
-                  [locale === "ar" ? "تمارين ٣٠ يوماً" : "30-day workouts", r.w30],
+                  [locale === "ar" ? "تمارين 7 أيام" : "7-day workouts", r.w7],
+                  [locale === "ar" ? "تمارين 30 يوماً" : "30-day workouts", r.w30],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-muted-foreground">{label}</dt>
@@ -403,9 +403,9 @@ function Page() {
                 <th className="py-2 text-start">{t("displayName")}</th>
                 <th className="text-end">{t("xp")}</th>
                 <th className="text-end">PV</th>
-                <th className="text-end">{locale === "ar" ? "تمارين ٧ أيام" : "7-day workouts"}</th>
+                <th className="text-end">{locale === "ar" ? "تمارين 7 أيام" : "7-day workouts"}</th>
                 <th className="text-end">
-                  {locale === "ar" ? "تمارين ٣٠ يوماً" : "30-day workouts"}
+                  {locale === "ar" ? "تمارين 30 يوماً" : "30-day workouts"}
                 </th>
               </tr>
             </thead>
@@ -467,7 +467,7 @@ function Page() {
           )}
           <p className="mb-2 text-xs text-muted-foreground">
             {locale === "ar"
-              ? "البحث ضمن أحدث ٢٠٠ حدث تدقيق."
+              ? "البحث ضمن أحدث 200 حدث تدقيق."
               : "Search covers the latest 200 audit events."}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">

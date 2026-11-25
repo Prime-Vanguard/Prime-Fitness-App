@@ -1,4 +1,3 @@
-import { NativeSelect } from "@/components/ui/native-select";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -169,14 +168,17 @@ export function BodyProgress({ userId }: { userId: string }) {
       {loadingHistory ? (
         <LoadingPlaceholder label={l("Loading measurements…", "جارٍ تحميل القياسات…")} />
       ) : (
-        <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" data-stitch-body-metrics>
+        <dl
+          className="grid grid-cols-3 rounded-xl bg-card py-3 [&>*+*]:border-s [&>*+*]:border-border"
+          data-stitch-body-metrics
+        >
           {(["weight_kg", "waist_cm", "body_fat_pct"] as const).map((field) => {
             const latest = ordered.find((row) => row[field] != null);
             const previous =
               latest &&
               ordered.find((row) => row[field] != null && row.measured_on < latest.measured_on);
             return (
-              <div key={field} className="min-w-0 rounded-xl border border-border bg-card p-4">
+              <div key={field} className="min-w-0 px-3">
                 <dt className="text-xs text-muted-foreground">
                   {field === "weight_kg"
                     ? t("weight")
@@ -184,7 +186,7 @@ export function BodyProgress({ userId }: { userId: string }) {
                       ? t("waist")
                       : t("bodyFat")}
                 </dt>
-                <dd className="mt-2 font-heading text-2xl font-bold tabular-nums">
+                <dd className="mt-1 font-heading text-xl font-bold tabular-nums">
                   <bdi>
                     {latest ? value(latest, field) : "—"}{" "}
                     <span className="text-xs font-normal text-muted-foreground">
@@ -266,25 +268,33 @@ export function BodyProgress({ userId }: { userId: string }) {
           )}
         </p>
       )}
-      <label className="mt-4 block text-sm min-w-0 max-w-full">
-        {l("Measurement trend", "اتجاه القياسات")}
-        <NativeSelect
-          value={metric}
+      {/* The trend picker only matters once there is something to chart. */}
+      {!!ordered.length && (
+        <div
+          role="group"
           aria-label={l("Measurement trend", "اتجاه القياسات")}
-          onChange={(event) => setMetric(event.target.value as typeof metric)}
-          className="mt-2"
+          className="flex flex-wrap items-center gap-2"
         >
-          <option value="weight_kg">{t("weight")}</option>
-          <option value="waist_cm">{t("waist")}</option>
-          <option value="body_fat_pct">{t("bodyFat")}</option>
-        </NativeSelect>
-      </label>
+          <h3 className="me-auto font-heading text-base font-semibold">{l("Trend", "الاتجاه")}</h3>
+          {(["weight_kg", "waist_cm", "body_fat_pct"] as const).map((key) => (
+            <Button
+              key={key}
+              size="sm"
+              variant={metric === key ? "default" : "outline"}
+              aria-pressed={metric === key}
+              onClick={() => setMetric(key)}
+            >
+              {key === "weight_kg" ? t("weight") : key === "waist_cm" ? t("waist") : t("bodyFat")}
+            </Button>
+          ))}
+        </div>
+      )}
       {series.length > 1 && <DeferredProgressChart series={series} label={label} unit={unit} />}
       {!ordered.length && completeHistory && (
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {l(
-            "No measurements available. Add your first entry to start a trend.",
-            "لا توجد قياسات متاحة. أضف أول سجل لبدء المتابعة.",
+            "Add your first body check to start your trend.",
+            "سجّل أول قياس للجسم لتبدأ متابعة الاتجاه.",
           )}
         </p>
       )}

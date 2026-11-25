@@ -385,12 +385,12 @@ function SetupForm({
                 <p id="setup-name-hint" className="text-xs text-muted-foreground">
                   {l(
                     "Use the name your coach will recognize. 1–100 characters.",
-                    "استخدم الاسم الذي يعرفك به مدربك. من ١ إلى ١٠٠ حرف.",
+                    "استخدم الاسم الذي يعرفك به مدربك. من 1 إلى 100 حرف.",
                   )}
                 </p>
                 {nameError && (
                   <p id="setup-name-error" role="alert" className="text-sm text-destructive">
-                    {l("Enter a display name of 1–100 characters.", "أدخل اسماً من ١ إلى ١٠٠ حرف.")}
+                    {l("Enter a display name of 1–100 characters.", "أدخل اسماً من 1 إلى 100 حرف.")}
                   </p>
                 )}
               </div>

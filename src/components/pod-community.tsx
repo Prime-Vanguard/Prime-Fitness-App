@@ -208,7 +208,7 @@ export function PodCommunity({ userId, active = true }: { userId: string; active
                     <span className="text-gold">+{r.xp} XP</span>
                     <time dateTime={r.created_at} className="text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString(
-                        locale === "ar" ? "ar-EG" : "en-GB",
+                        locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
                         { timeZone: "Africa/Cairo" },
                       )}
                     </time>

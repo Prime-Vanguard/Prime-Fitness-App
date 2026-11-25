@@ -16,7 +16,7 @@ export type ProgressChartProps = {
 export function ProgressLineChart({ series, label, unit }: ProgressChartProps) {
   const { locale } = useI18n();
   const fmt = (day: string) =>
-    new Date(`${day}T12:00:00Z`).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-GB", {
+    new Date(`${day}T12:00:00Z`).toLocaleDateString(locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB", {
       day: "numeric",
       month: "short",
       timeZone: "Africa/Cairo",

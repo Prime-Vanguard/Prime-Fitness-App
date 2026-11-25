@@ -366,7 +366,7 @@ export function FoodScanner({
               ["name", l("Food name", "اسم الطعام")],
               [
                 "serving",
-                l("Serving basis, e.g. 100 g or 1 bottle", "أساس الحصة مثل ١٠٠ غ أو زجاجة"),
+                l("Serving basis, e.g. 100 g or 1 bottle", "أساس الحصة مثل 100 غ أو زجاجة"),
               ],
               ["calories", l("Calories (kcal)", "السعرات")],
               ["protein_g", l("Protein (g)", "البروتين (غ)")],
@@ -406,7 +406,7 @@ export function FoodScanner({
               ·{" "}
               {l(
                 "Product values are per 100 g; change the basis only with matching values.",
-                "قيم المنتج لكل ١٠٠ غ؛ غيّر الأساس مع تعديل القيم.",
+                "قيم المنتج لكل 100 غ؛ غيّر الأساس مع تعديل القيم.",
               )}
             </p>
           )}
