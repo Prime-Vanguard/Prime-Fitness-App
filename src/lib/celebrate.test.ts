@@ -44,6 +44,11 @@ describe("celebration queue", () => {
     expect(nextToPlay(q, true)).toEqual({ kind: "xp", amount: 50 });
     expect(nextToPlay(add({ kind: "level", level: 4, from: 3 }), true)).toBeUndefined();
   });
+  it("holds every moment while a page moment has the stage", () => {
+    const q = add({ kind: "level", level: 4, from: 3 }, { kind: "xp", amount: 50 });
+    expect(nextToPlay(q, false, true)).toBeUndefined();
+    expect(nextToPlay(q, true, true)).toBeUndefined();
+  });
 });
 
 describe("workout debrief record", () => {

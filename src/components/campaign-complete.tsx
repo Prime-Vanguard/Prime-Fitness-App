@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { celebrationMoves } from "@/lib/celebrate";
+import { celebrationMoves, holdStage } from "@/lib/celebrate";
 import { celebrationSound, haptic } from "@/lib/device-feedback";
 import { embersFrom } from "@/lib/embers";
 import { useI18n } from "@/lib/i18n";
@@ -43,6 +43,9 @@ export function CampaignComplete({
         : first.left + first.width / 2 - box.left,
     });
   }, [list]);
+
+  // Level, rank and badge moments queued while the seal plays wait for it to finish.
+  useEffect(holdStage, []);
 
   useEffect(() => {
     const moves = celebrationMoves();

@@ -10244,6 +10244,30 @@ test("campaign complete stays still when celebrations are off", async ({ page, c
   await expect(page.locator("[data-campaign-seal]")).toHaveCount(0);
 });
 
+test("campaign complete plays once per tab when storage is blocked", async ({ page, context }) => {
+  const backend = await fakeBackend(context);
+  backend.tables.my_weekly_quests = paidCampaign;
+  await context.addInitScript(() => {
+    const { getItem, setItem } = Storage.prototype;
+    Storage.prototype.getItem = function (key) {
+      if (key.startsWith("pf-campaign-seen")) throw new DOMException("blocked", "SecurityError");
+      return getItem.call(this, key);
+    };
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("pf-campaign-seen")) throw new DOMException("blocked", "SecurityError");
+      return setItem.call(this, key, value);
+    };
+  });
+  await page.goto("/today");
+  const seal = page.locator("[data-campaign-seal]");
+  await expect(seal).toBeVisible();
+  await expect(seal).toBeHidden({ timeout: 6000 });
+  await page.getByRole("link", { name: "Nutrition", exact: true }).click();
+  await page.getByRole("link", { name: "Today", exact: true }).click();
+  await expect(page.locator("[data-quest-campaign]")).toBeVisible();
+  await expect(seal).toHaveCount(0);
+});
+
 test("backup preview restores missing logs and rejects another owner", async ({
   page,
   context,

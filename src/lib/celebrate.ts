@@ -60,9 +60,12 @@ export function enqueue(queue: readonly Celebration[], event: Celebration): Cele
   return next.sort((a, b) => PRIORITY[a.kind] - PRIORITY[b.kind]);
 }
 
-/** The event to play now; during a workout big moments wait for the debrief. */
-export function nextToPlay(queue: readonly Celebration[], inWorkout: boolean) {
-  return inWorkout ? queue.find((e) => SMALL.has(e.kind)) : queue[0];
+/**
+ * The event to play now; during a workout big moments wait for the debrief, and while a
+ * page moment holds the stage (the campaign seal) everything waits.
+ */
+export function nextToPlay(queue: readonly Celebration[], inWorkout: boolean, held = false) {
+  return held ? undefined : inWorkout ? queue.find((e) => SMALL.has(e.kind)) : queue[0];
 }
 
 export function celebrationLevel(): CelebrationLevel {
@@ -77,12 +80,13 @@ export function celebrationLevel(): CelebrationLevel {
 
 let queue: Celebration[] = [];
 let workouts = 0;
+let stageHolds = 0;
 // The signed-in member whose Rewards dot the navigation shows.
 let rewardsUser: string | null = null;
 type Snapshot = { current: Celebration | undefined; level: CelebrationLevel; rewardsNew: boolean };
 let snapshot: Snapshot | undefined;
 const read = (): Snapshot => ({
-  current: nextToPlay(queue, workouts > 0),
+  current: nextToPlay(queue, workouts > 0, stageHolds > 0),
   level: celebrationLevel(),
   rewardsNew: rewardsUser != null && readDevice(`pf-rewards-new-${rewardsUser}`) === "1",
 });
@@ -107,6 +111,15 @@ export function holdForWorkout() {
   emit();
   return () => {
     workouts--;
+    emit();
+  };
+}
+/** A page moment is playing: queued events wait. Returns the release for effect cleanup. */
+export function holdStage() {
+  stageHolds++;
+  emit();
+  return () => {
+    stageHolds--;
     emit();
   };
 }
