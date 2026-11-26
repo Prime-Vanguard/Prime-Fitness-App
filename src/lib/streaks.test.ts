@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { currentStreak, streakTier, weekStart, weeklyQuests } from "./streaks";
+import { currentStreak, questCampaign, streakTier, weekStart, weeklyQuests } from "./streaks";
 
 describe("streaks", () => {
   it("counts consecutive days through today", () =>
@@ -13,6 +13,36 @@ describe("streaks", () => {
     expect(
       weeklyQuests({ workouts: 5, foodDays: 2, bodyChecks: 0 }).map((q) => q.progress),
     ).toEqual([3, 2, 0]));
+});
+
+describe("weeklyQuests with server rewards", () => {
+  const row = (quest: string, progress: number, goal: number, awarded = false, pays = true) => ({
+    quest,
+    progress,
+    goal,
+    xp: quest === "week" ? 750 : 250,
+    awarded,
+    pays,
+  });
+  const server = [
+    row("workouts", 3, 3, true),
+    row("nutrition", 2, 5),
+    row("body", 0, 1),
+    row("week", 1, 3),
+  ];
+  it("uses server goals and rewards, keeping pending local progress visible", () =>
+    expect(weeklyQuests({ workouts: 1, foodDays: 4, bodyChecks: 1 }, server)).toEqual([
+      { key: "q_workouts", progress: 3, goal: 3, xp: 250, awarded: true },
+      { key: "q_nutrition", progress: 4, goal: 5, xp: 250, awarded: false },
+      { key: "q_body", progress: 1, goal: 1, xp: 250, awarded: false },
+    ]));
+  it("shows no reward before quests start paying", () => {
+    const early = server.map((r) => ({ ...r, pays: false }));
+    expect(weeklyQuests({ workouts: 0, foodDays: 0, bodyChecks: 0 }, early)[0]!.xp).toBeUndefined();
+    expect(questCampaign(early)).toBeUndefined();
+  });
+  it("reports the campaign bonus", () =>
+    expect(questCampaign(server)).toEqual({ xp: 750, awarded: false }));
 });
 
 describe("streakTier", () => {

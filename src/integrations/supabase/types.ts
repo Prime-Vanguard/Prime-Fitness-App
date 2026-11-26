@@ -2280,6 +2280,12 @@ export type Database = {
           nutrition_day_xp: number | null;
           offline_grace_days: number | null;
           policy_version: string | null;
+          quest_body_goal: number | null;
+          quest_effective_from: string | null;
+          quest_nutrition_goal: number | null;
+          quest_week_xp: number | null;
+          quest_workout_goal: number | null;
+          quest_xp: number | null;
           workout_weekly_cap: number | null;
           workout_xp: number | null;
         };
@@ -2328,6 +2334,18 @@ export type Database = {
         Returns: Json;
       };
       get_training_features: { Args: never; Returns: Json };
+      my_weekly_quests: {
+        Args: never;
+        Returns: {
+          awarded: boolean;
+          goal: number;
+          pays: boolean;
+          progress: number;
+          quest: string;
+          week_start: string;
+          xp: number;
+        }[];
+      };
       grant_badge: {
         Args: { _code: string; _member: string };
         Returns: undefined;

@@ -103,6 +103,68 @@ try {
   await as(b);
   eq(await count("public.pod_leaderboard"), 0);
 
+  // Weekly quests pay once from durable credits, starting the Monday after release.
+  await as(a);
+  const quests = async () =>
+    (await db.query("SELECT quest,progress,goal,xp,awarded,pays FROM public.my_weekly_quests()"))
+      .rows;
+  eq(
+    (await quests()).map((q) => [q.quest, q.progress, q.goal, q.xp, q.awarded, q.pays]),
+    [
+      ["workouts", 1, 3, 250, false, false],
+      ["nutrition", 0, 5, 250, false, false],
+      ["body", 0, 1, 250, false, false],
+      ["week", 0, 3, 750, false, false],
+    ],
+  );
+  const questXp = async (member) =>
+    Number(
+      (
+        await db.query(
+          `SELECT coalesce(sum(amount),0) AS n FROM public.xp_events WHERE member_id='${member}' AND source IN ('quest','quest_week')`,
+        )
+      ).rows[0].n,
+    );
+  const board = async () =>
+    Number(
+      (
+        await db.query(
+          `SELECT coalesce(sum(xp),0) AS n FROM public.leaderboard_weekly WHERE member_id='${a}'`,
+        )
+      ).rows[0].n,
+    );
+  const credit = (member, kind, sql) =>
+    db.exec(`RESET ROLE; INSERT INTO private.xp_activity_credits
+      SELECT '${member}','${kind}',d FROM (${sql}) s(d) ON CONFLICT DO NOTHING;`);
+  const thisWeek = "date_trunc('week',(now() AT TIME ZONE 'Africa/Cairo')::date)::date";
+  const paidWeek = "(SELECT quest_effective_from FROM public.xp_rules)";
+  // A full week before the start date earns nothing extra.
+  await credit(a, "workout", `SELECT ${thisWeek}+n FROM generate_series(0,2) n`);
+  eq(await questXp(a), 0);
+  const boardBefore = await board();
+  await credit(a, "workout", `SELECT ${paidWeek}+n FROM generate_series(0,1) n`);
+  eq(await questXp(a), 0);
+  await credit(a, "workout", `SELECT ${paidWeek}+2`);
+  eq(await questXp(a), 250);
+  await credit(a, "workout", `SELECT ${paidWeek}+3`);
+  eq(await questXp(a), 250);
+  await credit(a, "nutrition_day", `SELECT ${paidWeek}+n FROM generate_series(0,4) n`);
+  eq(await questXp(a), 500);
+  // Body credits sit on the week's Monday; the third quest also completes the campaign.
+  await credit(a, "body_check", `SELECT ${paidWeek}`);
+  eq(await questXp(a), 1500);
+  await credit(a, "nutrition_day", `SELECT ${paidWeek}+6`);
+  await credit(a, "workout", `SELECT ${paidWeek}+7`); // Next week: one workout, no quest.
+  eq(await questXp(a), 1500);
+  eq(await board(), boardBefore + 1500);
+  await as(b);
+  eq(
+    (await quests()).every((q) => q.progress === 0 && !q.awarded),
+    true,
+  );
+  await db.exec("RESET ROLE; SET ROLE anon");
+  await denied("SELECT * FROM public.my_weekly_quests()", /permission/);
+
   // Two monthly shields are enforced in the database, not by the UI counter.
   // Seed historical consumption as the owner to test month-cap behavior.
   const day = (await db.query("SELECT (now() AT TIME ZONE 'Africa/Cairo')::date::text AS day"))
@@ -179,6 +241,13 @@ try {
   await denied(
     `INSERT INTO public.saved_meals(member_id,name,kind,items) VALUES ('${b}','Paused','food','[{}]')`,
   );
+  // Paused members earn no quest rewards, even if a credit is written for them.
+  await credit(
+    b,
+    "workout",
+    "SELECT (SELECT quest_effective_from FROM public.xp_rules)+n FROM generate_series(0,2) n",
+  );
+  eq(await questXp(b), 0);
   const flags = await db.query(
     "SELECT relname,relrowsecurity FROM pg_class WHERE relname IN ('saved_meals','streak_shields','pod_activity')",
   );

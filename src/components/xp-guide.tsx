@@ -2,13 +2,21 @@ import { numberLocale } from "@/lib/number-locale";
 import { useXpRules } from "@/hooks/use-xp-rules";
 import { useI18n } from "@/lib/i18n";
 
+const cairoToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+
 export function XpGuide() {
   const { locale } = useI18n();
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const { data, isError } = useXpRules();
   const number = (value: number) => value.toLocaleString(numberLocale(locale));
+  // Quest XP counts only once quests pay, so the pace never promises an unpaid bonus.
+  const questsPay = !!data?.quest_effective_from && data.quest_effective_from <= cairoToday();
+  const quests = questsPay ? 3 * (data.quest_xp ?? 0) + (data.quest_week_xp ?? 0) : 0;
   const weekly = data
-    ? 4 * (data.workout_xp ?? 0) + 7 * (data.nutrition_day_xp ?? 0) + (data.body_week_xp ?? 0)
+    ? 4 * (data.workout_xp ?? 0) +
+      7 * (data.nutrition_day_xp ?? 0) +
+      (data.body_week_xp ?? 0) +
+      quests
     : 0;
   return (
     <section
@@ -64,11 +72,24 @@ export function XpGuide() {
               </div>
             ))}
           </dl>
+          {questsPay && (
+            <p className="mt-4 text-sm text-muted-foreground" data-xp-guide-quests>
+              {l(
+                `Weekly quests: +${number(data.quest_xp ?? 0)} XP each, and +${number(data.quest_week_xp ?? 0)} XP when all three are done.`,
+                `مهام الأسبوع: ${number(data.quest_xp ?? 0)} نقطة لكل مهمة، و${number(data.quest_week_xp ?? 0)} نقطة عند إنجاز الثلاث.`,
+              )}
+            </p>
+          )}
           <p className="mt-4 text-sm text-muted-foreground">
-            {l(
-              `Four workouts, seven nutrition days and one check-in earn ${number(weekly)} XP a week—about one year to Level 100 from zero, with milestone bonuses. Your pace can vary. Rest days are part of the plan.`,
-              `أربعة تمارين وسبعة أيام تغذية وقياس واحد تمنحك ${number(weekly)} نقطة أسبوعياً، أي نحو عام من الصفر للمستوى 100 مع مكافآت الإنجازات. قد تختلف سرعتك. أيام الراحة جزء من الخطة.`,
-            )}
+            {questsPay
+              ? l(
+                  `Four workouts, seven nutrition days, one check-in and the weekly quests earn ${number(weekly)} XP a week—about one year to Level 100 from zero, with milestone bonuses. Your pace can vary. Rest days are part of the plan.`,
+                  `أربعة تمارين وسبعة أيام تغذية وقياس واحد ومهام الأسبوع تمنحك ${number(weekly)} نقطة أسبوعياً، أي نحو عام من الصفر للمستوى 100 مع مكافآت الإنجازات. قد تختلف سرعتك. أيام الراحة جزء من الخطة.`,
+                )
+              : l(
+                  `Four workouts, seven nutrition days and one check-in earn ${number(weekly)} XP a week—about one year to Level 100 from zero, with milestone bonuses. Your pace can vary. Rest days are part of the plan.`,
+                  `أربعة تمارين وسبعة أيام تغذية وقياس واحد تمنحك ${number(weekly)} نقطة أسبوعياً، أي نحو عام من الصفر للمستوى 100 مع مكافآت الإنجازات. قد تختلف سرعتك. أيام الراحة جزء من الخطة.`,
+                )}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {l(
