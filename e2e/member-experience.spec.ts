@@ -2173,6 +2173,7 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", 
     const request = route.request(),
       url = new URL(request.url());
     const table = url.pathname.split("/").pop()!;
+    if (table === "my_weekly_quests") return route.fulfill({ json: tables.my_weekly_quests ?? [] });
     if (table === "get_training_features")
       return route.fulfill({
         json: {
@@ -10155,6 +10156,57 @@ test("streak includes more than sixty days", async ({ page, context }) => {
   // The redesigned streak presents its count and label as one heading.
   await expect(page.getByRole("heading", { name: "90-day streak", exact: true })).toBeVisible();
 });
+
+for (const locale of ["en", "ar"] as const) {
+  test(`weekly quests show server rewards and the campaign bonus in ${locale}`, async ({
+    page,
+    context,
+  }) => {
+    const backend = await fakeBackend(context, locale);
+    const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
+    const quest = (name: string, progress: number, goal: number, awarded: boolean) => ({
+      week_start: "2026-11-30",
+      quest: name,
+      progress,
+      goal,
+      xp: name === "week" ? 750 : 250,
+      awarded,
+      pays: true,
+    });
+    backend.tables.my_weekly_quests = [
+      quest("workouts", 3, 3, true),
+      quest("nutrition", 2, 5, false),
+      quest("body", 1, 1, false),
+      quest("week", 2, 3, false),
+    ];
+    await page.goto("/today");
+    const reward = (key: string) => page.locator(`[data-quest-reward="${key}"]`);
+    await expect(reward("q_workouts")).toHaveText("+250 XP");
+    await expect(reward("q_nutrition")).toHaveText("+250 XP");
+    // Done but not yet confirmed by the server.
+    await expect(reward("q_body")).toHaveText(l("+250 XP after sync", "+250 XP بعد المزامنة"));
+    await expect(
+      page.getByText(
+        l("Finish all three for a campaign bonus:", "أنجز الثلاث لمكافأة حملة الأسبوع:"),
+      ),
+    ).toBeVisible();
+
+    backend.tables.my_weekly_quests = [
+      quest("workouts", 3, 3, true),
+      quest("nutrition", 5, 5, true),
+      quest("body", 1, 1, true),
+      quest("week", 3, 3, true),
+    ];
+    await page.reload();
+    await expect(page.locator("[data-quest-campaign]")).toHaveText(
+      l(
+        "Campaign complete: +750 XP. New quests start Monday.",
+        "اكتملت حملة الأسبوع: +750 XP. مهام جديدة يوم الاثنين.",
+      ),
+    );
+    await expect(reward("q_body")).toHaveText("+250 XP");
+  });
+}
 
 test("backup preview restores missing logs and rejects another owner", async ({
   page,

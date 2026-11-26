@@ -18,7 +18,7 @@ import { useI18n } from "@/lib/i18n";
 import { numberLocale } from "@/lib/number-locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { currentStreak, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
+import { currentStreak, questCampaign, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
 import { celebrationLevel } from "@/lib/celebrate";
 import { readDevice, writeDevice } from "@/lib/device-storage";
 import { RollingNumber } from "@/components/rolling-number";
@@ -223,14 +223,31 @@ function Today() {
     }
   }, [activity, tier, user.id]);
   const ws = weekStart(today);
-  const quests = weeklyQuests({
-    workouts: workoutDays.filter((d) => d >= ws).length,
-    foodDays: new Set(foodDays.filter((d) => d >= ws)).size,
-    bodyChecks: data?.body.length ?? 0,
+  // Server counts of rewarded activity and paid quests. Without them (offline, error)
+  // quests fall back to local counts and show no quest reward.
+  const { data: questRows } = useQuery({
+    queryKey: ["today", user.id, "quests", ws],
+    enabled: navigator.onLine,
+    retry: 1,
+    queryFn: async () => {
+      const result = await supabase.rpc("my_weekly_quests");
+      if (result.error) throw result.error;
+      return Array.isArray(result.data) ? result.data : [];
+    },
   });
+  const quests = weeklyQuests(
+    {
+      workouts: workoutDays.filter((d) => d >= ws).length,
+      foodDays: new Set(foodDays.filter((d) => d >= ws)).size,
+      bodyChecks: data?.body.length ?? 0,
+    },
+    questRows,
+  );
+  const campaign = questCampaign(questRows);
+  const allDone = quests.every((q) => q.progress >= q.goal);
   const { data: rules } = useXpRules();
-  // Quests earn the XP of the activities they count; there is no separate quest bonus yet.
-  // Shown per activity ("3 × 3,500 XP") so it never reads as a separate quest bonus.
+  // Before quests pay, show the XP of the activities they count ("3 × 3,500 XP"),
+  // so it never reads as a separate quest bonus.
   const questXp: Record<string, [number, number]> = {
     q_workouts: [3, rules?.workout_xp ?? 0],
     q_nutrition: [5, rules?.nutrition_day_xp ?? 0],
@@ -404,11 +421,18 @@ function Today() {
                         {t(q.key)}
                       </span>
                       <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
-                        {rules && (
-                          <bdi className="text-xs text-gold">
-                            {(questXp[q.key]?.[0] ?? 1) > 1 && `${questXp[q.key]![0]} × `}
-                            {(questXp[q.key]?.[1] ?? 0).toLocaleString(numberLocale(locale))} XP
-                          </bdi>
+                        {q.xp !== undefined ? (
+                          <span className="text-xs text-gold" data-quest-reward={q.key}>
+                            <bdi dir="ltr">+{q.xp.toLocaleString(numberLocale(locale))} XP</bdi>
+                            {done && !q.awarded && l(" after sync", " بعد المزامنة")}
+                          </span>
+                        ) : (
+                          rules && (
+                            <bdi className="text-xs text-gold">
+                              {(questXp[q.key]?.[0] ?? 1) > 1 && `${questXp[q.key]![0]} × `}
+                              {(questXp[q.key]?.[1] ?? 0).toLocaleString(numberLocale(locale))} XP
+                            </bdi>
+                          )
                         )}
                         <bdi>
                           <RollingNumber value={q.progress} format={String} />/{q.goal}
@@ -426,15 +450,39 @@ function Today() {
               })}
             </ul>
           )}
-          {data && quests.every((q) => q.progress >= q.goal) && (
+          {data && campaign && !allDone && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {l("Finish all three for a campaign bonus: ", "أنجز الثلاث لمكافأة حملة الأسبوع: ")}
+              <bdi dir="ltr" className="text-gold">
+                +{campaign.xp.toLocaleString(numberLocale(locale))} XP
+              </bdi>
+            </p>
+          )}
+          {data && allDone && (
             <p
               role="status"
-              className="mt-3 flex items-center gap-2 text-sm font-semibold text-gold"
+              data-quest-campaign
+              className="mt-3 flex items-start gap-2 text-sm font-semibold text-gold"
             >
-              <CheckCircle2 aria-hidden className="size-4" />
-              {l(
-                "All weekly quests done. New quests start Monday.",
-                "أنجزت كل مهام الأسبوع. مهام جديدة يوم الاثنين.",
+              <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0" />
+              {!campaign ? (
+                l(
+                  "All weekly quests done. New quests start Monday.",
+                  "أنجزت كل مهام الأسبوع. مهام جديدة يوم الاثنين.",
+                )
+              ) : (
+                <span>
+                  {campaign.awarded
+                    ? l("Campaign complete: ", "اكتملت حملة الأسبوع: ")
+                    : l(
+                        "All weekly quests done. Campaign bonus ",
+                        "أنجزت كل مهام الأسبوع. مكافأة الحملة ",
+                      )}
+                  <bdi dir="ltr">+{campaign.xp.toLocaleString(numberLocale(locale))} XP</bdi>
+                  {campaign.awarded
+                    ? l(". New quests start Monday.", ". مهام جديدة يوم الاثنين.")
+                    : l(" after sync.", " بعد المزامنة.")}
+                </span>
               )}
             </p>
           )}

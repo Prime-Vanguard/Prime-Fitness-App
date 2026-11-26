@@ -199,7 +199,11 @@ View Transitions switch Rewards sections instantly. "Since last visit" marks
 These need migrations and RLS review, so each one gets its own approval.
 
 1. **Quest rewards.** XP rule for completing each quest and the full week, awarded
-   server-side and shown in Recent XP.
+   server-side and shown in Recent XP. Built 2026-11-26 on `feat/quest-rewards`
+   (migration `20261126120000_weekly_quest_rewards.sql`): +250 XP per quest and +750 XP
+   for all three, counted from durable activity credits, paid from the first Monday
+   after release and included in the weekly leaderboard. Today reads
+   `my_weekly_quests()`. The 3.5 "Campaign complete" effect is the next step.
 2. **Badge progress.** A read-only view that returns progress per badge for the
    member (for example 2 / 5 workouts).
 3. **Own leaderboard row.** Return the member's weekly row and position even outside

@@ -199,6 +199,8 @@ function Page() {
       nutrition_day: l("Nutrition day", "يوم تغذية"),
       body_check: l("Body check", "قياس الجسم"),
       badge: l("Badge bonus", "مكافأة وسام"),
+      quest: l("Weekly quest", "مهمة الأسبوع"),
+      quest_week: l("Weekly campaign", "حملة الأسبوع"),
       level_curve_transition: l("Previous level protection", "حماية المستوى السابق"),
     })[source.split(":")[0]!] ?? l("Bonus", "مكافأة");
 

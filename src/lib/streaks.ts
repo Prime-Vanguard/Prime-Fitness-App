@@ -24,21 +24,50 @@ export function weekStart(today: string) {
   return shift(today, -dow);
 }
 
+/** One row of `my_weekly_quests()`: the server's count of rewarded activity this week. */
+export type QuestRow = {
+  quest: string;
+  progress: number;
+  goal: number;
+  xp: number;
+  awarded: boolean;
+  pays: boolean;
+};
 export type Quest = {
   key: "q_workouts" | "q_nutrition" | "q_body";
   progress: number;
   goal: number;
+  /** Quest reward, when quests pay this week. */
+  xp?: number | undefined;
+  awarded: boolean;
 };
-export function weeklyQuests(a: {
-  workouts: number;
-  foodDays: number;
-  bodyChecks: number;
-}): Quest[] {
-  return [
-    { key: "q_workouts", progress: Math.min(a.workouts, 3), goal: 3 },
-    { key: "q_nutrition", progress: Math.min(a.foodDays, 5), goal: 5 },
-    { key: "q_body", progress: Math.min(a.bodyChecks, 1), goal: 1 },
-  ];
+const questNames = { q_workouts: "workouts", q_nutrition: "nutrition", q_body: "body" } as const;
+
+// Local counts include entries still waiting to sync; the server counts only rewarded
+// activity. Show the higher of the two so pending work is visible before it is confirmed.
+export function weeklyQuests(
+  a: { workouts: number; foodDays: number; bodyChecks: number },
+  server?: QuestRow[],
+): Quest[] {
+  const local = { q_workouts: a.workouts, q_nutrition: a.foodDays, q_body: a.bodyChecks };
+  const fallback = { q_workouts: 3, q_nutrition: 5, q_body: 1 };
+  return (Object.keys(questNames) as Quest["key"][]).map((key) => {
+    const row = server?.find((r) => r.quest === questNames[key]);
+    const goal = row?.goal ?? fallback[key];
+    return {
+      key,
+      goal,
+      progress: Math.min(Math.max(local[key], row?.progress ?? 0), goal),
+      xp: row?.pays ? row.xp : undefined,
+      awarded: !!row?.awarded,
+    };
+  });
+}
+
+/** The all-quests bonus, when quests pay this week. */
+export function questCampaign(server?: QuestRow[]) {
+  const row = server?.find((r) => r.quest === "week");
+  return row?.pays ? { xp: row.xp, awarded: row.awarded } : undefined;
 }
 
 /** Flame tier: 0 none, 1 ember (1–2 days), 2 flame (3–6), 3 gold (7–13), 4 white-gold (14–29), 5 crowned (30+). */
