@@ -65,9 +65,20 @@ export function weeklyQuests(
 }
 
 /** The all-quests bonus, when quests pay this week. */
-export function questCampaign(server?: QuestRow[]) {
+export function questCampaign(server?: (QuestRow & { week_start?: string })[]) {
   const row = server?.find((r) => r.quest === "week");
-  return row?.pays ? { xp: row.xp, awarded: row.awarded } : undefined;
+  return row?.pays ? { xp: row.xp, awarded: row.awarded, week: row.week_start } : undefined;
+}
+
+/**
+ * The "Campaign complete" moment plays once per week on this device, and only for a bonus
+ * the server has paid. `seenWeek` is the last week it played here.
+ */
+export function campaignToPlay(
+  campaign: ReturnType<typeof questCampaign>,
+  seenWeek: string | null,
+) {
+  return !!campaign?.awarded && !!campaign.week && campaign.week !== seenWeek;
 }
 
 /** Flame tier: 0 none, 1 ember (1–2 days), 2 flame (3–6), 3 gold (7–13), 4 white-gold (14–29), 5 crowned (30+). */

@@ -165,6 +165,11 @@ opens the badge.
 When all weekly quests are done: the three checks link with a gold line, then a
 "Campaign complete" seal stamps over them with the reward (needs decision 2).
 
+Built 2026-11-26 on `feat/campaign-complete` (`src/components/campaign-complete.tsx`).
+It plays on Today once the server has paid the campaign bonus, once per week per device,
+after any level, rank or badge moment. Subtle and reduced motion fade it in; Off skips it
+and the status line still says "Campaign complete".
+
 ### 3.6 Streak milestones
 
 The flame grows by tier: ember (1–2 days), flame (3–6), gold flame (7–13),

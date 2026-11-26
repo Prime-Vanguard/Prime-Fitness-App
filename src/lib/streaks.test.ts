@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { currentStreak, questCampaign, streakTier, weekStart, weeklyQuests } from "./streaks";
+import {
+  campaignToPlay,
+  currentStreak,
+  questCampaign,
+  streakTier,
+  weekStart,
+  weeklyQuests,
+} from "./streaks";
 
 describe("streaks", () => {
   it("counts consecutive days through today", () =>
@@ -42,7 +49,15 @@ describe("weeklyQuests with server rewards", () => {
     expect(questCampaign(early)).toBeUndefined();
   });
   it("reports the campaign bonus", () =>
-    expect(questCampaign(server)).toEqual({ xp: 750, awarded: false }));
+    expect(questCampaign(server)).toEqual({ xp: 750, awarded: false, week: undefined }));
+  it("plays the campaign moment once per week, only once paid", () => {
+    const paid = { xp: 750, awarded: true, week: "2026-11-30" };
+    expect(campaignToPlay(paid, null)).toBe(true);
+    expect(campaignToPlay(paid, "2026-11-23")).toBe(true);
+    expect(campaignToPlay(paid, "2026-11-30")).toBe(false);
+    expect(campaignToPlay({ ...paid, awarded: false }, null)).toBe(false);
+    expect(campaignToPlay(undefined, null)).toBe(false);
+  });
 });
 
 describe("streakTier", () => {
