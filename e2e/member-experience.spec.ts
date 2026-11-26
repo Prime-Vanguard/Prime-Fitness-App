@@ -10208,6 +10208,42 @@ for (const locale of ["en", "ar"] as const) {
   });
 }
 
+const paidCampaign = ["workouts", "nutrition", "body", "week"].map((quest) => ({
+  week_start: "2026-11-30",
+  quest,
+  progress: quest === "nutrition" ? 5 : quest === "week" ? 3 : quest === "body" ? 1 : 3,
+  goal: quest === "nutrition" ? 5 : quest === "body" ? 1 : 3,
+  xp: quest === "week" ? 750 : 250,
+  awarded: true,
+  pays: true,
+}));
+
+for (const locale of ["en", "ar"] as const) {
+  test(`campaign complete plays once per paid week in ${locale}`, async ({ page, context }) => {
+    const backend = await fakeBackend(context, locale);
+    backend.tables.my_weekly_quests = paidCampaign;
+    await page.goto("/today");
+    const seal = page.locator("[data-campaign-seal]");
+    await expect(seal).toBeVisible();
+    await expect(seal).toContainText("+750 XP");
+    // Decorative: hidden from assistive technology, never blocks taps.
+    await expect(seal).toHaveAttribute("aria-hidden", "true");
+    await expect(seal).toBeHidden({ timeout: 6000 });
+    await page.reload();
+    await expect(page.locator("[data-quest-campaign]")).toBeVisible();
+    await expect(seal).toHaveCount(0);
+  });
+}
+
+test("campaign complete stays still when celebrations are off", async ({ page, context }) => {
+  const backend = await fakeBackend(context);
+  backend.tables.my_weekly_quests = paidCampaign;
+  await context.addInitScript(() => localStorage.setItem("pf-celebrations", "off"));
+  await page.goto("/today");
+  await expect(page.locator("[data-quest-campaign]")).toContainText("Campaign complete");
+  await expect(page.locator("[data-campaign-seal]")).toHaveCount(0);
+});
+
 test("backup preview restores missing logs and rejects another owner", async ({
   page,
   context,

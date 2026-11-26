@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { offlineHistoryStart } from "@/lib/offline-window";
 import { fetchAll } from "@/lib/pagination";
 import { useShields } from "@/hooks/use-shields";
@@ -18,8 +18,16 @@ import { useI18n } from "@/lib/i18n";
 import { numberLocale } from "@/lib/number-locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { currentStreak, questCampaign, streakTier, weekStart, weeklyQuests } from "@/lib/streaks";
-import { celebrationLevel } from "@/lib/celebrate";
+import {
+  campaignToPlay,
+  currentStreak,
+  questCampaign,
+  streakTier,
+  weekStart,
+  weeklyQuests,
+} from "@/lib/streaks";
+import { celebrationLevel, useCelebration } from "@/lib/celebrate";
+import { CampaignComplete } from "@/components/campaign-complete";
 import { readDevice, writeDevice } from "@/lib/device-storage";
 import { RollingNumber } from "@/components/rolling-number";
 import { haptic } from "@/lib/device-feedback";
@@ -244,6 +252,17 @@ function Today() {
     questRows,
   );
   const campaign = questCampaign(questRows);
+  // The campaign moment waits for any level, rank or badge moment on stage, and plays
+  // once per paid week on this device. Off records the week without playing.
+  const questList = useRef<HTMLDivElement>(null);
+  const [playCampaign, setPlayCampaign] = useState(false);
+  const { current: onStage } = useCelebration();
+  useEffect(() => {
+    const key = `pf-campaign-seen-${user.id}`;
+    if (onStage || !campaignToPlay(campaign, readDevice(key))) return;
+    writeDevice(key, campaign!.week!);
+    if (celebrationLevel() !== "off") setPlayCampaign(true);
+  }, [campaign?.awarded, campaign?.week, onStage, user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const allDone = quests.every((q) => q.progress >= q.goal);
   const { data: rules } = useXpRules();
   // Before quests pay, show the XP of the activities they count ("3 × 3,500 XP"),
@@ -410,45 +429,56 @@ function Today() {
                 : "Quest progress is not available yet. Connect to refresh it."}
             </p>
           ) : (
-            <ul className="mt-3 space-y-3">
-              {quests.map((q) => {
-                const done = q.progress >= q.goal;
-                return (
-                  <li key={q.key}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2">
-                        {done && <CheckCircle2 className="h-4 w-4 text-success" />}
-                        {t(q.key)}
-                      </span>
-                      <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
-                        {q.xp !== undefined ? (
-                          <span className="text-xs text-gold" data-quest-reward={q.key}>
-                            <bdi dir="ltr">+{q.xp.toLocaleString(numberLocale(locale))} XP</bdi>
-                            {done && !q.awarded && l(" after sync", " بعد المزامنة")}
-                          </span>
-                        ) : (
-                          rules && (
-                            <bdi className="text-xs text-gold">
-                              {(questXp[q.key]?.[0] ?? 1) > 1 && `${questXp[q.key]![0]} × `}
-                              {(questXp[q.key]?.[1] ?? 0).toLocaleString(numberLocale(locale))} XP
-                            </bdi>
-                          )
-                        )}
-                        <bdi>
-                          <RollingNumber value={q.progress} format={String} />/{q.goal}
-                        </bdi>
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full ${done ? "bg-success" : "bg-gold"}`}
-                        style={{ width: `${(q.progress / q.goal) * 100}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div ref={questList} className="relative mt-3">
+              {playCampaign && campaign && (
+                <CampaignComplete
+                  list={questList}
+                  xp={campaign.xp}
+                  onDone={() => setPlayCampaign(false)}
+                />
+              )}
+              <ul className="space-y-3">
+                {quests.map((q) => {
+                  const done = q.progress >= q.goal;
+                  return (
+                    <li key={q.key}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                          {done && (
+                            <CheckCircle2 data-quest-check className="h-4 w-4 text-success" />
+                          )}
+                          {t(q.key)}
+                        </span>
+                        <span className="flex items-center gap-2 tabular-nums text-muted-foreground">
+                          {q.xp !== undefined ? (
+                            <span className="text-xs text-gold" data-quest-reward={q.key}>
+                              <bdi dir="ltr">+{q.xp.toLocaleString(numberLocale(locale))} XP</bdi>
+                              {done && !q.awarded && l(" after sync", " بعد المزامنة")}
+                            </span>
+                          ) : (
+                            rules && (
+                              <bdi className="text-xs text-gold">
+                                {(questXp[q.key]?.[0] ?? 1) > 1 && `${questXp[q.key]![0]} × `}
+                                {(questXp[q.key]?.[1] ?? 0).toLocaleString(numberLocale(locale))} XP
+                              </bdi>
+                            )
+                          )}
+                          <bdi>
+                            <RollingNumber value={q.progress} format={String} />/{q.goal}
+                          </bdi>
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full ${done ? "bg-success" : "bg-gold"}`}
+                          style={{ width: `${(q.progress / q.goal) * 100}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
           {data && campaign && !allDone && (
             <p className="mt-3 text-xs text-muted-foreground">

@@ -504,6 +504,31 @@
     animation: badge-fade 200ms ease-out reverse both !important;
   }
 }
+/* Weekly campaign complete: the quest checks link with a gold line, then a seal stamps in. */
+.campaign-link {
+  transform-origin: top;
+  box-shadow: 0 0 6px rgb(212 175 55 / 0.7);
+  animation: campaign-link 450ms var(--motion-ease) both;
+}
+@keyframes campaign-link {
+  from {
+    transform: scaleY(0);
+  }
+}
+.campaign-seal {
+  animation: stamp-in var(--motion-celebrate) var(--motion-spring) 450ms both;
+}
+.campaign-out {
+  animation: badge-fade 300ms ease-in reverse both;
+}
+[data-celebrate="subtle"] :is(.campaign-link, .campaign-seal) {
+  animation: badge-fade 200ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.campaign-link, .campaign-seal) {
+    animation: badge-fade 200ms ease-out both !important;
+  }
+}
 .ember-canvas {
   position: fixed;
   inset: 0;
