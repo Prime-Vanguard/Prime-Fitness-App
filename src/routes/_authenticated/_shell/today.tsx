@@ -86,6 +86,9 @@ function Bar({
   );
 }
 
+// Weeks the campaign moment played in this tab, for when storage is blocked.
+const campaignSeen = new Map<string, string>();
+
 function Today() {
   const { user } = Route.useRouteContext();
   const { data: me } = useMe(user.id);
@@ -259,10 +262,14 @@ function Today() {
   const { current: onStage } = useCelebration();
   useEffect(() => {
     const key = `pf-campaign-seen-${user.id}`;
-    if (onStage || !campaignToPlay(campaign, readDevice(key))) return;
+    // Wait until the quest list is on screen, so a week marked seen was really shown.
+    if (!data || onStage) return;
+    if (!campaignToPlay(campaign, readDevice(key) ?? campaignSeen.get(key) ?? null)) return;
+    // Without storage, remember it for this tab so it doesn't replay on every visit.
+    campaignSeen.set(key, campaign!.week!);
     writeDevice(key, campaign!.week!);
     if (celebrationLevel() !== "off") setPlayCampaign(true);
-  }, [campaign?.awarded, campaign?.week, onStage, user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [campaign?.awarded, campaign?.week, onStage, user.id, !!data]); // eslint-disable-line react-hooks/exhaustive-deps
   const allDone = quests.every((q) => q.progress >= q.goal);
   const { data: rules } = useXpRules();
   // Before quests pay, show the XP of the activities they count ("3 × 3,500 XP"),
