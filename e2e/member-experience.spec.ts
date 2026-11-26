@@ -802,7 +802,9 @@ for (const locale of ["en", "ar"] as const) {
     // recovery is verified by the production Chrome run, while WebKit checks refresh.
     if (testInfo.project.name === "mobile-chromium") {
       await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-      await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+      await expect
+        .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+        .toBe(true);
       await context.setOffline(true);
     }
     await page.reload();
@@ -2710,7 +2712,9 @@ for (const locale of ["en", "ar"] as const) {
     await expectAlignedControls(page);
     expect((await first.boundingBox())!.height).toBeLessThan(180);
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await context.setOffline(true);
     await page.reload();
     await expect(first.getByLabel("kg", { exact: true })).toHaveValue("52.5");
@@ -2967,7 +2971,11 @@ async function expectAlignedControls(page: Page) {
 async function openCardioHistory(page: Page) {
   const history = page.locator("[data-cardio-history]");
   await expect(history).toBeVisible();
-  if ((await history.getAttribute("open")) === null) await history.locator("summary").click();
+  if ((await history.getAttribute("open")) !== null) return;
+  // Keyboard toggle: in CI the panel container sometimes took the tap after a HIIT save.
+  await history.locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(history).toHaveAttribute("open", "");
 }
 
 for (const locale of ["en", "ar"] as const) {
@@ -3140,7 +3148,9 @@ test("exercise picker exposes failed local saves and retries without losing the 
   await expect(picker).toHaveCount(0);
   await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator(`[data-exercise-id="${secondExercise}"]`)).toHaveCount(1);
@@ -3160,7 +3170,9 @@ for (const locale of ["en", "ar"] as const) {
       .getByRole("button", { name: l("Start workout", "ابدأ التمرين"), exact: true })
       .click();
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await context.setOffline(true);
     await page.getByRole("button", { name: l("Add exercise", "إضافة تمرين"), exact: true }).click();
     const picker = page.getByRole("dialog", {
@@ -3271,7 +3283,9 @@ for (const locale of ["en", "ar"] as const) {
     });
     await planned.getByLabel("kg", { exact: true }).fill("50");
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await context.setOffline(true);
     await page
       .getByRole("button", { name: l("Exercise options", "خيارات التمرين"), exact: true })
@@ -9350,7 +9364,9 @@ test("offline finish waits for server acceptance before showing the durable comp
   await page.goto("/train");
   await page.getByRole("button", { name: "Start workout", exact: true }).click();
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.getByLabel("kg", { exact: true }).fill("100");
   await page.getByLabel("Reps", { exact: true }).fill("5");

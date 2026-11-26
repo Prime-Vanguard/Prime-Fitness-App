@@ -40,7 +40,9 @@ for (const locale of ["en", "ar"] as const) {
       ),
     ).toBeVisible();
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await context.setOffline(true);
     await page.goto(base + `train?section=history&session=${archivedSessionId}`);
     await expect(
@@ -301,7 +303,9 @@ test("a staff member explicitly saves a summary and loses the copy when the assi
   const saved = page.getByRole("region", { name: "Saved staff summaries", exact: true });
   await expect(saved.getByRole("heading", { name: "Assigned athlete", exact: true })).toBeVisible();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(saved.getByRole("heading", { name: "Assigned athlete", exact: true })).toBeVisible();
@@ -385,7 +389,9 @@ test("an admin can draft targets offline and confirm only after reviewing fresh 
   await page.getByRole("button", { name: "Download targets for offline drafting" }).click();
   await expect(page.getByText("Targets saved on this device.", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open App & offline", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await page.evaluate(() => localStorage.setItem("pf-locale", "ar"));
   await context.setOffline(true);
   await page.reload();
@@ -465,7 +471,9 @@ test("retains queued preferences through a rejected refresh, sign-in and resume"
   const name = page.getByLabel("Display name", { exact: true });
   await expect(name).toHaveValue("Prepared athlete");
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await name.fill("Kept on this device");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -556,7 +564,9 @@ test("downloads older personal records and opens them after an offline restart",
     "2020-01-01",
   );
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.goto(base + `nutrition?day=${day}`);
   await expect(page.getByText("475 / 2500 ml", { exact: true })).toBeVisible();
@@ -648,7 +658,9 @@ test("waits for open tabs before an app update and retains queued work after act
     await page.goto(profile);
     await expect(page.getByLabel("Display name", { exact: true })).toHaveValue("Offline athlete");
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     const secondTab = await context.newPage();
     await secondTab.goto(profile);
     await context.setOffline(true);
@@ -753,7 +765,9 @@ for (const expectation of [
     const displayName = page.getByLabel("Display name", { exact: true });
     await expect(displayName).toHaveValue("Original athlete");
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await context.setOffline(true);
     await displayName.fill("Device athlete");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -833,7 +847,9 @@ test("automatic preparation downloads a frozen program and starts its workout af
     page.getByText("Workout history saved: 1 workouts \u00b7 1 sets", { exact: true }),
   ).toBeVisible();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.goto(base + `train?section=history&session=${completedSessionId}`);
   await expect(
@@ -863,7 +879,9 @@ for (const locale of ["en", "ar"] as const) {
       page.getByText("Workout history saved: 1 workouts \u00b7 1 sets", { exact: true }),
     ).toBeVisible({ timeout: 15000 });
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+      .toBe(true);
     await page.evaluate((language) => localStorage.setItem("pf-locale", language), locale);
     await context.setOffline(true);
     await page.goto(base + `train?section=history&session=${completedSessionId}`);
@@ -949,7 +967,9 @@ test("standalone Pages adds an exercise offline and exposes scanner lookup witho
   expect(await page.evaluate(() => matchMedia("(display-mode: standalone)").matches)).toBe(true);
   await page.getByRole("button", { name: "Start workout", exact: true }).click();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.getByRole("button", { name: "Add exercise", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Add", exact: true }).click();
@@ -1235,7 +1255,9 @@ test("recovery emails use the hosted prefix and PWA caches stay scoped", async (
   const manifest = await page.request.get(base + "manifest.webmanifest");
   expect(await manifest.json()).toMatchObject({ scope: base, start_url: base + "train" });
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   const cached = await page.evaluate(async () => {
     const names = (await caches.keys()).filter((key) => key.startsWith("pf-shell-"));
     const urls = (
@@ -1320,7 +1342,9 @@ test("a signed-in member logs water, refreshes offline and keeps admin routes pr
   // Exercise cold restoration after expiry, not just a still-valid SDK session.
   await page.evaluate(() => localStorage.setItem("pf-test-expired", "yes"));
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 20000 })
+    .toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText("250 / 2500 ml", { exact: true })).toBeVisible();

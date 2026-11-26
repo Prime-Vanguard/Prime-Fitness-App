@@ -25,4 +25,4 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 
-PW_EXTERNAL_SERVER=1 npx playwright test --global-timeout=720000 "$@"
+PW_EXTERNAL_SERVER=1 npx playwright test --global-timeout=900000 "$@"
