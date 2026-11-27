@@ -79,8 +79,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // Arabic is the default locale; I18nProvider updates both after a saved choice loads.
   return (
-    <html lang="en" className="dark">
+    <html lang="ar" dir="rtl" className="dark">
       <head>
         <HeadContent />
       </head>

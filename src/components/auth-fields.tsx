@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useI18n } from "@/lib/i18n";
@@ -13,6 +13,7 @@ export function PasswordField({
   fresh = false,
   invalid = false,
   errorId,
+  action,
 }: {
   id: string;
   label: string;
@@ -21,6 +22,8 @@ export function PasswordField({
   fresh?: boolean;
   invalid?: boolean;
   errorId?: string;
+  /** A control shown on the label row, such as the forgot-password link. */
+  action?: ReactNode;
 }) {
   const { locale } = useI18n();
   const c = authCopy[locale];
@@ -32,8 +35,15 @@ export function PasswordField({
     .join(" ");
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <div className="flex min-h-6 items-center justify-between gap-3">
+        <Label htmlFor={id}>{label}</Label>
+        {action}
+      </div>
       <div className="relative" dir="ltr">
+        <LockKeyhole
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted-foreground"
+        />
         <Input
           ref={ref}
           id={id}
@@ -43,7 +53,7 @@ export function PasswordField({
           autoComplete={fresh ? "new-password" : "current-password"}
           required
           minLength={fresh ? 8 : undefined}
-          className="h-12 pe-14 text-base"
+          className="h-12 pr-14 pl-11 text-base"
           aria-invalid={invalid}
           aria-describedby={described || undefined}
           onChange={(e) => onChange(e.target.value)}

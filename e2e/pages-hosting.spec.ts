@@ -1225,7 +1225,9 @@ test("project URLs load assets, refresh auth and preserve a dynamic member desti
       failedAssets.push(response.url());
   });
   await page.goto(base);
-  await expect(page.getByRole("heading", { name: "Prime Fitness", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "From Recruit to Prime Legend" }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Member sign in" }).click();
   await expect(page).toHaveURL(new RegExp(base + "auth"));
   await page.reload();

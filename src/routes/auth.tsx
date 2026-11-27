@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { appPath } from "@/lib/app-path";
-import { LoaderCircle, MailCheck, KeyRound } from "lucide-react";
+import { LoaderCircle, Mail, MailCheck, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { OnboardingShell } from "@/components/onboarding-shell";
+import { RankStaircase } from "@/components/rank-staircase";
+import { INVITE_WHATSAPP_URL } from "@/lib/contact";
 import { AuthNotice, PasswordField } from "@/components/auth-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,7 +211,23 @@ function AuthPage() {
           ? c.send
           : c.resend;
   return (
-    <OnboardingShell title={c[mode]} subtitle={c.members} focusKey={mode} languageLocked={busy}>
+    <OnboardingShell
+      title={c[mode]}
+      subtitle={c.members}
+      focusKey={mode}
+      languageLocked={busy}
+      aside={
+        <div className="max-w-xl">
+          <p className="font-heading text-5xl font-extrabold leading-[1.05] tracking-tight text-balance">
+            {c.brandTitle}
+          </p>
+          <p className="mt-4 max-w-md text-lg leading-relaxed text-muted-foreground">
+            {c.brandText}
+          </p>
+          <RankStaircase className="mt-12 max-w-lg" />
+        </div>
+      }
+    >
       {returningMemberId && mode === "signin" && (
         <p role="status" className="rounded-lg border border-border bg-card p-3 text-sm">
           {locale === "ar"
@@ -227,69 +245,24 @@ function AuthPage() {
         </p>
       ) : (
         <>
-          <section
-            aria-label={locale === "ar" ? "حالة الدخول" : "Access context"}
-            className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm"
-          >
-            {/* Describe the real credential flow; the reference's passkeys/OTP
-                and verified token claims require separate backend support. */}
-            <span
-              aria-hidden
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background text-gold"
-            >
-              {mode === "signin" ? (
-                <KeyRound className="size-5" />
-              ) : (
-                <MailCheck className="size-5" />
-              )}
-            </span>
-            <div className="min-w-0 space-y-2">
-              <p className="font-medium">
-                {mode === "signin"
-                  ? locale === "ar"
-                    ? "تسجيل دخول الأعضاء"
-                    : "Member sign-in"
-                  : mode === "signup"
-                    ? locale === "ar"
-                      ? "دعوة من مدربك مطلوبة"
-                      : "Your coach’s invitation is required"
-                    : mode === "forgot"
-                      ? locale === "ar"
-                        ? "اطلب رابطاً آمناً من بريدك"
-                        : "Request a secure email link"
-                      : locale === "ar"
-                        ? "تأكيد البريد قبل تسجيل الدخول"
-                        : "Confirm your email before signing in"}
-              </p>
-              {mode === "signin" && (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {locale === "ar"
-                    ? "استخدم بريد حسابك وكلمة المرور للمتابعة."
-                    : "Continue with your account email and password."}
-                </p>
-              )}
-              {mode === "signup" && (
-                <p className="text-xs leading-relaxed text-muted-foreground">{c.inviteHint}</p>
-              )}
-              {mode === "forgot" && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {locale === "ar"
-                    ? "استخدم بريد حسابك. ستبقى هذه الصفحة متاحة لإعادة المحاولة."
-                    : "Use your account email. This page stays available for a retry."}
-                </p>
-              )}
-            </div>
-          </section>
+          {mode !== "signin" && (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {mode === "signup"
+                ? c.inviteHint
+                : mode === "forgot"
+                  ? c.forgotHint
+                  : locale === "ar"
+                    ? "أكد بريدك قبل تسجيل الدخول. اطلب رسالة تأكيد جديدة من هنا."
+                    : "Confirm your email before signing in. Request a new confirmation email here."}
+            </p>
+          )}
           {mode === "confirm" && <MailCheck className="mb-4 size-8 text-gold" aria-hidden="true" />}
           <div className="mb-4 space-y-3">
             {error && <AuthNotice error message={c[error]} />}
             {notice && <AuthNotice message={c[notice]} />}
           </div>
           <form onSubmit={submit} noValidate aria-busy={busy} className="space-y-4">
-            <fieldset
-              disabled={busy}
-              className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"
-            >
+            <fieldset disabled={busy} className="min-w-0 space-y-4">
               {mode === "signup" && (
                 <div className="space-y-2">
                   <Label htmlFor="name">{c.name}</Label>
@@ -314,28 +287,34 @@ function AuthPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="email">{c.email}</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  dir="ltr"
-                  inputMode="email"
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-12 text-start"
-                  aria-invalid={!!fields["email"] || error === "credentials"}
-                  aria-describedby={
-                    fields["email"]
-                      ? "email-error"
-                      : error === "credentials"
-                        ? "auth-error"
-                        : undefined
-                  }
-                />
+                <div className="relative" dir="ltr">
+                  <Mail
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted-foreground"
+                  />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    dir="ltr"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 pl-11 text-start"
+                    aria-invalid={!!fields["email"] || error === "credentials"}
+                    aria-describedby={
+                      fields["email"]
+                        ? "email-error"
+                        : error === "credentials"
+                          ? "auth-error"
+                          : undefined
+                    }
+                  />
+                </div>
                 {fields["email"] && (
                   <p id="email-error" role="alert" className="text-sm text-destructive">
                     {c[fields["email"]]}
@@ -353,6 +332,18 @@ function AuthPage() {
                     fresh={mode === "signup"}
                     invalid={!!fields["password"] || error === "credentials"}
                     errorId={fields["password"] ? "password-error" : "auth-error"}
+                    action={
+                      mode === "signin" && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="-my-2.5 min-h-11 rounded-md px-1 text-sm text-gold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:opacity-50"
+                          onClick={() => changeMode("forgot")}
+                        >
+                          {c.forgotLink}
+                        </button>
+                      )
+                    }
                   />
                   {fields["password"] && (
                     <p id="password-error" role="alert" className="text-sm text-destructive">
@@ -384,26 +375,35 @@ function AuthPage() {
           <div className="mt-5 flex flex-col gap-1 text-center text-sm">
             {mode === "signin" ? (
               <>
-                <button
+                <div className="flex items-center gap-3 py-2 text-xs text-muted-foreground">
+                  <span aria-hidden className="h-px flex-1 bg-border" />
+                  {c.newMember}
+                  <span aria-hidden className="h-px flex-1 bg-border" />
+                </div>
+                <Button
                   type="button"
+                  variant="outline"
                   disabled={busy}
-                  className="min-h-11 rounded-md text-gold hover:underline disabled:opacity-50"
-                  onClick={() => changeMode("forgot")}
-                >
-                  {c.forgotLink}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="min-h-11 rounded-md text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="min-h-12 w-full text-base"
                   onClick={() => changeMode("signup")}
                 >
                   {c.invitationLink}
-                </button>
+                </Button>
+                {INVITE_WHATSAPP_URL && (
+                  <a
+                    href={INVITE_WHATSAPP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md text-gold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                  >
+                    <MessageCircle className="size-4" aria-hidden="true" />
+                    {c.ask}
+                  </a>
+                )}
                 <button
                   type="button"
                   disabled={busy}
-                  className="min-h-11 rounded-md text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="min-h-11 rounded-md text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                   onClick={() => changeMode("confirm")}
                 >
                   {c.confirmationLink}

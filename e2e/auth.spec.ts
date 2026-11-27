@@ -297,7 +297,7 @@ for (const locale of ["en", "ar"] as const) {
       await page.screenshot({ path: `artifacts/stitch-access-${locale}.png`, fullPage: true });
     await page
       .getByRole("button", {
-        name: ar ? "لديك دعوة؟ فعّلها" : "Have an invitation? Activate it",
+        name: ar ? "فعّل دعوتك" : "Activate your invitation",
         exact: true,
       })
       .click();
@@ -333,9 +333,7 @@ test("authentication modes retain email, clear secrets and fit a short phone scr
   await page.getByLabel("Password", { exact: true }).fill("secret-only-on-this-mode");
   await page.getByRole("button", { name: "Forgot password?", exact: true }).click();
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("athlete@test.invalid");
-  await expect(page.getByRole("region", { name: "Access context" })).toContainText(
-    "secure email link",
-  );
+  await expect(page.getByText("secure link to choose a new password")).toBeVisible();
   await page.getByRole("button", { name: "Back to sign in", exact: true }).click();
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("athlete@test.invalid");
   await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");

@@ -128,6 +128,47 @@
   background-image: none;
 }
 
+/* Public pages: one gold light above the brand, and the rank staircase. */
+.public-glow {
+  background:
+    radial-gradient(
+      60rem 28rem at 50% -8rem,
+      color-mix(in srgb, var(--gold) 13%, transparent),
+      transparent 70%
+    ),
+    var(--background);
+}
+.rank-stair-step {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--card) 95%, transparent),
+    color-mix(in srgb, var(--card) 15%, transparent)
+  );
+  border-top: 1px solid var(--border);
+}
+.rank-stair-top {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--gold) 22%, transparent),
+    color-mix(in srgb, var(--gold) 2%, transparent)
+  );
+  border-top-color: color-mix(in srgb, var(--gold) 70%, transparent);
+}
+.rank-stair-glow {
+  position: absolute;
+  inset-block-start: -2.5rem;
+  inset-inline-end: -1.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--gold) 22%, transparent),
+    transparent 68%
+  );
+  pointer-events: none;
+}
+
 @keyframes water-wave {
   from {
     transform: translateX(-10%) rotate(-4deg);
