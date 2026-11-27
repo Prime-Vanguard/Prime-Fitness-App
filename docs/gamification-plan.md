@@ -223,7 +223,13 @@ These need migrations and RLS review, so each one gets its own approval.
    badge bonus) and falls back to the "since you started" estimate when there is no workout
    event or the read fails.
 5. **Rest-day streak.** If decision 3 says yes, planned rest days from the program
-   count as active.
+   count as active. Decision 3 approved 2026-11-27 for planned rest days only. Built on
+   `feat/rest-day-streak` (migration `20261127130000_planned_rest_day_streak.sql`):
+   `member_activity_days` adds days of an active calendar schedule, up to today, whose
+   program week and day have no exercises. Taken from the coach's plan, not due dates, so
+   moving a session cannot create one. Shields use the same view, so a shield can follow a
+   rest day and is refused on one. The automatic two rest days a week without a program
+   are not built.
 
 ## Not included, on purpose
 

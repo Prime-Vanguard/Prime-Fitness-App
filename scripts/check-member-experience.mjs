@@ -256,6 +256,44 @@ try {
     `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}')`,
     /existing streak/,
   );
+  // Planned rest days count (decision 3): day 1 and 3 train, day 2 (yesterday) rests.
+  const restProgram = "00000000-0000-4000-8000-000000000040";
+  const restVersion = "00000000-0000-4000-8000-000000000041";
+  const restAssignment = "00000000-0000-4000-8000-000000000042";
+  await db.exec(`RESET ROLE;
+    ALTER TABLE public.programs DISABLE TRIGGER USER; ALTER TABLE public.program_versions DISABLE TRIGGER USER; ALTER TABLE public.program_assignments DISABLE TRIGGER USER;
+    INSERT INTO public.programs(id,name) VALUES ('${restProgram}','Rest plan');
+    INSERT INTO public.program_versions(id,program_id,version,name,weeks,items) VALUES ('${restVersion}','${restProgram}',1,'Rest plan',1,
+      '[{"week":1,"day":1,"exercise_id":"x"},{"week":1,"day":3,"exercise_id":"x"}]');
+    INSERT INTO public.program_assignments(id,program_id,member_id,program_version_id,active) VALUES ('${restAssignment}','${restProgram}','${outsider}','${restVersion}',true);
+    ALTER TABLE public.programs ENABLE TRIGGER USER; ALTER TABLE public.program_versions ENABLE TRIGGER USER; ALTER TABLE public.program_assignments ENABLE TRIGGER USER;
+    INSERT INTO public.program_schedules(assignment_id,member_id,mode,start_date) VALUES ('${restAssignment}','${outsider}','calendar','${day}'::date - 2);`);
+  await as(outsider);
+  eq(
+    (await db.query("SELECT activity_date::text AS d FROM public.member_activity_days")).rows
+      .map((r) => r.d)
+      .join(),
+    (await db.query(`SELECT ('${day}'::date - 1)::text AS d`)).rows[0].d,
+  );
+  // No shield on a rest day; a shield may continue from one.
+  await denied(
+    `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}'::date - 1)`,
+    /already has activity/,
+  );
+  await db.exec(
+    `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}')`,
+  );
+  // Only an active calendar assignment counts; a rotation or ended program has no rest days.
+  await db.exec(
+    `RESET ROLE; DELETE FROM public.streak_shields WHERE member_id='${outsider}'; UPDATE public.program_schedules SET mode='rotation' WHERE assignment_id='${restAssignment}'`,
+  );
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 0);
+  await db.exec(
+    `RESET ROLE; UPDATE public.program_schedules SET mode='calendar' WHERE assignment_id='${restAssignment}'; UPDATE public.program_assignments SET active=false WHERE id='${restAssignment}'`,
+  );
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 0);
 
   // One pending claim per task: a double submit cannot be approved twice.
   const task = "00000000-0000-4000-8000-000000000030";
