@@ -11590,11 +11590,56 @@ test("mission debrief shows confirmed XP, then the held level-up forges with a r
   await page.getByRole("button", { name: "Log set 1", exact: true }).click();
   // The server confirms this workout's XP (300 → 3,800, level 2 → 5).
   backend.tables.member_xp_totals![0]!.xp = 3800;
+  // The finish awards the workout, a quest and the full week in one transaction (same time);
+  // an earlier food event must not count toward this workout.
+  await expect.poll(() => backend.tables.workout_sessions!.length).toBe(1);
+  const session = String(backend.tables.workout_sessions![0]!.id);
+  const at = "2026-11-27T10:00:00.123456+00:00";
+  backend.tables.xp_events = [
+    {
+      id: 1,
+      member_id: userId,
+      amount: 20,
+      source: "food",
+      source_ref: "x",
+      created_at: "2026-11-27T08:00:00+00:00",
+    },
+    {
+      id: 2,
+      member_id: userId,
+      amount: 50,
+      source: "workout",
+      source_ref: session,
+      created_at: at,
+    },
+    {
+      id: 3,
+      member_id: userId,
+      amount: 250,
+      source: "quest",
+      source_ref: "2026-11-23:workouts",
+      created_at: at,
+    },
+    {
+      id: 4,
+      member_id: userId,
+      amount: 750,
+      source: "quest_week",
+      source_ref: "2026-11-23",
+      created_at: at,
+    },
+  ];
   await page.getByRole("button", { name: "Finish workout", exact: true }).click();
   await page.getByRole("button", { name: "Save workout", exact: true }).click();
   const complete = page.locator("[data-workout-complete]");
   await expect(complete).toContainText("Mission complete");
-  await expect(complete).toContainText("+3,500 XP");
+  await expect(complete).toContainText("+1,050 XP");
+  const breakdown = complete.getByRole("list", { name: "XP from this workout" });
+  await expect(breakdown.getByRole("listitem")).toHaveText([
+    /Workout\s*\+50 XP/,
+    /Weekly quest\s*\+250 XP/,
+    /All weekly quests\s*\+750 XP/,
+  ]);
   // The level-up waits for the debrief, then plays once.
   const dialog = page.getByRole("dialog");
   await expect(dialog).toHaveCount(0);
