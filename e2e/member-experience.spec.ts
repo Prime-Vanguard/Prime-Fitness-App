@@ -11384,6 +11384,7 @@ test("badges show rarity artwork and celebrate a newly earned badge once", async
   backend.tables.member_badges = [
     { member_id: userId, badge_code: "first_workout", unlocked_at: "2026-11-01T10:00:00Z" },
   ];
+  backend.tables.member_activity_credits = [{ member_id: userId, kind: "workout", credits: 12 }];
   await page.goto("/rewards");
   const earned = page.getByRole("button", { name: /First Rep/ });
   await expect(earned.locator(".badge-art")).toHaveAttribute("data-rarity", "common");
@@ -11391,6 +11392,9 @@ test("badges show rarity artwork and celebrate a newly earned badge once", async
   const locked = page.getByRole("button", { name: /Centurion/ });
   await expect(locked.locator(".badge-art")).toHaveAttribute("data-locked", "true");
   await expect(locked).toContainText("Legendary");
+  await expect(locked).toContainText("12 / 100");
+  await expect(page.getByRole("button", { name: /Nutrition Discipline/ })).toContainText("0 / 30");
+  await expect(earned).not.toContainText("/");
   await locked.click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText("Unlock to earn +7,500 XP");

@@ -2238,6 +2238,14 @@ export type Database = {
           },
         ];
       };
+      member_activity_credits: {
+        Row: {
+          credits: number | null;
+          kind: string | null;
+          member_id: string | null;
+        };
+        Relationships: [];
+      };
       member_xp_totals: {
         Row: {
           member_id: string | null;

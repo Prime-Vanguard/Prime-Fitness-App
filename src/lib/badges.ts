@@ -39,3 +39,17 @@ export function badgeArt(code: string) {
     art: small && medium && large ? { small, medium, large } : null,
   };
 }
+
+// Mirrors the milestone thresholds in public.xp_on_workout and public.xp_on_food.
+const GOALS: Record<string, readonly [kind: string, goal: number]> = {
+  workouts_10: ["workout", 10],
+  workouts_50: ["workout", 50],
+  workouts_100: ["workout", 100],
+  food_30: ["nutrition_day", 30],
+};
+
+/** Progress toward a counted milestone badge, or null for one-step badges. */
+export function badgeProgress(code: string, credits: ReadonlyMap<string, number>) {
+  const g = GOALS[code];
+  return g ? { done: Math.min(credits.get(g[0]) ?? 0, g[1]), goal: g[1] } : null;
+}
