@@ -81,7 +81,8 @@ The review findings. Small, safe and worth shipping first.
 
 Built 2026-11-24 on `feat/gamification-fixes`, except two rows that need Phase 5:
 progress on locked badges (5.2) and quest bonus XP (5.1). Quests show the XP their
-activities earn. The own leaderboard row shows "50+" when it is outside the top 50.
+activities earn. The own leaderboard row shows "50+" when it is outside the top 50 (Phase 5.3 later
+replaced this with the exact position).
 
 | Area            | Change                                                                                                                                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -212,7 +213,9 @@ These need migrations and RLS review, so each one gets its own approval.
 2. **Badge progress.** A read-only view that returns progress per badge for the
    member (for example 2 / 5 workouts).
 3. **Own leaderboard row.** Return the member's weekly row and position even outside
-   the top 50.
+   the top 50. Built 2026-11-27 on `feat/own-leaderboard-row` with no migration: the
+   existing RLS already lets a member count opted-in rows, so the position is 1 + the
+   opted-in members with more XP this week, never shown inside the top 50.
 4. **Workout XP in the debrief.** Return the XP events created by a finished workout
    so the debrief shows exact amounts.
 5. **Rest-day streak.** If decision 3 says yes, planned rest days from the program
