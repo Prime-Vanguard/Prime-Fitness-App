@@ -2343,9 +2343,18 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", 
         if (value.startsWith("neq.")) return String(row[key]) !== value.slice(4);
         if (value === "is.null") return row[key] == null;
         if (value === "not.is.null") return row[key] != null;
-        if (value.startsWith("gte.")) return String(row[key]) >= value.slice(4);
-        if (value.startsWith("gt.")) return String(row[key]) > value.slice(3);
-        if (value.startsWith("lte.")) return String(row[key]) <= value.slice(4);
+        // Numbers compare as numbers; dates and text compare as strings.
+        const cmp = (v: string) =>
+          typeof row[key] === "number"
+            ? (row[key] as number) - Number(v)
+            : String(row[key]) < v
+              ? -1
+              : String(row[key]) > v
+                ? 1
+                : 0;
+        if (value.startsWith("gte.")) return cmp(value.slice(4)) >= 0;
+        if (value.startsWith("gt.")) return cmp(value.slice(3)) > 0;
+        if (value.startsWith("lte.")) return cmp(value.slice(4)) <= 0;
         if (value.startsWith("in.("))
           return value
             .slice(4, -1)
@@ -2355,6 +2364,9 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", 
         return true;
       });
     let result: Row[] = source.filter(filter);
+    // Mirror the "leaderboard read" RLS policy: opted-in rows plus the member's own.
+    if (table === "leaderboard_weekly")
+      result = result.filter((row) => row.opted_in || row.member_id === userId);
     if (request.method() === "POST") {
       const body = request.postDataJSON() as Row | Row[];
       const incoming = Array.isArray(body) ? body : [body];
@@ -2572,6 +2584,25 @@ async function fakeBackend(context: BrowserContext, locale: "en" | "ar" = "en", 
           : [{ count: tables.set_logs!.filter((s) => s.session_id === row.id).length }],
       }));
     if (request.method() === "GET") {
+      // Apply PostgREST order=col.desc,col2.asc before the limit, like the real API (stable sort).
+      // ponytail: leaderboard only; other fixtures still rely on insertion order. Widen when they are fixed.
+      const order = (url.searchParams.get("order") ?? "")
+        .split(",")
+        .filter(Boolean)
+        .map((part) => part.split("."));
+      if (order.length && table === "leaderboard_weekly")
+        result = [...result].sort((a, b) => {
+          for (const [key, dir] of order) {
+            const x = a[key!],
+              y = b[key!];
+            if (x === y) continue;
+            if (x == null) return 1;
+            if (y == null) return -1;
+            const diff = (x as string | number) < (y as string | number) ? -1 : 1;
+            return dir === "desc" ? -diff : diff;
+          }
+          return 0;
+        });
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const limit = Number(url.searchParams.get("limit") ?? 1000);
       result = result.slice(offset, offset + limit);
@@ -11485,6 +11516,8 @@ test("leaderboard always shows an opted-in member, at 0 XP and outside the top 5
   // Opted in but no XP yet this week: still listed, at 0 XP.
   await expect(board.getByRole("listitem")).toHaveText(/1\s*You\s*0 XP/);
   backend.tables.leaderboard_weekly = [
+    { member_id: "behind", xp: 900, display_name: null, opted_in: true, week_start },
+    { member_id: "hidden", xp: 2000, display_name: null, opted_in: false, week_start },
     ...Array.from({ length: 50 }, (_, i) => ({
       member_id: `member-${i}`,
       xp: 5000 - i,
@@ -11492,11 +11525,25 @@ test("leaderboard always shows an opted-in member, at 0 XP and outside the top 5
       opted_in: true,
       week_start,
     })),
+    // Ten more ahead of the member; "hidden" and "behind" above must not count.
+    ...Array.from({ length: 10 }, (_, i) => ({
+      member_id: `ahead-${i}`,
+      xp: 1300 + i,
+      display_name: null,
+      opted_in: true,
+      week_start,
+    })),
     { member_id: userId, xp: 1200, display_name: "Test Athlete", opted_in: true, week_start },
   ];
   await page.reload();
   await expect(board.getByRole("listitem")).toHaveCount(51);
-  await expect(board.getByRole("listitem").last()).toHaveText(/50\+\s*You\s*1,200 XP/);
+  await expect(board.getByRole("listitem").last()).toHaveText(/61\s*You\s*1,200 XP/);
+  // No row yet this week: 0 XP, behind everyone opted in with XP (50 + 10 + "behind").
+  backend.tables.leaderboard_weekly = backend.tables.leaderboard_weekly.filter(
+    (r) => r.member_id !== userId,
+  );
+  await page.reload();
+  await expect(board.getByRole("listitem").last()).toHaveText(/62\s*You\s*0 XP/);
 });
 
 test("mission debrief shows confirmed XP, then the held level-up forges with a rolling number", async ({

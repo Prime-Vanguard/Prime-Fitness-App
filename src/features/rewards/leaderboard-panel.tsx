@@ -19,13 +19,14 @@ export function LeaderboardPanel({ userId, active }: { userId: string; active: b
   const { data: me } = useMe(userId);
   const today = useActivityDay();
   const ws = weekStart(today);
+  const optedIn = !!me?.profile?.leaderboard_opt_in;
   const {
     data: board,
     isPending: boardPending,
     error: boardError,
     refetch: retryBoard,
   } = useQuery({
-    queryKey: ["leaderboard", ws],
+    queryKey: ["leaderboard", ws, optedIn],
     enabled: active,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -44,7 +45,27 @@ export function LeaderboardPanel({ userId, active }: { userId: string; active: b
         .eq("member_id", userId)
         .maybeSingle();
       if (own.error) throw own.error;
-      return own.data ? [...data, { ...own.data, outside: data.length >= 50 }] : data;
+      if (data.length < 50) return own.data ? [...data, own.data] : data;
+      // Only an opted-in member's own row is listed, so skip the count otherwise.
+      if (!optedIn) return data;
+      // Outside the top 50: position = 1 + opted-in members with more XP (RLS shows only those).
+      const ahead = await supabase
+        .from("leaderboard_weekly")
+        .select("member_id", { count: "exact", head: true })
+        .eq("week_start", ws)
+        .eq("opted_in", true)
+        .neq("member_id", userId)
+        .gt("xp", own.data?.xp ?? 0);
+      // Ties with the 50th row still list below it, so never show a place inside the top 50.
+      // A failed count keeps the board and falls back to "50+".
+      const rank = ahead.error || ahead.count == null ? undefined : Math.max(51, ahead.count + 1);
+      const row = own.data ?? {
+        member_id: userId,
+        xp: 0,
+        display_name: null,
+        opted_in: false,
+      };
+      return [...data, { ...row, outside: true, rank }];
     },
   });
   async function setOptIn(v: boolean) {
@@ -62,17 +83,17 @@ export function LeaderboardPanel({ userId, active }: { userId: string; active: b
     qc.invalidateQueries({ queryKey: ["me", userId] });
     qc.invalidateQueries({ queryKey: ["leaderboard"] });
   }
-  const optedIn = !!me?.profile?.leaderboard_opt_in;
   const listed: {
     member_id: string;
     xp: number;
     display_name: string | null;
     outside?: boolean;
+    rank?: number | undefined;
   }[] = (board ?? []).filter((r) => r.opted_in || (optedIn && r.member_id === userId));
   // Opted-in members always see themselves, even before earning XP this week.
   const rows =
     optedIn && board && !listed.some((r) => r.member_id === userId)
-      ? [...listed, { member_id: userId, xp: 0, display_name: null, outside: board.length >= 50 }]
+      ? [...listed, { member_id: userId, xp: 0, display_name: null }]
       : listed;
   const number = (n: number) => n.toLocaleString(numberLocale(locale));
   // Places gained or lost since this device last showed this week's board.
@@ -124,9 +145,9 @@ export function LeaderboardPanel({ userId, active }: { userId: string; active: b
             >
               <span className="flex items-center gap-3">
                 <span
-                  className={`w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
+                  className={`min-w-6 text-center tabular-nums ${i < 3 && !r.outside ? "text-gold" : "text-muted-foreground"}`}
                 >
-                  {r.outside ? "50+" : i + 1}
+                  {r.outside ? (r.rank ? number(r.rank) : "50+") : i + 1}
                 </span>
                 {r.member_id === userId ? t("you") : r.display_name || "—"}
                 {(() => {
