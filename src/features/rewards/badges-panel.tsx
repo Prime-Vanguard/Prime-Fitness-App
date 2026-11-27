@@ -5,7 +5,7 @@ import { BadgeArt } from "@/components/badge-art";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
-import { badgeArt, RARITY_LABEL, type Rarity } from "@/lib/badges";
+import { badgeArt, badgeProgress, RARITY_LABEL, type Rarity } from "@/lib/badges";
 import { useI18n } from "@/lib/i18n";
 import { numberLocale } from "@/lib/number-locale";
 
@@ -31,14 +31,22 @@ export function BadgesPanel({ userId }: { userId: string }) {
   } = useQuery({
     queryKey: ["badges", userId],
     queryFn: async () => {
-      const [all, mine] = await Promise.all([
+      const [all, mine, counted] = await Promise.all([
         supabase.from("badges").select("*").order("position"),
         supabase.from("member_badges").select("badge_code,unlocked_at").eq("member_id", userId),
+        supabase.from("member_activity_credits").select("kind,credits").eq("member_id", userId),
       ]);
       if (all.error) throw all.error;
       if (mine.error) throw mine.error;
       const got = new Map(mine.data.map((m) => [m.badge_code, m.unlocked_at]));
-      return all.data.map((b) => ({ ...b, unlockedAt: got.get(b.code) ?? null }));
+      // Progress is a hint; badges still load if the counts are unavailable.
+      const credits = new Map(
+        (counted.data ?? []).map((c) => [c.kind ?? "", c.credits ?? 0] as const),
+      );
+      return all.data.map((b) => {
+        const unlockedAt = got.get(b.code) ?? null;
+        return { ...b, unlockedAt, progress: unlockedAt ? null : badgeProgress(b.code, credits) };
+      });
     },
   });
   return (
@@ -87,6 +95,7 @@ export function BadgesPanel({ userId }: { userId: string }) {
                   <span className={`text-xs ${RARITY_TEXT[rarity]}`}>
                     {RARITY_LABEL[rarity][locale === "ar" ? 1 : 0]}
                   </span>
+                  {b.progress && <BadgeProgress {...b.progress} />}
                 </button>
               </li>
             );
@@ -111,6 +120,11 @@ export function BadgesPanel({ userId }: { userId: string }) {
                 <SheetDescription>
                   {locale === "ar" ? b.description_ar : b.description_en}
                 </SheetDescription>
+                {b.progress && (
+                  <div className="w-full max-w-60">
+                    <BadgeProgress {...b.progress} />
+                  </div>
+                )}
                 <p className="text-sm tabular-nums text-gold">
                   {b.unlockedAt
                     ? `${l("Earned", "حصلت عليه")} ${new Date(b.unlockedAt).toLocaleDateString(
@@ -130,5 +144,24 @@ export function BadgesPanel({ userId }: { userId: string }) {
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+/** Locked milestone progress, for example 12 / 50; spans keep it valid inside a button. */
+function BadgeProgress({ done, goal }: { done: number; goal: number }) {
+  const { locale } = useI18n();
+  const n = (v: number) => v.toLocaleString(numberLocale(locale));
+  return (
+    <span className="block w-full space-y-1">
+      <span aria-hidden className="block h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full bg-gold"
+          style={{ width: `${(done / goal) * 100}%` }}
+        />
+      </span>
+      <span className="block text-xs tabular-nums text-muted-foreground">
+        {n(done)} / {n(goal)}
+      </span>
+    </span>
   );
 }

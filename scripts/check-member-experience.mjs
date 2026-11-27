@@ -165,6 +165,28 @@ try {
   await db.exec("RESET ROLE; SET ROLE anon");
   await denied("SELECT * FROM public.my_weekly_quests()", /permission/);
 
+  // Badge progress: members read only their own credit counts, and can never change them.
+  const credits = async () =>
+    (
+      await db.query(
+        "SELECT member_id, kind, credits FROM public.member_activity_credits ORDER BY kind",
+      )
+    ).rows;
+  await db.exec("RESET ROLE");
+  const owned = (await credits()).filter((r) => r.member_id === a);
+  await as(a);
+  eq(await credits(), owned);
+  eq(owned.find((r) => r.kind === "workout").credits > 0, true);
+  await denied(`DELETE FROM private.xp_activity_credits WHERE member_id='${a}'`, /permission/);
+  await denied(
+    `INSERT INTO private.xp_activity_credits VALUES ('${a}','workout','2020-01-01')`,
+    /permission/,
+  );
+  await as(outsider);
+  eq(await credits(), []);
+  await db.exec("RESET ROLE; SET ROLE anon");
+  await denied("SELECT * FROM public.member_activity_credits", /permission/);
+
   // Two monthly shields are enforced in the database, not by the UI counter.
   // Seed historical consumption as the owner to test month-cap behavior.
   const day = (await db.query("SELECT (now() AT TIME ZONE 'Africa/Cairo')::date::text AS day"))
