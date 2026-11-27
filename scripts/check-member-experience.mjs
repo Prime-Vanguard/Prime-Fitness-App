@@ -84,6 +84,23 @@ try {
   );
   eq(await count("public.pod_activity"), 1);
   eq(Number((await db.query("SELECT xp FROM public.member_xp_totals")).rows[0].xp), 4000); // 3500 workout + 500 first-workout badge.
+  // The debrief's exact XP: events sharing the workout event's created_at (one transaction).
+  const finish = (
+    await db.query(
+      `SELECT created_at FROM public.xp_events WHERE member_id='${a}' AND source='workout' AND source_ref='${session}'`,
+    )
+  ).rows[0].created_at;
+  eq(
+    (
+      await db.query(
+        `SELECT source, amount FROM public.xp_events WHERE member_id='${a}' AND created_at=$1 ORDER BY id`,
+        [finish],
+      )
+    ).rows
+      .map((r) => `${r.source}:${r.amount}`)
+      .join(","),
+    "workout:3500,badge:500",
+  );
   await db.exec(`UPDATE public.workout_sessions SET notes='Changed note' WHERE id='${session}'`);
   eq(await count("public.pod_activity"), 1);
   await denied(

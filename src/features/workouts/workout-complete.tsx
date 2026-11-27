@@ -58,8 +58,45 @@ export function WorkoutComplete({
   const [first] = useState(() => !debriefRecord(receipt.id)?.shown);
   const record = debriefRecord(receipt.id);
   const live = g && record ? Math.max(0, g.xp - record.start) : 0;
+  // Exact XP from this finish: the workout event plus quest and badge bonuses awarded in the
+  // same transaction, which share its created_at. Missing or failed reads keep the estimate.
+  const exact = useQuery({
+    queryKey: ["workout-xp", memberId, receipt.id],
+    enabled: navigator.onLine,
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const own = await supabase
+        .from("xp_events")
+        .select("created_at")
+        .eq("member_id", memberId)
+        .eq("source", "workout")
+        .eq("source_ref", receipt.id)
+        .maybeSingle();
+      if (own.error) throw own.error;
+      if (!own.data) return null;
+      const { data, error } = await supabase
+        .from("xp_events")
+        .select("id,amount,source")
+        .eq("member_id", memberId)
+        .eq("created_at", own.data.created_at)
+        .order("id");
+      if (error) throw error;
+      return data;
+    },
+  }).data;
   // Freeze the gain when first confirmed, so later food logs or workouts never add to it.
-  const gained = record?.gain ?? live;
+  const gained = exact ? exact.reduce((sum, e) => sum + e.amount, 0) : (record?.gain ?? live);
+  const xpLabel = (source: string) =>
+    source === "workout"
+      ? l("Workout", "تمرين")
+      : source === "quest"
+        ? l("Weekly quest", "مهمة أسبوعية")
+        : source === "quest_week"
+          ? l("All weekly quests", "كل مهام الأسبوع")
+          : source === "badge"
+            ? l("Badge bonus", "مكافأة شارة")
+            : l("Bonus", "مكافأة");
   useEffect(() => {
     if (record && record.gain == null && live > 0) updateDebrief(receipt.id, { gain: live });
   }, [record, live, receipt.id]);
@@ -193,13 +230,28 @@ export function WorkoutComplete({
                 }}
               />
             </div>
-            {gained > 0 && (
+            {gained > 0 && !exact && (
               <p className="mt-1 text-xs text-muted-foreground">
                 {l(
                   "Confirmed XP since you started this workout",
                   "نقاط خبرة مؤكدة منذ بدء هذا التمرين",
                 )}
               </p>
+            )}
+            {gained > 0 && exact && (
+              <ul
+                className="mt-2 space-y-1 text-xs text-muted-foreground"
+                aria-label={l("XP from this workout", "نقاط XP من هذا التمرين")}
+              >
+                {exact.map((e) => (
+                  <li key={e.id} className="flex justify-between gap-3">
+                    <span>{xpLabel(e.source)}</span>
+                    <bdi className="tabular-nums">
+                      +{e.amount.toLocaleString(numberLocale(locale))} XP
+                    </bdi>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </section>

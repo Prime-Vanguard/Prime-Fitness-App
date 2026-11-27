@@ -217,7 +217,11 @@ These need migrations and RLS review, so each one gets its own approval.
    existing RLS already lets a member count opted-in rows, so the position is 1 + the
    opted-in members with more XP this week, never shown inside the top 50.
 4. **Workout XP in the debrief.** Return the XP events created by a finished workout
-   so the debrief shows exact amounts.
+   so the debrief shows exact amounts. Built 2026-11-27 on `feat/workout-xp-debrief` with no migration:
+   quest and badge XP from a finish are awarded in the same transaction, so they share the
+   workout event's `created_at`. The debrief lists them (workout, weekly quest, all quests,
+   badge bonus) and falls back to the "since you started" estimate when there is no workout
+   event or the read fails.
 5. **Rest-day streak.** If decision 3 says yes, planned rest days from the program
    count as active.
 
