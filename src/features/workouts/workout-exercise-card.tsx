@@ -3,6 +3,9 @@ import { muscleLabel } from "@/lib/muscle-volume";
 import { exerciseClassification } from "@/lib/exercise-classification";
 import { formatDuration } from "@/lib/duration";
 import { useRef, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { priorBests } from "@/lib/prior-bests";
+import { e1rm } from "@/lib/records";
 import {
   Check,
   ChevronDown,
@@ -72,6 +75,37 @@ export function WorkoutExerciseCard({
     wu = weightUnit(units);
   // Rows already logged when the card opened do not stamp again.
   const shownRows = useRef(new Set(rows.map((row) => row.id)));
+  const fresh = (row: WorkoutSet) =>
+    !shownRows.current.has(row.id) && Date.now() - Date.parse(row.created_at) <= 10000;
+  // "New best" while training: the top set here that beats earlier sessions (debrief rule).
+  const first = rows[0];
+  const { data: prior } = useQuery({
+    queryKey: ["exercise-prior-best", first?.member_id, slot.id, first?.session_id],
+    enabled:
+      active &&
+      !!first &&
+      navigator.onLine &&
+      (cardExercise?.load_convention ?? "external_total") === "external_total",
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () =>
+      (await priorBests(first!.member_id, [slot.id], first!.session_id)).get(slot.id)?.best1rm ??
+      null,
+  });
+  let bestId: string | undefined;
+  let top = prior ?? Infinity;
+  for (const row of rows) {
+    const est =
+      (row.set_role ?? "working") === "working" &&
+      (row.logging_mode ?? "weighted_reps") === "weighted_reps" &&
+      (row.side ?? "bilateral") === "bilateral"
+        ? e1rm(Number(row.weight_kg ?? 0), row.reps ?? 0)
+        : 0;
+    if (est > top) {
+      top = est;
+      bestId = row.id;
+    }
+  }
   const [tab, setTab] = useState<"log" | "about" | "history">("log");
   const feedbackRef = useRecordFeedback(
     slot.key,
@@ -225,11 +259,11 @@ export function WorkoutExerciseCard({
                       <li
                         key={row.id}
                         data-feedback-record={row.id}
-                        className="flex min-h-11 items-center gap-3 rounded-lg bg-success/5 ps-3 text-sm"
+                        className={`relative flex min-h-11 items-center gap-3 rounded-lg bg-success/5 ps-3 text-sm ${fresh(row) ? "set-spark" : ""}`}
                       >
                         <Check
                           aria-hidden
-                          className={`h-4 w-4 shrink-0 text-success ${shownRows.current.has(row.id) || Date.now() - Date.parse(row.created_at) > 10000 ? "" : "set-stamp"}`}
+                          className={`h-4 w-4 shrink-0 text-success ${fresh(row) ? "set-stamp" : ""}`}
                         />
                         <span className="w-4 shrink-0 text-center text-xs text-muted-foreground">
                           {row.set_number}
@@ -263,6 +297,13 @@ export function WorkoutExerciseCard({
                               </span>
                             ))}
                         </span>
+                        {bestId === row.id && (
+                          <span
+                            className={`${fresh(row) ? "best-plate set-best" : ""} shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold`}
+                          >
+                            {l("New best", "أفضل رقم جديد")}
+                          </span>
+                        )}
                         {!locked && (
                           <span className="flex">
                             <Button
