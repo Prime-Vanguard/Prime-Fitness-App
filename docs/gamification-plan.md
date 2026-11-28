@@ -57,7 +57,7 @@ Forged, Guardian, Vanguard, Prime Legend) and the navy and gold brand.
 | 2   | Weekly quests: goals and rewards.                                                                 | **Decided 2026-11-23:** keep "about a year" to Level 100. Goals stay 3 workouts / 5 food days / 1 body check; +250 XP each, +750 XP for all three (1,500 a week, about 48 weeks to Level 100).                                                     |
 | 3   | Streak and rest days.                                                                             | Recommended: planned program rest days count as active. Without a program, up to 2 rest days a week count automatically if the week has a workout. Shields stay for illness and travel.                                                            |
 | 4   | Default celebration level.                                                                        | Recommended: Full. Automatically Subtle when the device asks for reduced motion; workouts always use small effects.                                                                                                                                |
-| 5   | Sound default.                                                                                    | Recommended: off. Offer it once, after the first workout debrief.                                                                                                                                                                                  |
+| 5   | Sound default.                                                                                    | **Built 2026-11-28:** off by default, offered once on the first workout debrief.                                                                                                                                                                   |
 | 6   | Badge artwork.                                                                                    | **Decided 2026-11-23:** custom art per badge, with a different frame, material and finish per rarity (Common, Uncommon, Rare, Epic, Legendary, Mythic). Prompts in `docs/badge-art-prompts.md`. Locked badges show a dark silhouette made in code. |
 | 7   | Arabic copy.                                                                                      | Recommended: approve the key terms once (below), then each phase's strings in one batch before it ships.                                                                                                                                           |
 
@@ -127,7 +127,9 @@ Built 2026-11-24 on `feat/gamification-moments`: 3.1 (without quest and streak
 updates in the debrief), 3.2, 3.3, 3.4 (dot on the Rewards tab) and 3.6. 3.5 waits for
 Phase 5.1. The debrief's "+XP" is the confirmed XP gained since the workout was opened
 in this tab. The rank name is revealed with a wipe instead of letter by letter, because
-splitting Arabic into letters breaks how they join.
+splitting Arabic into letters breaks how they join. On 2026-11-28 (`feat/game-feel-extras`) the
+debrief added step 5: a "This week" card with the server's quest checks and the streak flame,
+and the one-time sound offer (decision 5).
 
 ### 3.1 Workout debrief ("Mission complete")
 
@@ -182,7 +184,9 @@ shows anything negative, just "Start a new streak".
 
 Built 2026-11-24 on `feat/gamification-everyday`, except "New best set" during a
 workout (it would need a history read per exercise while training; the debrief already
-shows new bests) and the set-logged spark (the stamp only). The "+XP" chip rises into
+shows new bests) and the set-logged spark (the stamp only). Both were added 2026-11-28 on
+`feat/game-feel-extras`: the active exercise reads its earlier best once (online only), and the
+top set that beats it gets a "New best" plate; plate and spark stay under 400ms. The "+XP" chip rises into
 the rank crest on Rewards rather than flying from where XP was earned. Browsers without
 View Transitions switch Rewards sections instantly. "Since last visit" marks
 (leaderboard arrows, request stamps) are kept per member on this device.

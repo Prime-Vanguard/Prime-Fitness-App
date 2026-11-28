@@ -2,9 +2,13 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/pagination";
-import { personalRecords } from "@/lib/records";
+import { priorBests } from "@/lib/prior-bests";
 import { MUSCLE_AR } from "@/lib/muscle-volume";
-import { CheckCircle2, Clock3, Dumbbell, Weight } from "lucide-react";
+import { CheckCircle2, Clock3, Dumbbell, Flame, Volume2, Weight } from "lucide-react";
+import { useActivityDay } from "@/hooks/use-activity-day";
+import { arabicDays, currentStreak, streakTier, weeklyQuests } from "@/lib/streaks";
+import { readDevice, writeDevice } from "@/lib/device-storage";
+import { celebrationSound } from "@/lib/device-feedback";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { friendlyDay } from "@/lib/dates";
@@ -119,29 +123,61 @@ export function WorkoutComplete({
     enabled: top.length > 0 && navigator.onLine,
     retry: false,
     staleTime: Infinity,
-    queryFn: async () =>
-      personalRecords(
-        await fetchAll(
-          (from, to) =>
-            supabase
-              .from("set_logs")
-              .select("id,exercise_id,weight_kg,reps,created_at,set_role,logging_mode,side")
-              .eq("member_id", memberId)
-              .in(
-                "exercise_id",
-                top.map((set) => set.exerciseId),
-              )
-              .neq("session_id", receipt.id)
-              .eq("set_role", "working")
-              .eq("logging_mode", "weighted_reps")
-              .eq("side", "bilateral")
-              .eq("load_convention", "external_total")
-              .order("id")
-              .range(from, to),
-          (row) => row.id,
-        ),
+    queryFn: () =>
+      priorBests(
+        memberId,
+        top.map((set) => set.exerciseId),
+        receipt.id,
       ),
   });
+  // Quest checks and the streak flame after this finish, from the server.
+  const today = useActivityDay();
+  const week = useQuery({
+    queryKey: ["workout-week", memberId, receipt.id],
+    enabled: navigator.onLine,
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const [rows, days] = await Promise.all([
+        supabase.rpc("my_weekly_quests"),
+        fetchAll(
+          (from, to) =>
+            supabase
+              .from("member_activity_days")
+              .select("activity_date")
+              .eq("member_id", memberId)
+              .lte("activity_date", today)
+              .order("activity_date", { ascending: false })
+              .range(from, to),
+          (r) => r.activity_date ?? "",
+        ),
+      ]);
+      if (rows.error) throw rows.error;
+      return {
+        quests: weeklyQuests(
+          { workouts: 0, foodDays: 0, bodyChecks: 0 },
+          Array.isArray(rows.data) ? rows.data : [],
+        ),
+        streak: currentStreak(
+          days.flatMap((d) => (d.activity_date ? [d.activity_date] : [])),
+          today,
+        ),
+      };
+    },
+  }).data;
+  const tier = streakTier(week?.streak ?? 0);
+  // Sound is off by default; offer it once, on the first debrief this device shows.
+  const [offerSound, setOfferSound] = useState(
+    () => readDevice("pf-celebration-sound") == null && readDevice("pf-sound-offered") == null,
+  );
+  useEffect(() => {
+    if (offerSound) writeDevice("pf-sound-offered", "1");
+  }, [offerSound]);
+  const chooseSound = (on: boolean) => {
+    writeDevice("pf-celebration-sound", on ? "on" : "off");
+    if (on) void celebrationSound("chime");
+    setOfferSound(false);
+  };
   const ranges = receipt.repRanges;
   const rangeTotal = ranges ? ranges.strength + ranges.hypertrophy + ranges.endurance : 0;
   return (
@@ -253,6 +289,69 @@ export function WorkoutComplete({
                 ))}
               </ul>
             )}
+          </div>
+        </section>
+      )}
+      {week && (
+        <section className="rounded-xl bg-card p-4" aria-label={l("This week", "هذا الأسبوع")}>
+          <p className="flex items-center gap-2 text-sm font-semibold tabular-nums">
+            <span className={`inline-grid ${first && tier ? "flame-flare" : ""}`}>
+              <Flame
+                aria-hidden
+                className={`size-5 ${tier ? `flame-tier-${Math.min(tier, 4)}` : "text-muted-foreground"}`}
+              />
+            </span>
+            {week.streak === 0
+              ? l("Start a streak", "ابدأ تتابعاً جديداً")
+              : l(
+                  `${week.streak}-day streak`,
+                  `التتابع: ${week.streak} ${arabicDays(week.streak)}`,
+                )}
+          </p>
+          <ul className="mt-3 space-y-2" aria-label={t("weeklyQuests")}>
+            {week.quests.map((q) => {
+              const done = q.progress >= q.goal;
+              return (
+                <li key={q.key} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-2">
+                    {done ? (
+                      <CheckCircle2
+                        aria-hidden
+                        className={`size-4 text-success ${first ? "stamp-in" : ""}`}
+                      />
+                    ) : (
+                      <span aria-hidden className="size-4 rounded-full border border-border" />
+                    )}
+                    {t(q.key)}
+                  </span>
+                  <bdi className="tabular-nums text-muted-foreground">
+                    {q.progress} / {q.goal}
+                  </bdi>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+      {offerSound && (
+        <section
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/40 bg-card p-4"
+          aria-label={l("Celebration sound", "صوت الاحتفالات")}
+        >
+          <Volume2 aria-hidden className="size-5 shrink-0 text-gold" />
+          <p className="min-w-0 flex-1 text-sm">
+            {l(
+              "Play a short sound for big moments like this one?",
+              "تحب نشغّل صوت قصير في اللحظات الكبيرة زي دي؟",
+            )}
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => chooseSound(true)}>
+              {l("Turn on sound", "شغّل الصوت")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => chooseSound(false)}>
+              {l("No thanks", "لا، شكراً")}
+            </Button>
           </div>
         </section>
       )}

@@ -686,3 +686,48 @@ html[dir="rtl"]:active-view-transition-type(rewards-forward, rewards-back)::view
     animation: none !important;
   }
 }
+/* During a workout effects stay under 400ms: a tiny spark behind a logged set's check, and a
+   quicker "New best" plate. */
+.set-spark::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  top: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.75rem;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgb(255 205 90 / 0.8) 0 20%, transparent 60%);
+  animation: set-spark 300ms ease-out both;
+}
+@keyframes set-spark {
+  from {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+.set-best.best-plate {
+  animation-duration: 240ms;
+}
+.set-best.best-plate::after {
+  animation-duration: 300ms;
+  animation-delay: 100ms;
+}
+[data-celebrate="subtle"] .set-spark::before,
+[data-celebrate="off"] .set-spark::before {
+  display: none;
+}
+[data-celebrate="off"] .set-best.best-plate,
+[data-celebrate="off"] .set-best.best-plate::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .set-spark::before {
+    display: none;
+  }
+}
