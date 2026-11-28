@@ -16,7 +16,7 @@ import { useGamification } from "@/hooks/use-gamification";
 import { RankCrest } from "@/components/rank-crest";
 import { useI18n } from "@/lib/i18n";
 import { numberLocale } from "@/lib/number-locale";
-import { PageHeader } from "@/components/page-header";
+import { ForgeBand } from "@/components/forge-band";
 import { Button } from "@/components/ui/button";
 import {
   campaignToPlay,
@@ -271,7 +271,13 @@ function Today() {
     writeDevice(key, campaign!.week!);
     if (celebrationLevel() !== "off") setPlayCampaign(true);
   }, [campaign?.awarded, campaign?.week, onStage, user.id, !!data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const allDone = quests.every((q) => q.progress >= q.goal);
+  const questShort = {
+    q_workouts: l("Workouts", "تمارين"),
+    q_nutrition: l("Food days", "أيام الأكل"),
+    q_body: l("Body check", "قياس الجسم"),
+  };
   const { data: rules } = useXpRules();
   // Before quests pay, show the XP of the activities they count ("3 × 3,500 XP"),
   // so it never reads as a separate quest bonus.
@@ -280,7 +286,6 @@ function Today() {
     q_nutrition: [5, rules?.nutrition_day_xp ?? 0],
     q_body: [1, rules?.body_week_xp ?? 0],
   };
-  const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const todayFood = fuelFood.filter((f) => f.log_date === today);
   const kcal = todayFood.reduce((a, f) => a + Number(f.calories), 0);
   const protein = todayFood.reduce((a, f) => a + Number(f.protein_g), 0);
@@ -301,26 +306,76 @@ function Today() {
           )}
         </p>
       )}
-      <PageHeader
-        compact
-        accessory={
-          g && (
-            <Link
-              to="/rewards"
-              data-today-rank
-              className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-2 text-xs font-medium hover:border-gold/50"
-            >
-              <RankCrest rank={g.rank.key} size={28} />
-              {locale === "ar" ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
-            </Link>
-          )
-        }
-        eyebrow={new Date(`${today}T12:00:00Z`).toLocaleDateString(
-          locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
-          { timeZone: "Africa/Cairo", weekday: "long", month: "short", day: "numeric" },
+      <ForgeBand
+        className="mt-4"
+        aria-label={l("This week at a glance", "أسبوعك في لمحة")}
+        data-today-briefing
+      >
+        <p className="text-sm text-muted-foreground">
+          {new Date(`${today}T12:00:00Z`).toLocaleDateString(
+            locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB",
+            { timeZone: "Africa/Cairo", weekday: "long", month: "short", day: "numeric" },
+          )}
+        </p>
+        <h1 className="mt-1 font-display text-[34px] font-extrabold leading-tight">
+          {`${t("welcome")}${locale === "ar" ? "، " : ", "}${me?.profile?.display_name || t("member")}`}
+        </h1>
+        {g && (
+          <Link
+            to="/rewards"
+            data-today-rank
+            className="mt-4 flex items-center gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <RankCrest rank={g.rank.key} size={48} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-xl font-extrabold leading-tight">
+                {locale === "ar" ? g.rank.ar : g.rank.key} · {t("level")} {g.level}
+              </span>
+              <span
+                className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-background"
+                aria-hidden
+              >
+                <span
+                  className="block h-full rounded-full bg-gold"
+                  style={{ width: `${Math.round(g.pct * 100)}%` }}
+                />
+              </span>
+            </span>
+          </Link>
         )}
-        title={`${t("welcome")}${locale === "ar" ? "، " : ", "}${me?.profile?.display_name || t("member")}`}
-      />
+        <ul className="mt-4 grid grid-cols-4 gap-2">
+          <li>
+            <a
+              href="#streak"
+              className="surface-inset flex h-full flex-col items-center gap-1 p-2 text-center focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <Flame
+                aria-hidden
+                className={`size-7 ${tier ? `flame-tier-${Math.min(tier, 4)}` : "text-muted-foreground"}`}
+              />
+              <span className="font-display text-2xl font-extrabold leading-none">
+                {activity ? streak : "–"}
+              </span>
+              <span className="text-[11px] leading-tight text-muted-foreground">
+                {l("Day streak", "أيام التتابع")}
+              </span>
+            </a>
+          </li>
+          {quests.map((q) => (
+            <li key={q.key}>
+              <a
+                href="#quests"
+                className="surface-inset flex h-full flex-col items-center gap-1 p-2 text-center focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <QuestRing progress={q.progress} goal={q.goal} />
+                <span className="text-[11px] leading-tight text-muted-foreground">
+                  {questShort[q.key]}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </ForgeBand>
       {workout?.session || data?.open ? (
         <TodaySessionHero
           title={workout?.session?.title || t("todayWorkout")}
@@ -339,57 +394,8 @@ function Today() {
         />
       )}
 
-      <div className="mt-4">
-        <section className="rounded-xl bg-card p-4">
-          <h2 className="font-heading text-base font-bold">{t("todayFuel")}</h2>
-          <div className="mt-3 space-y-3">
-            {fuelAvailable ? (
-              <>
-                <Bar label={t("calories")} value={kcal} target={tg?.calories} unit="kcal" />
-                <Bar label={t("protein")} value={protein} target={tg?.protein_g} unit="g" />
-                <Bar label={t("water")} value={water} target={tg?.water_ml} unit="ml" />
-              </>
-            ) : (
-              <p role="status" className="text-sm text-muted-foreground">
-                {locale === "ar"
-                  ? "الإجماليات الكاملة غير متاحة بعد."
-                  : "Complete totals are not available yet."}
-              </p>
-            )}
-            {features?.offline && (
-              <p className="text-xs text-muted-foreground">
-                {locale === "ar"
-                  ? "يشمل سجلات الجهاز المعلقة؛ المكافآت بعد المزامنة."
-                  : "Includes pending device entries; rewards follow sync."}
-              </p>
-            )}
-          </div>
-          <div
-            role="group"
-            className="mt-4 flex flex-wrap gap-2"
-            aria-label={locale === "ar" ? "إجراءات اليوم" : "Daily actions"}
-          >
-            <Button asChild variant="outline">
-              <Link to="/nutrition" search={{ entry: "quick" }}>
-                {t("logFood")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/nutrition" hash="water">
-                {t("water")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/progress" search={{ section: "body" }}>
-                {locale === "ar" ? "قياس الجسم" : "Body check"}
-              </Link>
-            </Button>
-          </div>
-        </section>
-      </div>
-
       <div className="mt-4 space-y-4">
-        <section className="rounded-xl bg-card p-4">
+        <section id="streak" className="scroll-mt-20 rounded-xl bg-card p-4">
           <div className="flex items-center gap-2">
             <span
               className={`relative inline-grid ${flare ? "flame-flare" : ""}`}
@@ -422,7 +428,7 @@ function Today() {
             activeDays={activity?.flatMap((day) => (day.activity_date ? [day.activity_date] : []))}
           />
         </section>
-        <section className="rounded-xl bg-card p-4">
+        <section id="quests" className="scroll-mt-20 rounded-xl bg-card p-4">
           <h2 className="font-heading text-base font-bold">{t("weeklyQuests")}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {l(
@@ -527,6 +533,55 @@ function Today() {
         </section>
       </div>
 
+      <div className="mt-4">
+        <section className="rounded-xl bg-card p-4">
+          <h2 className="font-heading text-base font-bold">{t("todayFuel")}</h2>
+          <div className="mt-3 space-y-3">
+            {fuelAvailable ? (
+              <>
+                <Bar label={t("calories")} value={kcal} target={tg?.calories} unit="kcal" />
+                <Bar label={t("protein")} value={protein} target={tg?.protein_g} unit="g" />
+                <Bar label={t("water")} value={water} target={tg?.water_ml} unit="ml" />
+              </>
+            ) : (
+              <p role="status" className="text-sm text-muted-foreground">
+                {locale === "ar"
+                  ? "الإجماليات الكاملة غير متاحة بعد."
+                  : "Complete totals are not available yet."}
+              </p>
+            )}
+            {features?.offline && (
+              <p className="text-xs text-muted-foreground">
+                {locale === "ar"
+                  ? "يشمل سجلات الجهاز المعلقة؛ المكافآت بعد المزامنة."
+                  : "Includes pending device entries; rewards follow sync."}
+              </p>
+            )}
+          </div>
+          <div
+            role="group"
+            className="mt-4 flex flex-wrap gap-2"
+            aria-label={locale === "ar" ? "إجراءات اليوم" : "Daily actions"}
+          >
+            <Button asChild variant="outline">
+              <Link to="/nutrition" search={{ entry: "quick" }}>
+                {t("logFood")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/nutrition" hash="water">
+                {t("water")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/progress" search={{ section: "body" }}>
+                {locale === "ar" ? "قياس الجسم" : "Body check"}
+              </Link>
+            </Button>
+          </div>
+        </section>
+      </div>
+
       {!!data?.pending && (
         <Link
           to="/rewards"
@@ -543,5 +598,32 @@ function Today() {
         </Link>
       )}
     </>
+  );
+}
+
+/** Quest progress as a small ring; the count is the accessible text. */
+function QuestRing({ progress, goal }: { progress: number; goal: number }) {
+  const done = progress >= goal;
+  const c = 2 * Math.PI * 16;
+  return (
+    <span className="relative inline-grid size-10 place-items-center">
+      <svg aria-hidden viewBox="0 0 40 40" className="absolute inset-0 -rotate-90">
+        <circle cx="20" cy="20" r="16" fill="none" strokeWidth="4" className="stroke-background" />
+        <circle
+          cx="20"
+          cy="20"
+          r="16"
+          fill="none"
+          strokeWidth="4"
+          strokeLinecap="round"
+          className={done ? "stroke-success" : "stroke-gold"}
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - (goal > 0 ? Math.min(progress / goal, 1) : 1))}
+        />
+      </svg>
+      <bdi className="font-display text-sm font-extrabold">
+        {progress}/{goal}
+      </bdi>
+    </span>
   );
 }

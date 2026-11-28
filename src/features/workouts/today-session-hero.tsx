@@ -39,16 +39,16 @@ export function TodaySessionHero({
   return (
     <div className="mt-4 space-y-4" data-stitch-today-session>
       <section className="space-y-4 rounded-xl bg-card p-4">
-        <ExerciseHero exercise={first} name={title} enabled={guidance} compactFallback />
+        {first && <ExerciseHero exercise={first} name={title} enabled={guidance} compactFallback />}
         <div>
-          <p className="text-xs uppercase tracking-wider text-gold">
-            {active
-              ? l("Session in progress", "جلسة قيد التنفيذ")
-              : restDay
-                ? l("No session scheduled today", "لا توجد جلسة مجدولة اليوم")
-                : t("todayWorkout")}
-          </p>
-          <h2 className="mt-2 font-heading text-2xl font-bold">{title}</h2>
+          {(active || restDay) && (
+            <p className="mb-2 text-sm text-gold">
+              {active
+                ? l("Session in progress", "جلسة قيد التنفيذ")
+                : l("No session scheduled today", "لا توجد جلسة مجدولة اليوم")}
+            </p>
+          )}
+          <h2 className="font-heading text-2xl font-bold">{title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {subtitle ||
               (plan.length
