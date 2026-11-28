@@ -95,15 +95,15 @@ export function ShareAchievement({
       ctx.drawImage(crestImage, 340, 500, 400, 400);
       ctx.textAlign = "center";
       ctx.fillStyle = "#D4AF37";
-      ctx.font = "600 30px Manrope, sans-serif";
+      ctx.font = "600 30px Archivo, sans-serif";
       ctx.fillText("PRIME VANGUARD", 540, 440);
       const text = (value: string, y: number, maxSize: number, color: string) => {
         let size = maxSize;
-        ctx.font = `700 ${size}px Manrope, Tajawal, sans-serif`;
+        ctx.font = `700 ${size}px Archivo, Tajawal, sans-serif`;
         const safe = value.slice(0, 120);
         while (ctx.measureText(safe).width > 850 && size > 20) {
           size -= 2;
-          ctx.font = `700 ${size}px Manrope, Tajawal, sans-serif`;
+          ctx.font = `700 ${size}px Archivo, Tajawal, sans-serif`;
         }
         ctx.fillStyle = color;
         ctx.fillText(safe, 540, y, 850);
