@@ -55,7 +55,7 @@ Forged, Guardian, Vanguard, Prime Legend) and the navy and gold brand.
 | --- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Reverse parts of `docs/motion-and-color-refinements.md` (celebrations, count-ups, badge pop-ups). | **Approved 2026-11-23.**                                                                                                                                                                                                                           |
 | 2   | Weekly quests: goals and rewards.                                                                 | **Decided 2026-11-23:** keep "about a year" to Level 100. Goals stay 3 workouts / 5 food days / 1 body check; +250 XP each, +750 XP for all three (1,500 a week, about 48 weeks to Level 100).                                                     |
-| 3   | Streak and rest days.                                                                             | Recommended: planned program rest days count as active. Without a program, up to 2 rest days a week count automatically if the week has a workout. Shields stay for illness and travel.                                                            |
+| 3   | Streak and rest days.                                                                             | **Approved 2026-11-27/28:** planned program rest days count as active. Without a program, up to 3 rest days a week count automatically if the week has a workout. Shields stay for illness and travel.                                             |
 | 4   | Default celebration level.                                                                        | Recommended: Full. Automatically Subtle when the device asks for reduced motion; workouts always use small effects.                                                                                                                                |
 | 5   | Sound default.                                                                                    | **Built 2026-11-28:** off by default, offered once on the first workout debrief.                                                                                                                                                                   |
 | 6   | Badge artwork.                                                                                    | **Decided 2026-11-23:** custom art per badge, with a different frame, material and finish per rarity (Common, Uncommon, Rare, Epic, Legendary, Mythic). Prompts in `docs/badge-art-prompts.md`. Locked badges show a dark silhouette made in code. |
@@ -232,8 +232,10 @@ These need migrations and RLS review, so each one gets its own approval.
    `member_activity_days` adds days of an active calendar schedule, up to today, whose
    program week and day have no exercises. Taken from the coach's plan, not due dates, so
    moving a session cannot create one. Shields use the same view, so a shield can follow a
-   rest day and is refused on one. The automatic two rest days a week without a program
-   are not built.
+   rest day and is refused on one. Automatic rest days built 2026-11-28 on `feat/auto-rest-days`
+   (migration `20261128120000_auto_rest_days.sql`): without an active calendar program (none, or rotation), a Monday–Sunday
+   week with a finished workout gets its earliest 3 empty days, up to today, as rest days.
+   Rotation programs use this automatic rule, since they have no dates.
 
 ## Not included, on purpose
 
