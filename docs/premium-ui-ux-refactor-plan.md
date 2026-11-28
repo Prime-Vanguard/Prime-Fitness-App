@@ -82,6 +82,11 @@ understanding device-save versus server acceptance.
 
 ## Design authority: one-to-one Stitch reproduction
 
+> **Superseded for Fitness member screens (2026-11-28).** The founder approved the Forge
+> redesign in `docs/forge-redesign-plan.md`: Fitness may diverge from Stitch where the result
+> is better. Screens that plan changes follow it; the rule below still applies to everything
+> it does not touch.
+
 The owner explicitly requested a 1:1 implementation, not a design inspired by
 Stitch. The alternatives below are historical exploration only. Do not blend
 them into a new design or substitute compact layouts for an exported composition.

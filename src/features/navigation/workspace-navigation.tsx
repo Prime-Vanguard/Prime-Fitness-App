@@ -223,7 +223,7 @@ export function WorkspaceBottomNavigation({
             key={to}
             to={to}
             onClick={() => haptic("tab")}
-            className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[11px] leading-tight text-muted-foreground [&.active]:bg-accent/40 [&.active]:text-gold focus-visible:ring-2 focus-visible:ring-gold"
+            className="relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[11px] leading-tight text-muted-foreground before:absolute before:inset-x-1/4 before:top-0 before:h-0.5 before:rounded-b-full before:bg-gold before:opacity-0 [&.active]:font-semibold [&.active]:text-gold [&.active]:before:opacity-100 focus-visible:ring-2 focus-visible:ring-gold"
             activeOptions={{ exact: true }}
             activeProps={{ className: "active" }}
           >

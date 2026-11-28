@@ -218,7 +218,7 @@ function Shell() {
         className={
           focused
             ? "hidden"
-            : "flex min-h-18 items-center justify-between gap-2 border-b border-border px-4 py-3 md:hidden"
+            : "flex min-h-14 items-center justify-between gap-2 border-b border-border px-4 py-1 md:hidden"
         }
       >
         <div className="min-w-0">

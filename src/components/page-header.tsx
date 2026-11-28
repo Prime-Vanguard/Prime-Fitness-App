@@ -17,7 +17,7 @@ export function PageHeader({
   accessory?: ReactNode;
 }) {
   return (
-    <div className="pt-6 pb-3 md:pt-0" data-page-header>
+    <div className="pt-5 pb-3 md:pt-0" data-page-header>
       {(eyebrow || accessory) && (
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           {eyebrow && (
@@ -37,7 +37,7 @@ export function PageHeader({
         className={
           compact
             ? "font-heading text-2xl font-bold leading-8"
-            : "text-[28px] leading-[35px] font-extrabold md:text-4xl md:leading-[44px]"
+            : "font-display text-[40px] leading-[1.05] font-extrabold md:text-5xl"
         }
       >
         {title}
