@@ -141,7 +141,8 @@ const dict = {
     noTasks: "No tasks available yet.",
     provisional: "Level curve is provisional and may change.",
     streak: "Day streak",
-    streakHint: "Any day you train or log food counts. Rest days in your program count too.",
+    streakHint:
+      "Any day you train or log food counts. Rest days in your program count too. Otherwise, train once in a week and up to 3 rest days that week count.",
     weeklyQuests: "Weekly quests",
     q_workouts: "Finish 3 workouts",
     q_nutrition: "Log food on 5 days",
@@ -373,7 +374,8 @@ const dict = {
     noTasks: "لا توجد مهام بعد.",
     provisional: "منحنى المستويات مبدئي وقد يتغيّر.",
     streak: "أيام متتالية",
-    streakHint: "كل يوم تتدرب فيه أو تسجّل طعامك يُحتسب. وأيام الراحة في برنامجك تُحتسب كمان.",
+    streakHint:
+      "كل يوم تتدرب فيه أو تسجّل طعامك يُحتسب. وأيام الراحة في برنامجك تُحتسب كمان. غير كده، اتمرّن مرة في الأسبوع وتُحتسب لك لحد 3 أيام راحة فيه.",
     weeklyQuests: "مهام الأسبوع",
     q_workouts: "أنهِ 3 تمارين",
     q_nutrition: "سجّل طعامك في 5 أيام",

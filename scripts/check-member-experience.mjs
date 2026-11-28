@@ -294,6 +294,39 @@ try {
   );
   await as(outsider);
   eq(await count("public.member_activity_days"), 0);
+  // Without a program, a week with a workout gets up to 3 automatic rest days (the earliest
+  // empty days up to today). Workout on this week's Monday.
+  const dow = (
+    await db.query(`SELECT '${day}'::date - date_trunc('week','${day}'::date)::date AS n`)
+  ).rows[0].n;
+  await db.exec(`RESET ROLE; ALTER TABLE public.workout_sessions DISABLE TRIGGER USER;
+    INSERT INTO public.workout_sessions(member_id,title,origin,started_at,finished_at)
+    VALUES ('${outsider}','Monday','native',(date_trunc('week','${day}'::date)::date + time '12:00') AT TIME ZONE 'Africa/Cairo',(date_trunc('week','${day}'::date)::date + time '13:00') AT TIME ZONE 'Africa/Cairo');
+    ALTER TABLE public.workout_sessions ENABLE TRIGGER USER;`);
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 1 + Math.min(3, dow));
+  if (dow >= 1 && dow <= 3)
+    await denied(
+      `INSERT INTO public.streak_shields(member_id,shield_date) VALUES ('${outsider}','${day}')`,
+      /already has activity/,
+    );
+  // An active rotation program (no dates) keeps automatic rest days.
+  await db.exec(
+    `RESET ROLE; UPDATE public.program_schedules SET mode='rotation' WHERE assignment_id='${restAssignment}'; UPDATE public.program_assignments SET active=true WHERE id='${restAssignment}'`,
+  );
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 1 + Math.min(3, dow));
+  // An active calendar program uses its planned rest day (yesterday) instead.
+  await db.exec(
+    `RESET ROLE; UPDATE public.program_schedules SET mode='calendar' WHERE assignment_id='${restAssignment}'`,
+  );
+  await as(outsider);
+  eq(await count("public.member_activity_days"), dow === 1 ? 1 : 2);
+  await db.exec(
+    `RESET ROLE; UPDATE public.program_assignments SET active=false WHERE id='${restAssignment}'; DELETE FROM public.workout_sessions WHERE member_id='${outsider}' AND origin='native'`,
+  );
+  await as(outsider);
+  eq(await count("public.member_activity_days"), 0);
 
   // One pending claim per task: a double submit cannot be approved twice.
   const task = "00000000-0000-4000-8000-000000000030";
