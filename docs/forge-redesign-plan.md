@@ -25,18 +25,19 @@ for the screens it changes.
 
 **Colour (keep the navy and gold brand, add hierarchy):**
 
-| Token           | Hex       | Use                                              |
-| --------------- | --------- | ------------------------------------------------ |
-| `--iron-950`    | `#0B1222` | App background (slightly deeper than today)      |
-| `--iron-900`    | `#0F172A` | Standard cards (current `--background`)          |
-| `--iron-800`    | `#1E293B` | Insets, inputs (current `--card`)                |
-| `--gold`        | `#D4AF37` | Primary action, XP, rank (unchanged)             |
-| `--ember`       | `#F0B54A` | Only for live moments: streak, new best, reacts  |
-| `--steel`       | `#94A3B8` | Secondary text                                   |
+| Token        | Hex       | Use                                             |
+| ------------ | --------- | ----------------------------------------------- |
+| `--iron-950` | `#0B1222` | App background (slightly deeper than today)     |
+| `--iron-900` | `#0F172A` | Standard cards (current `--background`)         |
+| `--iron-800` | `#1E293B` | Insets, inputs (current `--card`)               |
+| `--gold`     | `#D4AF37` | Primary action, XP, rank (unchanged)            |
+| `--ember`    | `#F0B54A` | Only for live moments: streak, new best, reacts |
+| `--steel`    | `#94A3B8` | Secondary text                                  |
 
 Emerald stays only for "done" checks. No new hues.
 
 **Type:** one display face for numbers, ranks and headings, plus the current body faces.
+
 - Latin display: **Big Shoulders Display** (OFL, condensed and industrial; reads as struck
   metal, strong tabular numerals). Replaces Manrope.
 - Arabic display: **Alexandria** (OFL, geometric Arabic with a heavy weight). Tajawal stays for
@@ -47,6 +48,7 @@ Emerald stays only for "done" checks. No new hues.
   labels (drop the tracked caps in the header and the "TODAY'S WORKOUT" eyebrow).
 
 **Three surface levels** replace "every card the same":
+
 1. **Forge band** (one per screen at most): `--iron-950` to `--iron-900` vertical gradient, a 1px
    gold hairline at the top, 20px radius, and a faint hammered-metal noise texture (CSS
    `background-image` from a 2KB SVG, disabled with reduced data or reduced motion).
@@ -54,6 +56,7 @@ Emerald stays only for "done" checks. No new hues.
 3. **Inset:** `--iron-800`, 10px radius, used inside cards.
 
 **Shell:**
+
 - Header 56px: crest mark at the start, the page name in the display face (replaces the giant
   in-page title), bell and menu at the end. Drop the duplicate profile icon (Profile stays in
   the menu and the avatar).
@@ -166,6 +169,7 @@ excludes blocked and paused members), and members of a shared pod who opted in
 `private.social_blocked`. Members choose per post: Friends, Pod, or both.
 
 **Schema** (one forward migration, `SET LOCAL lock_timeout`):
+
 - `public.workout_posts`: `id uuid pk`, `member_id`, `session_id unique` (one post per
   workout), `audience text check in ('friends','pod','both')`, `summary jsonb not null`,
   `created_at`, `deleted_at`. The summary is a snapshot built **server-side** from
@@ -173,7 +177,7 @@ excludes blocked and paused members), and members of a shared pod who opted in
   exercise list (id, names EN/AR, working set count, best set), and new-best flags. No body
   data. Editing a workout later does not change a post.
 - `public.workout_post_reactions`: `(post_id, member_id) pk`, `kind text check in
-  ('respect','fire')`, `created_at`. One reaction per member per post, switchable.
+('respect','fire')`, `created_at`. One reaction per member per post, switchable.
 - `public.social_accounts.feed_auto_share boolean not null default false`.
 - RLS on both tables. Select policies call a `private.can_see_post(author, audience)` helper
   (SECURITY DEFINER in the non-exposed `private` schema, `(SELECT auth.uid())` style). No
@@ -184,6 +188,7 @@ excludes blocked and paused members), and members of a shared pod who opted in
 **API:** follow the existing `social_action` pattern: `public.feed_action(_op, _data)` is
 SECURITY INVOKER and calls `private.feed_action` (SECURITY DEFINER, `REVOKE` from PUBLIC, anon,
 authenticated; never directly executable). Ops:
+
 - `share {session_id, audience}`: owner only, finished native session only, active member;
   builds the summary. Idempotent on `session_id`.
 - `unshare {post_id}`: owner soft-deletes.
@@ -199,6 +204,7 @@ the feed covers pods, a later migration drops the `pod_activity` publish trigger
 stays for history) and Pod Community reads the feed.
 
 **UI:**
+
 - `src/features/social/feed.tsx`: post cards with author crest and name, title, date, a stats
   row (duration, volume, sets), up to 4 exercises, new-best plates, reactions (Respect with a
   fist-bump icon, and Fire), "Do this workout", and on own posts Share card and Delete.
@@ -226,15 +232,15 @@ stays for history) and Pod Community reads the feed.
 
 ## Delivery order and size
 
-| Order | Branch                    | Size   | Server change |
-| ----- | ------------------------- | ------ | ------------- |
-| 1     | `feat/forge-foundation`   | Medium | No            |
-| 2     | `feat/today-briefing`     | Medium | No            |
-| 3     | `feat/workout-share-card` | Medium | No            |
-| 4     | `feat/friends-feed`       | Large  | Yes           |
-| 5     | `feat/train-progress-ui`  | Medium | No            |
-| 6     | `feat/active-workout-ui`  | Medium | No            |
-| 7     | `feat/rewards-nutrition-ui` + copy sweep | Medium | No |
+| Order | Branch                                   | Size   | Server change |
+| ----- | ---------------------------------------- | ------ | ------------- |
+| 1     | `feat/forge-foundation`                  | Medium | No            |
+| 2     | `feat/today-briefing`                    | Medium | No            |
+| 3     | `feat/workout-share-card`                | Medium | No            |
+| 4     | `feat/friends-feed`                      | Large  | Yes           |
+| 5     | `feat/train-progress-ui`                 | Medium | No            |
+| 6     | `feat/active-workout-ui`                 | Medium | No            |
+| 7     | `feat/rewards-nutrition-ui` + copy sweep | Medium | No            |
 
 Founder review with screenshots after 1+2 (the new look), before the rest.
 
