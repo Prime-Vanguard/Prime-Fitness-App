@@ -11580,6 +11580,23 @@ test("mission debrief shows confirmed XP, then the held level-up forges with a r
       ],
     },
   ];
+  // An earlier session's best (40 kg × 8), so 50 kg × 8 is a new best while training.
+  backend.tables.set_logs = [
+    {
+      id: "00000000-0000-4000-8000-0000000000b1",
+      member_id: userId,
+      session_id: "00000000-0000-4000-8000-0000000000b2",
+      exercise_id: exerciseId,
+      set_number: 1,
+      weight_kg: 40,
+      reps: 8,
+      set_role: "working",
+      logging_mode: "weighted_reps",
+      side: "bilateral",
+      load_convention: "external_total",
+      created_at: "2026-11-20T10:00:00+00:00",
+    },
+  ];
   // The device has already seen level 2, so a later level is a real level-up.
   await context.addInitScript((id) => localStorage.setItem(`pf-level-${id}`, "2"), userId);
   await page.goto("/train?section=program");
@@ -11588,6 +11605,22 @@ test("mission debrief shows confirmed XP, then the held level-up forges with a r
   await row.getByLabel("kg", { exact: true }).fill("50");
   await row.getByLabel("Reps", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Log set 1", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Completed sets" }).getByText("New best", { exact: true }),
+  ).toBeVisible();
+  // After the finish the server counts this week's quests and the streak.
+  backend.tables.my_weekly_quests = [
+    { quest: "workouts", progress: 3, goal: 3, xp: 250, awarded: true, pays: true },
+    { quest: "nutrition", progress: 2, goal: 5, xp: 250, awarded: false, pays: true },
+    { quest: "body", progress: 0, goal: 1, xp: 250, awarded: false, pays: true },
+  ];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Cairo" });
+  backend.tables.member_activity_days = [0, 1, 2].map((i) => ({
+    member_id: userId,
+    activity_date: new Date(Date.parse(`${today}T12:00:00Z`) - i * 86400000)
+      .toISOString()
+      .slice(0, 10),
+  }));
   // The server confirms this workout's XP (300 → 3,800, level 2 → 5).
   backend.tables.member_xp_totals![0]!.xp = 3800;
   // The finish awards the workout, a quest and the full week in one transaction (same time);
@@ -11640,6 +11673,9 @@ test("mission debrief shows confirmed XP, then the held level-up forges with a r
     /Weekly quest\s*\+250 XP/,
     /All weekly quests\s*\+750 XP/,
   ]);
+  const week = complete.getByRole("region", { name: "This week" });
+  await expect(week).toContainText("3-day streak");
+  await expect(week.getByRole("listitem")).toHaveText([/3 \/ 3/, /2 \/ 5/, /0 \/ 1/]);
   // The level-up waits for the debrief, then plays once.
   const dialog = page.getByRole("dialog");
   await expect(dialog).toHaveCount(0);
@@ -11649,6 +11685,11 @@ test("mission debrief shows confirmed XP, then the held level-up forges with a r
   await expect(dialog.getByRole("button", { name: "Keep going" })).toBeFocused();
   await dialog.getByRole("button", { name: "Keep going" }).click();
   await expect(dialog).toHaveCount(0);
+  // Sound is offered once, on the first debrief.
+  const sound = complete.getByRole("region", { name: "Celebration sound" });
+  await sound.getByRole("button", { name: "Turn on sound", exact: true }).click();
+  await expect(sound).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("pf-celebration-sound"))).toBe("on");
 });
 
 test("rank-up plays the ascension and a new badge leaves a dot on Rewards until opened", async ({

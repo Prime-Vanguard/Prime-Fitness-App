@@ -23,6 +23,7 @@ import {
   currentStreak,
   questCampaign,
   streakTier,
+  arabicDays,
   weekStart,
   weeklyQuests,
 } from "@/lib/streaks";
@@ -544,7 +545,3 @@ function Today() {
     </>
   );
 }
-
-// Arabic counted noun: 1 يوم, 2 يومان, 3–10 أيام, 11+ يوماً.
-const arabicDays = (n: number) =>
-  n === 1 ? "يوم" : n === 2 ? "يومان" : n <= 10 ? "أيام" : "يوماً";
